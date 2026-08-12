@@ -1,0 +1,61 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Room {
+  KITCHEN
+  BATHROOM
+  LIVING_ROOM
+  BEDROOM
+  GARDEN
+  EXTERIOR
+  WHOLE_HOUSE
+  OTHER
+}
+
+enum Priority {
+  MUST_HAVE
+  WOULD_LIKE
+  SOMEDAY
+}
+
+enum Status {
+  WISHLIST
+  PLANNED
+  BOUGHT
+}
+
+model Item {
+  id             String   @id @default(cuid())
+  title          String
+  room           Room
+  estimatedPrice Float
+  actualPrice    Float?
+  priority       Priority
+  link           String?
+  notes          String?
+  addedBy        String
+  status         Status   @default(WISHLIST)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([room])
+}
+
+// Single-row table holding the shared household budget figure.
+model Settings {
+  id              Int    @id @default(1)
+  budgetAvailable Float  @default(0)
+}

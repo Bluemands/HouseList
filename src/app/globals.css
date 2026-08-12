@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+:root {
+  /* Blueprint canvas — the dark architectural-drawing chrome */
+  --color-blueprint-bg: #0a1626;
+  --color-blueprint-bg-raised: #0f2038;
+  --color-blueprint-bg-inset: #071120;
+  --color-blueprint-line: rgba(150, 185, 255, 0.06);
+  --color-blueprint-line-strong: rgba(150, 185, 255, 0.13);
+  --color-blueprint-ink: #dfe9f7;
+  --color-blueprint-ink-muted: #8ea0c2;
+  /* 5.3:1 on --color-blueprint-bg — small uppercase labels need 4.5:1, not the
+     3:1 large-text minimum, so this sits well clear of the line. */
+  --color-blueprint-ink-faint: #7c8caa;
+  --color-blueprint-border: rgba(150, 185, 255, 0.18);
+
+  /* Paper — the card surface pinned onto the canvas */
+  --color-paper: #f4efe2;
+  --color-paper-raised: #faf7ee;
+  --color-paper-ink: #1d2333;
+  --color-paper-ink-muted: #5c6274;
+  --color-paper-line: #ddd4bd;
+  --color-paper-shadow: rgba(5, 12, 24, 0.45);
+
+  /* Priority — never the only signal, always paired with text. Each color
+     plays several roles that need different tuning to clear 4.5:1 body-text
+     contrast (a swatch dark enough to host white text on its own solid fill
+     is a different requirement than one used as text on its own pale tint,
+     or as text directly on the paper/blueprint surface) — hence the spread
+     of variants below rather than one swatch reused everywhere.
+       X        — saturated swatch: fills, tabs, borders, solid buttons
+                  (paired with X-ink or --color-on-solid, never bare text)
+       X-ink    — dark text for use on X-soft
+       X-soft   — pale tint background (badges)
+       X-bright / X-dark — X-colored text used directly on the blueprint /
+                  paper surface respectively */
+  --color-must: #c2402c;
+  --color-must-ink: #4a140b;
+  --color-must-soft: #f6ded7;
+  --color-must-bright: #f0897a;
+  --color-like: #d69f3a;
+  --color-like-ink: #402d05;
+  --color-like-soft: #f4e3c2;
+  --color-someday: #3a739e;
+  --color-someday-ink: #ffffff;
+  --color-someday-soft: #d9e7f2;
+  --color-someday-dark: #1f4e6e;
+
+  /* Text/icons on a sufficiently dark solid fill (must, someday, good-solid).
+     Not usable on --color-like, which is light enough to need dark ink
+     instead — see --color-like-ink. */
+  --color-on-solid: #ffffff;
+
+  /* Functional */
+  --color-good: #4c9868; /* good-colored text directly on the blueprint surface */
+  --color-good-solid: #2e6b47; /* good-colored solid fills (buttons) */
+  --color-good-ink: #ffffff;
+  --color-good-dark: #1f5c3a; /* good-colored text on paper */
+}
+
+@theme inline {
+  --color-blueprint-bg: var(--color-blueprint-bg);
+  --color-blueprint-bg-raised: var(--color-blueprint-bg-raised);
+  --color-blueprint-bg-inset: var(--color-blueprint-bg-inset);
+  --color-blueprint-line: var(--color-blueprint-line);
+  --color-blueprint-line-strong: var(--color-blueprint-line-strong);
+  --color-blueprint-ink: var(--color-blueprint-ink);
+  --color-blueprint-ink-muted: var(--color-blueprint-ink-muted);
+  --color-blueprint-ink-faint: var(--color-blueprint-ink-faint);
+  --color-blueprint-border: var(--color-blueprint-border);
+
+  --color-paper: var(--color-paper);
+  --color-paper-raised: var(--color-paper-raised);
+  --color-paper-ink: var(--color-paper-ink);
+  --color-paper-ink-muted: var(--color-paper-ink-muted);
+  --color-paper-line: var(--color-paper-line);
+
+  --color-must: var(--color-must);
+  --color-must-ink: var(--color-must-ink);
+  --color-must-soft: var(--color-must-soft);
+  --color-must-bright: var(--color-must-bright);
+  --color-like: var(--color-like);
+  --color-like-ink: var(--color-like-ink);
+  --color-like-soft: var(--color-like-soft);
+  --color-someday: var(--color-someday);
+  --color-someday-ink: var(--color-someday-ink);
+  --color-someday-soft: var(--color-someday-soft);
+  --color-someday-dark: var(--color-someday-dark);
+
+  --color-on-solid: var(--color-on-solid);
+
+  --color-good: var(--color-good);
+  --color-good-solid: var(--color-good-solid);
+  --color-good-ink: var(--color-good-ink);
+  --color-good-dark: var(--color-good-dark);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  border-color: var(--color-blueprint-border);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-blueprint-bg);
+  color: var(--color-blueprint-ink);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* The drafting-table canvas: faint ruled grid, a touch denser every 4th line
+   to read like graph paper rather than a decorative pattern. */
+.blueprint-canvas {
+  background-color: var(--color-blueprint-bg);
+  background-image:
+    linear-gradient(var(--color-blueprint-line-strong) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-blueprint-line-strong) 1px, transparent 1px),
+    linear-gradient(var(--color-blueprint-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-blueprint-line) 1px, transparent 1px);
+  background-size:
+    96px 96px,
+    96px 96px,
+    24px 24px,
+    24px 24px;
+  background-position: -1px -1px;
+}
+
+.font-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

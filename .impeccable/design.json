@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-12T00:00:00.000Z",
+  "title": "Design System: The House List",
+  "extensions": {
+    "colorMeta": {
+      "someday": {
+        "role": "primary",
+        "displayName": "Someday Blue",
+        "canonical": "#3a739e",
+        "tonalRamp": ["#152938", "#22445d", "#305f83", "#3e7aa8", "#5794c1", "#88b3d3", "#b4cfe4", "#e1ecf4"]
+      },
+      "must": {
+        "role": "secondary",
+        "displayName": "Must Red",
+        "canonical": "#c2402c",
+        "tonalRamp": ["#3e150e", "#682218", "#923021", "#bb3e2a", "#d55744", "#e1887a", "#ecb4ac", "#f7e1de"]
+      },
+      "like": {
+        "role": "secondary",
+        "displayName": "Would-Like Amber",
+        "canonical": "#d69f3a",
+        "tonalRamp": ["#3f2e0d", "#6a4c16", "#946b1f", "#be8928", "#d7a241", "#e3bd78", "#edd6ab", "#f8efdd"]
+      },
+      "good": {
+        "role": "secondary",
+        "displayName": "Bought Green",
+        "canonical": "#4c9868",
+        "tonalRamp": ["#193323", "#2a553a", "#3b7751", "#4c9969", "#66b382", "#92c9a6", "#bbddc8", "#e4f1e9"]
+      },
+      "blueprint-bg": {
+        "role": "neutral",
+        "displayName": "Blueprint Navy",
+        "canonical": "#0a1626",
+        "tonalRamp": ["#10233d", "#1b3a65", "#25528d", "#3069b6", "#4983cf", "#7ea7dd", "#aec8ea", "#dfe9f7"]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Drafting Paper",
+        "canonical": "#f4efe2",
+        "tonalRamp": ["#372e15", "#5c4d23", "#816b31", "#a68a3f", "#c0a359", "#d2be89", "#e3d6b5", "#f4efe1"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Login screen heading only." },
+      "title": { "displayName": "Title", "purpose": "Card titles, dialog headings, section headings." },
+      "body": { "displayName": "Body", "purpose": "Notes, descriptions, helper text." },
+      "label": { "displayName": "Label / Mono", "purpose": "Every field label, section header, price, date, and tag." }
+    },
+    "shadows": [
+      { "name": "card-rest", "value": "0 6px 20px rgba(5,12,24,0.45)", "purpose": "Item cards resting on the blueprint canvas." },
+      { "name": "modal", "value": "0 20px 48px rgba(5,12,24,0.45)", "purpose": "Dialogs and the add/edit form (desktop)." },
+      { "name": "sheet", "value": "0 -8px 40px rgba(5,12,24,0.45)", "purpose": "The add/edit form as a mobile bottom sheet." },
+      { "name": "fab", "value": "0 10px 24px rgba(0,0,0,0.4)", "purpose": "The mobile floating add-item button." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "150ms ease (Tailwind default transition-colors)", "purpose": "Hover/focus color transitions on buttons, chips, and links." },
+      { "name": "budget-bar-fill", "value": "500ms ease-out", "purpose": "The budget bar's fill width animates when totals change." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single primary action per screen — Add item, Save budget.",
+      "html": "<button class=\"ds-btn-primary\">Add item</button>",
+      "css": ".ds-btn-primary { background: #3a739e; color: #ffffff; padding: 8px 14px; border-radius: 4px; font-family: Geist Sans, ui-sans-serif, sans-serif; font-size: 0.875rem; font-weight: 500; border: none; transition: background 150ms ease; } .ds-btn-primary:hover { background: rgba(58,115,158,0.9); } .ds-btn-primary:focus-visible { outline: 2px solid #3a739e; outline-offset: 2px; }"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Delete confirmation only.",
+      "html": "<button class=\"ds-btn-destructive\">Delete</button>",
+      "css": ".ds-btn-destructive { background: #c2402c; color: #ffffff; padding: 8px 14px; border-radius: 4px; font-family: Geist Sans, ui-sans-serif, sans-serif; font-size: 0.875rem; font-weight: 500; border: none; transition: background 150ms ease; } .ds-btn-destructive:hover { background: rgba(194,64,44,0.9); } .ds-btn-destructive:focus-visible { outline: 2px solid #3a739e; outline-offset: 2px; }"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Multi-select filter toggle; selected state fills solid.",
+      "html": "<button class=\"ds-chip ds-chip-selected\">Must have</button>",
+      "css": ".ds-chip { border-radius: 9999px; border: 1px solid rgba(150,185,255,0.18); padding: 6px 12px; font-family: Geist Mono, ui-monospace, monospace; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.02em; color: #8ea0c2; background: transparent; transition: all 150ms ease; } .ds-chip-selected { border-color: #3a739e; background: #3a739e; color: #ffffff; } .ds-chip:focus-visible { outline: 2px solid #3a739e; outline-offset: 2px; }"
+    },
+    {
+      "name": "Item Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The core content unit — a paper spec sheet pinned to the canvas, with a 7px priority tab on its left edge.",
+      "html": "<div class=\"ds-card\"><span class=\"ds-card-tab\"></span><h3 class=\"ds-card-title\">Induction hob</h3><p class=\"ds-card-meta\">KITCHEN · WISHLIST</p></div>",
+      "css": ".ds-card { position: relative; background: #f4efe2; border: 1px solid #ddd4bd; border-radius: 6px; padding: 16px 16px 16px 20px; box-shadow: 0 6px 20px rgba(5,12,24,0.45); overflow: hidden; } .ds-card-tab { position: absolute; inset: 0 auto 0 0; width: 7px; background: #c2402c; } .ds-card-title { font-family: Geist Sans, ui-sans-serif, sans-serif; font-size: 1rem; font-weight: 600; color: #1d2333; } .ds-card-meta { font-family: Geist Mono, ui-monospace, monospace; font-size: 0.75rem; color: #5c6274; text-transform: uppercase; margin-top: 6px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Form fields inside the paper modal surface.",
+      "html": "<input class=\"ds-input\" placeholder=\"e.g. Induction hob\" />",
+      "css": ".ds-input { width: 100%; border: 1px solid #ddd4bd; background: #faf7ee; border-radius: 4px; padding: 10px 12px; font-family: Geist Sans, ui-sans-serif, sans-serif; font-size: 0.875rem; color: #1d2333; } .ds-input:focus-visible { outline: none; box-shadow: 0 0 0 2px #f4efe2, 0 0 0 4px #3a739e; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Drafting Table",
+    "overview": "The House List renders as a working architectural drawing: a deep-navy canvas ruled with a faint measurement grid, with each real thing on the list pinned to it as a paper spec sheet. The system exists to make a financial tradeoff legible in seconds, not to decorate a todo list. Every device serves that: the budget bar reads as a dimension line rather than a progress ring, prices set in tabular monospace so figures compare cleanly down a column, and priority is a paper title-block tab rather than a colored dot. This is an Operate-mode surface (a tool used mid-decision, not browsed for pleasure), so the system deliberately refuses ornament: no kickers, no icon-plus-heading feature cards, no gradient text. Color is functional throughout — red/amber/blue never appear as decoration, only as the priority or status they name, and always paired with a text label so the system never depends on color alone.",
+    "keyCharacteristics": [
+      "Dark drafting-table canvas (ruled grid) as permanent chrome; content lives on paper-toned cards pinned to it.",
+      "Monospace for every price, date, tag, and room name — data reads as data, distinct from prose.",
+      "A dimension-line budget bar, not a progress bar or a KPI tile.",
+      "Every priority color is paired with a text label; never color alone.",
+      "Calm, flat, and quiet — the system's only job is legibility under a real spending decision."
+    ],
+    "rules": [
+      { "name": "Never-Color-Alone", "body": "Every priority is a text badge, never a bare color swatch or dot.", "section": "colors" },
+      { "name": "Surface-Tuned Ink", "body": "A priority's saturated swatch is never used as body text directly; each color carries separate variants tuned per surface (soft-tint ink, on-navy bright/dark, and a darkened solid for white button text) rather than one color reused everywhere.", "section": "colors" },
+      { "name": "Mono-Is-Data", "body": "Monospace marks measurement (prices, dates, tags), never prose.", "section": "typography" },
+      { "name": "Paper-Lifts", "body": "Only surfaces literally pinned to the canvas (cards, dialogs, the FAB) carry a shadow; the canvas, header, and budget-bar panel stay flat.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do pair every priority color with its text label — badge, filter chip, or status text. Never a bare swatch.",
+      "Do use monospace exclusively for measured data (prices, dates, tags) — never for prose.",
+      "Do use the 7px solid priority tab on any new card-like surface that carries a priority; keep it a full-height tab, not a thin accent border.",
+      "Do reach for the surface-tuned ink/bright/dark variant whenever a priority or status color is used as text; never the bare saturated swatch.",
+      "Do keep the canvas flat and reserve shadow for surfaces literally pinned on top of it."
+    ],
+    "donts": [
+      "Don't add a kicker/eyebrow label above a heading anywhere in the system.",
+      "Don't use a hard-edged, zero-blur neobrutalist shadow anywhere.",
+      "Don't introduce a second accent color — someday blue is the only non-semantic accent.",
+      "Don't render a priority/status color as body text without checking which surface it's on."
+    ]
+  }
+}
