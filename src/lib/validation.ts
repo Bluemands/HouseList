@@ -26,6 +26,9 @@ const stepInput = z.object({
   id: z.string().optional(),
   text: z.string().trim().min(1).max(200),
   done: z.boolean().optional(),
+  cost: optionalMoney,
+  link: optionalUrl,
+  notes: optionalText(1000),
 });
 
 const title = z
@@ -48,7 +51,7 @@ const itemFields = {
   project: optionalText(60),
   repeat: z.enum(REPEATS).nullable().optional(),
   pinned: z.boolean().optional(),
-  link: optionalUrl,
+  links: z.array(z.url({ error: "Enter a full link, e.g. https://…" })).max(20).optional(),
   notes: optionalText(4000),
   steps: z.array(stepInput).max(50).optional(),
 };

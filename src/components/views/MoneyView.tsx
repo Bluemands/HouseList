@@ -61,7 +61,7 @@ export function MoneyView() {
             {groups.map((g, gi) => (
               <Fragment key={g.key}>
                 {/* The cut line: where the pot runs dry. */}
-                {g.months !== 0 && (gi === 0 || groups[gi - 1].months === 0) && (
+                {plan.tracked && g.months !== 0 && (gi === 0 || groups[gi - 1].months === 0) && (
                   <CutLine left={gi === 0 ? plan.pot : leftAfterNow} next={g.entries[0]} saving={plan.monthly > 0} />
                 )}
                 <section>
@@ -69,7 +69,9 @@ export function MoneyView() {
                     {g.months === 0
                       ? "Affordable now"
                       : g.months === null
-                        ? "Not at current savings"
+                        ? plan.tracked
+                          ? "Not at current savings"
+                          : "Set the pot above to plan these"
                         : `From ${formatMonth(g.months)}`}
                     <span className="text-[13px] font-medium text-ink-3 tabular">
                       {formatGBP(g.entries.reduce((s, e) => s + e.cost, 0))}
@@ -146,10 +148,10 @@ function CutLine({ left, next, saving }: { left: number; next: PlanEntry; saving
     <div className="grid gap-1 py-1" role="separator" aria-label="The pot runs out here">
       <span className="border-t-2 border-dashed border-danger/60" />
       <span className="text-[13px] font-semibold text-danger tabular">
-        {formatGBP(Math.max(left, 0))} left in the pot —{" "}
+        {left < 0 ? `The pot is ${formatGBP(-left)} overdrawn` : `${formatGBP(left)} left in the pot`} —{" "}
         {saving
           ? `saving towards ${next.item.title} (${formatGBP(next.cost)})`
-          : `${next.item.title} needs ${formatGBP(next.cost - Math.max(left, 0))} more. Pin something to pay for it first.`}
+          : `${next.item.title} needs ${formatGBP(next.cost - Math.max(left, 0))} more. Set a monthly saving to see when.`}
       </span>
     </div>
   );
@@ -215,7 +217,11 @@ function PotPanel() {
             <Pencil size={16} className="text-ink-3 group-hover:text-ink" aria-label="Edit" />
           </button>
         )}
-        <span className="text-[12.5px] text-ink-3">Paying for something takes it out automatically.</span>
+        <span className="text-[12.5px] text-ink-3">
+          {settings.potTracked
+            ? "Paying for something takes it out automatically."
+            : "Set what you have. From then on, ticking things off takes their cost out."}
+        </span>
       </div>
 
       <div className="grid content-start gap-1">

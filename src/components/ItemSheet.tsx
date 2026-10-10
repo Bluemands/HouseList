@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
-import { ExternalLink, Hammer, Pin, Plus, ShoppingBag, Trash2, X } from "lucide-react";
+import { Hammer, Pin, ShoppingBag, Trash2, X } from "lucide-react";
 import {
   PRIORITIES,
   PRIORITY_LABELS,
@@ -11,6 +11,7 @@ import {
   ROOMS,
   STATUSES,
   STATUS_LABELS,
+  stepsTotal,
   type ItemDTO,
   type Kind,
   type Priority,
@@ -19,12 +20,13 @@ import {
   type Status,
 } from "@/lib/types";
 import { ROOM_PAINT } from "@/lib/rooms";
-import { addDays, formatDay, timeAgo, today, toDayString } from "@/lib/format";
+import { addDays, formatDay, formatGBP, normaliseLink, timeAgo, today, toDayString } from "@/lib/format";
 import { useStore } from "@/lib/store";
 import { useSheetDrag } from "@/lib/useSheetDrag";
 import type { ItemUpdateInput } from "@/lib/validation";
 import { Button, Chip, Field, MoneyInput, PaintChip, Segmented, inputClass } from "@/components/ui";
 import { QuotesField, UpdatesField } from "@/components/ItemExtras";
+import { LinksField, StepsField, parseMoney, type DraftStep } from "@/components/StepsField";
 
 type Draft = {
   title: string;
@@ -40,18 +42,12 @@ type Draft = {
   actualPrice: string;
   project: string;
   repeat: Repeat | null;
-  link: string;
+  links: { key: string; url: string }[];
   notes: string;
-  steps: { id?: string; key: string; text: string; done: boolean }[];
+  steps: DraftStep[];
 };
 
 const num = (n: number | null | undefined) => (n == null ? "" : String(n));
-const parseMoney = (s: string) => {
-  const t = s.replace(/,/g, "").trim();
-  if (!t) return null;
-  const n = Number(t);
-  return Number.isFinite(n) && n >= 0 ? n : NaN;
-};
 
 function toDraft(item: Partial<ItemDTO>): Draft {
   return {
@@ -68,17 +64,30 @@ function toDraft(item: Partial<ItemDTO>): Draft {
     actualPrice: num(item.actualPrice),
     project: item.project ?? "",
     repeat: item.repeat ?? null,
-    link: item.link ?? "",
+    links: (item.links ?? []).map((url, i) => ({ key: `link-${i}`, url })),
     notes: item.notes ?? "",
-    steps: (item.steps ?? []).map((s) => ({ ...s, key: s.id })),
+    steps: (item.steps ?? []).map((s) => ({
+      id: s.id,
+      key: s.id,
+      text: s.text,
+      done: s.done,
+      cost: num(s.cost),
+      link: s.link ?? "",
+      notes: s.notes ?? "",
+    })),
   };
 }
 
-function normaliseLink(s: string) {
-  const t = s.trim();
-  if (!t) return null;
-  return /^https?:\/\//i.test(t) ? t : `https://${t}`;
-}
+const stepPayload = (s: DraftStep) => ({
+  id: s.id,
+  text: s.text.trim(),
+  done: s.done,
+  cost: parseMoney(s.cost),
+  link: normaliseLink(s.link),
+  notes: s.notes.trim() || null,
+});
+
+const linksPayload = (urls: string[]) => [...new Set(urls.map(normaliseLink).filter((u): u is string => !!u))];
 
 export function ItemSheet() {
   const { editing, items } = useStore();
@@ -98,6 +107,9 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
   const [draft, setDraft] = useState<Draft>(initial);
   const [error, setError] = useState<string | null>(null);
   const [newStep, setNewStep] = useState("");
+  const [newLink, setNewLink] = useState("");
+  // Where focus was when the sheet opened, to hand it back on close.
+  const [opener] = useState(() => (typeof document === "undefined" ? null : document.activeElement));
   const [customWho, setCustomWho] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLTextAreaElement>(null);
@@ -110,8 +122,11 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
     if (!dialog) return;
     dialog.showModal();
     if (isNew) titleRef.current?.focus();
-    return () => dialog.close();
-  }, [isNew]);
+    return () => {
+      dialog.close();
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, [isNew, opener]);
 
   // The room rail scrolls sideways; open it at this item's room, not the first one.
   useEffect(() => {
@@ -133,7 +148,11 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
   }, [draft.title]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
-  const dirty = JSON.stringify(draft) !== JSON.stringify(initial) || newStep.trim() !== "";
+  const dirty =
+    JSON.stringify(draft) !== JSON.stringify(initial) || newStep.trim() !== "" || newLink.trim() !== "";
+  // When steps carry costs, the estimate is their total rather than typed in.
+  const stepCosts = draft.steps.map((s) => parseMoney(s.cost));
+  const fromSteps = stepsTotal(stepCosts.map((cost) => ({ cost: Number.isNaN(cost) ? null : cost })));
 
   const people = useMemo(() => {
     const names = new Set([...settings.members, me]);
@@ -150,9 +169,11 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
     const estimatedPrice = parseMoney(draft.estimatedPrice);
     const estimateMax = parseMoney(draft.estimateMax);
     const actualPrice = parseMoney(draft.actualPrice);
-    if ([estimatedPrice, estimateMax, actualPrice].some((n) => Number.isNaN(n))) return "Prices need to be numbers";
+    if ([estimatedPrice, estimateMax, actualPrice, ...stepCosts].some((n) => Number.isNaN(n))) {
+      return "Prices need to be numbers";
+    }
     const steps = [...draft.steps];
-    if (newStep.trim()) steps.push({ key: "pending", text: newStep.trim(), done: false });
+    if (newStep.trim()) steps.push({ key: "pending", text: newStep.trim(), done: false, cost: "", link: "", notes: "" });
     return {
       title,
       kind: draft.kind,
@@ -161,15 +182,20 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
       room: draft.room,
       assignee: draft.assignee.trim() || null,
       dueDate: draft.dueDate || null,
-      estimatedPrice,
-      estimateMax: estimateMax != null && estimatedPrice != null && estimateMax <= estimatedPrice ? null : estimateMax,
+      ...(fromSteps != null
+        ? { estimatedPrice: fromSteps, estimateMax: null }
+        : {
+            estimatedPrice,
+            estimateMax:
+              estimateMax != null && estimatedPrice != null && estimateMax <= estimatedPrice ? null : estimateMax,
+          }),
       isQuote: draft.isQuote,
       actualPrice,
       project: draft.project.trim() || null,
       repeat: draft.repeat,
-      link: normaliseLink(draft.link),
+      links: linksPayload([...draft.links.map((l) => l.url), newLink]),
       notes: draft.notes.trim() || null,
-      steps: steps.map((s) => ({ id: s.id, text: s.text, done: s.done })),
+      steps: steps.map(stepPayload),
     };
   }
 
@@ -197,6 +223,7 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
   }
 
   function buildFrom(d: Draft): ItemUpdateInput {
+    const total = stepsTotal(d.steps.map((s) => ({ cost: parseMoney(s.cost) })));
     return {
       title: d.title.trim(),
       kind: d.kind,
@@ -205,23 +232,31 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
       room: d.room,
       assignee: d.assignee.trim() || null,
       dueDate: d.dueDate || null,
-      estimatedPrice: parseMoney(d.estimatedPrice),
-      estimateMax: parseMoney(d.estimateMax),
+      ...(total != null
+        ? { estimatedPrice: total, estimateMax: null }
+        : { estimatedPrice: parseMoney(d.estimatedPrice), estimateMax: parseMoney(d.estimateMax) }),
       isQuote: d.isQuote,
       actualPrice: parseMoney(d.actualPrice),
       project: d.project.trim() || null,
       repeat: d.repeat,
-      link: normaliseLink(d.link),
+      links: linksPayload(d.links.map((l) => l.url)),
       notes: d.notes.trim() || null,
-      steps: d.steps.map((s) => ({ id: s.id, text: s.text, done: s.done })),
+      steps: d.steps.map(stepPayload),
     };
   }
 
   function addStep() {
     const text = newStep.trim();
     if (!text) return;
-    setDraft((d) => ({ ...d, steps: [...d.steps, { key: `new-${Date.now()}`, text, done: false }] }));
+    const step: DraftStep = { key: `new-${Date.now()}`, text, done: false, cost: "", link: "", notes: "" };
+    setDraft((d) => ({ ...d, steps: [...d.steps, step] }));
     setNewStep("");
+  }
+
+  function addLink() {
+    if (!newLink.trim()) return;
+    setDraft((d) => ({ ...d, links: [...d.links, { key: `new-${Date.now()}`, url: newLink.trim() }] }));
+    setNewLink("");
   }
 
   const isPerson = !draft.assignee || people.includes(draft.assignee);
@@ -422,14 +457,23 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
             hint={
               draft.status === "DONE"
                 ? "What you actually paid comes out of the pot."
-                : "Leave blank if it's free. Add an upper figure for a range."
+                : fromSteps != null
+                  ? "Set by the steps’ costs below. Clear those to enter one figure here."
+                  : "Leave blank if it's free. Add an upper figure for a range, or cost each step below."
             }
           >
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-              <MoneyInput label="Estimate" placeholder="Estimate" value={draft.estimatedPrice} onChange={(v) => set("estimatedPrice", v)} />
-              <span className="text-sm text-ink-3">to</span>
-              <MoneyInput label="Up to" placeholder="Up to" value={draft.estimateMax} onChange={(v) => set("estimateMax", v)} />
-            </div>
+            {fromSteps != null ? (
+              <div className="flex items-baseline justify-between gap-3 rounded-[10px] border border-line bg-sunken px-3 py-2.5">
+                <span className="text-[15px] font-semibold text-ink tabular">{formatGBP(fromSteps)}</span>
+                <span className="text-[13px] text-ink-3">Total of the steps</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <MoneyInput label="Estimate" placeholder="Estimate" value={draft.estimatedPrice} onChange={(v) => set("estimatedPrice", v)} />
+                <span className="text-sm text-ink-3">to</span>
+                <MoneyInput label="Up to" placeholder="Up to" value={draft.estimateMax} onChange={(v) => set("estimateMax", v)} />
+              </div>
+            )}
             <label className="flex items-center gap-2.5 py-1 text-[14px] text-ink-2">
               <input
                 type="checkbox"
@@ -463,98 +507,23 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
             />
           )}
 
-          <Field label="Steps">
-            {draft.steps.length > 0 && (
-              <ul className="overflow-hidden rounded-xl border border-line">
-                {draft.steps.map((step, index) => (
-                  <li key={step.key} className="flex items-center gap-2 border-b border-line px-2.5 last:border-b-0">
-                    <input
-                      type="checkbox"
-                      checked={step.done}
-                      aria-label={`Step done: ${step.text}`}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          steps: d.steps.map((s, i) => (i === index ? { ...s, done: e.target.checked } : s)),
-                        }))
-                      }
-                      className="h-[18px] w-[18px] shrink-0 accent-[var(--accent)]"
-                    />
-                    <input
-                      value={step.text}
-                      aria-label={`Step ${index + 1}`}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          steps: d.steps.map((s, i) => (i === index ? { ...s, text: e.target.value } : s)),
-                        }))
-                      }
-                      onBlur={() =>
-                        !step.text.trim() &&
-                        setDraft((d) => ({ ...d, steps: d.steps.filter((_, i) => i !== index) }))
-                      }
-                      className={clsx(
-                        "min-w-0 flex-1 bg-transparent py-2.5 text-[15px] outline-none",
-                        step.done && "text-ink-3 line-through",
-                      )}
-                    />
-                    <button
-                      type="button"
-                      aria-label={`Remove step ${step.text}`}
-                      onClick={() => setDraft((d) => ({ ...d, steps: d.steps.filter((_, i) => i !== index) }))}
-                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-ink-3 hover:bg-sunken hover:text-ink"
-                    >
-                      <X size={15} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div className="flex gap-2">
-              <input
-                value={newStep}
-                onChange={(e) => setNewStep(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addStep();
-                  }
-                }}
-                placeholder={draft.steps.length ? "Add another step" : "Break it down — e.g. buy paint, fill cracks…"}
-                aria-label="New step"
-                className={inputClass}
-              />
-              <Button variant="secondary" onClick={addStep} aria-label="Add step" className="shrink-0 px-3">
-                <Plus size={17} />
-              </Button>
-            </div>
-          </Field>
+          <StepsField
+            steps={draft.steps}
+            onChange={(steps) => set("steps", steps)}
+            newStep={newStep}
+            onNewStep={setNewStep}
+            onAdd={addStep}
+          />
 
           {item && <UpdatesField item={item} />}
 
-          <Field label="Link">
-            <div className="flex items-center gap-2">
-              <input
-                value={draft.link}
-                onChange={(e) => set("link", e.target.value)}
-                placeholder="Product page, quote, video…"
-                inputMode="url"
-                aria-label="Link"
-                className={inputClass}
-              />
-              {draft.link.trim() && (
-                <a
-                  href={normaliseLink(draft.link)!}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Open link"
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] border border-line text-ink-2 hover:bg-sunken"
-                >
-                  <ExternalLink size={16} />
-                </a>
-              )}
-            </div>
-          </Field>
+          <LinksField
+            links={draft.links}
+            onChange={(links) => set("links", links)}
+            newLink={newLink}
+            onNewLink={setNewLink}
+            onAdd={addLink}
+          />
 
           <Field label="Notes">
             <textarea

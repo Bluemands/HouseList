@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { itemBulkCreateSchema } from "@/lib/validation";
-import { ITEM_INCLUDE, fromDay, getSettings, toItemDTO } from "@/lib/data";
+import { ITEM_INCLUDE, estimateFromSteps, fromDay, getSettings, stepRows, toItemDTO } from "@/lib/data";
 
 // Many items at once: a pasted list, or the new-home essentials.
 export async function POST(request: NextRequest) {
@@ -31,13 +31,12 @@ export async function POST(request: NextRequest) {
         await tx.item.create({
           data: {
             ...data,
+            ...estimateFromSteps(steps),
             status: data.status === "DONE" ? "TODO" : data.status,
             addedBy,
             dueDate: fromDay(dueDate),
             createdAt: new Date(base + index),
-            steps: steps?.length
-              ? { create: steps.map((s, position) => ({ text: s.text, done: s.done ?? false, position })) }
-              : undefined,
+            steps: steps?.length ? { create: stepRows(steps) } : undefined,
           },
           include: ITEM_INCLUDE,
         }),

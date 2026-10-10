@@ -41,8 +41,11 @@ function parseRepeat(text: string): { repeat: Repeat; match: RegExpMatchArray } 
 const BUY_WORDS = /^(buy|get|order|pick up|grab)\b/i;
 const TASK_WORDS =
   /^(fix|paint|repair|install|fit|clean|call|book|sort|clear|remove|replace|hang|build|assemble|measure|tidy|empty|organise|organize|decorate|service|sand|seal|tile|plaster|rewire|treat|bleed|move|change|check|ring|email|find|research|plan)\b/i;
+// Work someone does, wherever it falls: "Boiler service", "Chimney sweep".
+const JOB_NOUNS =
+  /\b(service|servicing|repairs?|installation|fitting|survey|inspection|cleaning|sweep|quote|visit|check-?up|callout|call-out)\b/i;
 
-const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+const WEEKDAYS =["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
 function money(raw: string, k?: string): number {
@@ -151,12 +154,21 @@ const ROOM_MATCHERS = ROOMS.flatMap((room) =>
 ).sort((a, b) => b.alias.length - a.alias.length);
 
 function findRoom(text: string): { room: Room; explicit: RegExpMatchArray | null } | null {
-  // Explicit tag: "#kitchen", "#bathroom2", "#spare-room-1"
-  const tag = text.match(/(?:^|\s)#([a-z0-9-]+)/i);
+  // Explicit tag: "#kitchen", "#bathroom2", "#spare-room-1", "#sitting room"
+  const tag = text.match(/(?:^|\s)#([a-z0-9-]+)((?:\s+[a-z0-9]+){0,2})/i);
   if (tag) {
-    const wanted = tag[1].toLowerCase().replace(/-/g, " ").replace(/(\D)(\d)$/, "$1 $2");
-    const hit = ROOM_MATCHERS.find((r) => r.alias === wanted || r.alias.startsWith(wanted));
-    if (hit) return { room: hit.room, explicit: tag };
+    const words = [tag[1], ...tag[2].trim().split(/\s+/).filter(Boolean)];
+    const norm = (s: string) => s.toLowerCase().replace(/-/g, " ").replace(/([a-z])(\d)$/, "$1 $2");
+    // Take as many following words as complete a room's name, so none are
+    // left behind in the title; failing that, the tag alone may be a prefix.
+    for (let n = words.length; n >= 1; n--) {
+      const wanted = norm(words.slice(0, n).join(" "));
+      const hit = ROOM_MATCHERS.find((r) => r.alias === wanted || (n === 1 && r.alias.startsWith(wanted)));
+      if (hit) {
+        const explicit = text.match(new RegExp(String.raw`(?:^|\s)#${words.slice(0, n).join(String.raw`\s+`)}(?=\s|$)`, "i"));
+        return { room: hit.room, explicit };
+      }
+    }
   }
   const lower = text.toLowerCase();
   for (const { room, alias } of ROOM_MATCHERS) {
@@ -231,7 +243,7 @@ export function parseQuickAdd(input: string, members: string[] = []): Parsed {
 
   const kind: Kind = BUY_WORDS.test(title)
     ? "BUY"
-    : TASK_WORDS.test(title)
+    : TASK_WORDS.test(title) || JOB_NOUNS.test(title)
       ? "TASK"
       : estimatedPrice != null
         ? "BUY"

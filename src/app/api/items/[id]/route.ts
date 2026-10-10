@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { itemUpdateSchema } from "@/lib/validation";
-import { ITEM_INCLUDE, fromDay, getSettings, toItemDTO } from "@/lib/data";
+import { ITEM_INCLUDE, estimateFromSteps, fromDay, getSettings, stepRows, toItemDTO } from "@/lib/data";
 import { nextOccurrence } from "@/lib/types";
-
-const spentBy = (status: string, actualPrice: number | null) => (status === "DONE" ? (actualPrice ?? 0) : 0);
 
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/items/[id]">) {
   const { id } = await ctx.params;
@@ -29,7 +27,8 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/items/
     return NextResponse.json({ error: "Someone else deleted this" }, { status: 404 });
   }
 
-  const { steps, dueDate, actor, ...changes } = parsed.data;
+  const { steps, dueDate, actor, ...fields } = parsed.data;
+  const changes = { ...fields, ...estimateFromSteps(steps) };
   const status = changes.status ?? existing.status;
   const completing = status === "DONE" && existing.status !== "DONE";
   const reopening = status !== "DONE" && existing.status === "DONE";
@@ -41,23 +40,27 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/items/
     actualPrice = changes.estimatedPrice !== undefined ? changes.estimatedPrice : existing.estimatedPrice;
   }
 
-  // The pot is real money: whatever an item costs leaves it when the item is
-  // done, and comes back if it's reopened or its price is corrected.
-  const potDelta = spentBy(existing.status, existing.actualPrice) - spentBy(status, actualPrice ?? null);
+  // The pot is real money: once it's in use, whatever an item costs leaves it
+  // when the item is done, and comes back if it's reopened or its price is
+  // corrected. Anything finished before the pot was set up never touches it.
+  const settings = await getSettings();
+  let potCharge = 0;
+  if (status === "DONE") {
+    const charged = completing ? settings.potTracked : existing.potCharge > 0;
+    potCharge = charged ? (actualPrice ?? 0) : 0;
+  }
+  const potDelta = existing.potCharge - potCharge;
 
-  await getSettings();
   const result = await prisma.$transaction(async (tx) => {
     if (steps) {
       const keep = steps.flatMap((s) => (s.id ? [s.id] : []));
       await tx.step.deleteMany({ where: { itemId: id, id: { notIn: keep } } });
-      for (const [position, step] of steps.entries()) {
-        if (step.id) {
-          await tx.step.updateMany({
-            where: { id: step.id, itemId: id },
-            data: { text: step.text, done: step.done ?? false, position },
-          });
+      for (const [position, row] of stepRows(steps).entries()) {
+        const stepId = steps[position].id;
+        if (stepId) {
+          await tx.step.updateMany({ where: { id: stepId, itemId: id }, data: row });
         } else {
-          await tx.step.create({ data: { itemId: id, text: step.text, done: step.done ?? false, position } });
+          await tx.step.create({ data: { ...row, itemId: id } });
         }
       }
     }
@@ -67,6 +70,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/items/
       data: {
         ...changes,
         actualPrice,
+        potCharge,
         dueDate: fromDay(dueDate),
         ...(completing ? { completedAt: new Date(), completedBy: actor || null } : {}),
         ...(reopening ? { completedAt: null, completedBy: null } : {}),
@@ -91,14 +95,23 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/items/
           estimateMax: updated.estimateMax,
           assignee: updated.assignee,
           project: updated.project,
-          link: updated.link,
+          links: updated.links,
           notes: updated.notes,
           repeat: updated.repeat,
           addedBy: updated.addedBy,
           spawnedFromId: updated.id,
           dueDate: fromDay(nextOccurrence(new Date().toISOString().slice(0, 10), updated.repeat)),
           steps: updated.steps.length
-            ? { create: updated.steps.map((s) => ({ text: s.text, done: false, position: s.position })) }
+            ? {
+                create: updated.steps.map(({ text, position, cost, link, notes }) => ({
+                  text,
+                  done: false,
+                  position,
+                  cost,
+                  link,
+                  notes,
+                })),
+              }
             : undefined,
         },
         include: ITEM_INCLUDE,

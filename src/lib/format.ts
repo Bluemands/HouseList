@@ -110,3 +110,19 @@ export function greeting(date = new Date()): string {
   if (h < 18) return "Afternoon";
   return "Evening";
 }
+
+/** A link as typed ("screwfix.com/…") made into a full URL; null if blank. */
+export function normaliseLink(s: string): string | null {
+  const t = s.trim();
+  if (!t) return null;
+  return /^https?:\/\//i.test(t) ? t : `https://${t}`;
+}
+
+/** The short name to show for a link: its site, without "www.". */
+export function linkLabel(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}

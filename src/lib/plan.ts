@@ -53,6 +53,8 @@ export type PlanEntry = {
 
 export type Plan = {
   entries: PlanEntry[];
+  /** Whether the pot is in use; until it is, nothing is "not affordable". */
+  tracked: boolean;
   pot: number;
   monthly: number;
   mustTotal: number;
@@ -82,6 +84,7 @@ export function buildPlan(items: ItemDTO[], settings: SettingsDTO): Plan {
   const last = entries.at(-1);
   return {
     entries,
+    tracked: settings.potTracked,
     pot,
     monthly,
     mustTotal,
@@ -94,6 +97,7 @@ export function buildPlan(items: ItemDTO[], settings: SettingsDTO): Plan {
 
 /** Item id → months until affordable, for tagging rows. */
 export function affordabilityIndex(plan: Plan): Map<string, number | null> {
+  if (!plan.tracked) return new Map();
   return new Map(plan.entries.map((e) => [e.item.id, e.monthsAway]));
 }
 

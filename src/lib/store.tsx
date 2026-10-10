@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as api from "@/lib/api-client";
 import { ApiError } from "@/lib/api-client";
-import type { ItemDTO, SettingsDTO } from "@/lib/types";
+import type { ItemDTO, SettingsDTO, StepDTO } from "@/lib/types";
 import { formatDay, formatGBP, today } from "@/lib/format";
 import { nextOccurrence } from "@/lib/types";
 import { ROOM_PAINT } from "@/lib/rooms";
@@ -80,19 +80,14 @@ const UNDO_MS = 6_000;
 /** How long a ticked row lingers in an open list (matches .row-leave). */
 const SETTLE_MS = 1_000;
 
-/** Mirror the server's pot arithmetic so the money figures move instantly. */
-function spentBy(item: Pick<ItemDTO, "status" | "actualPrice">) {
-  return item.status === "DONE" ? (item.actualPrice ?? 0) : 0;
-}
-
-function applyPatch(item: ItemDTO, patch: ItemUpdateInput, me: string): ItemDTO {
+function applyPatch(item: ItemDTO, patch: ItemUpdateInput, me: string, potTracked: boolean): ItemDTO {
   const next: ItemDTO = { ...item };
   for (const [key, value] of Object.entries(patch)) {
     if (key === "steps" || key === "actor" || value === undefined) continue;
     (next as Record<string, unknown>)[key] = value;
   }
   if (patch.steps) {
-    next.steps = patch.steps.map((s, i) => ({ id: s.id ?? `tmp-step-${i}-${Date.now()}`, text: s.text, done: !!s.done }));
+    next.steps = patch.steps.map(toStep);
   }
   if (next.status === "DONE" && item.status !== "DONE") {
     next.completedAt = new Date().toISOString();
@@ -103,7 +98,22 @@ function applyPatch(item: ItemDTO, patch: ItemUpdateInput, me: string): ItemDTO 
     next.completedAt = null;
     next.completedBy = null;
   }
+  // Mirror the server's pot arithmetic so the money figures move instantly.
+  const completing = next.status === "DONE" && item.status !== "DONE";
+  const charged = completing ? potTracked : item.potCharge > 0;
+  next.potCharge = next.status === "DONE" && charged ? (next.actualPrice ?? 0) : 0;
   return next;
+}
+
+function toStep(s: NonNullable<ItemUpdateInput["steps"]>[number], i: number): StepDTO {
+  return {
+    id: s.id ?? `tmp-step-${i}-${Date.now()}`,
+    text: s.text,
+    done: !!s.done,
+    cost: s.cost ?? null,
+    link: (s.link as string | null | undefined) ?? null,
+    notes: (s.notes as string | null | undefined) ?? null,
+  };
 }
 
 export function StoreProvider({
@@ -235,14 +245,15 @@ export function StoreProvider({
         pinned: input.pinned ?? false,
         quotes: [],
         comments: [],
-        link: (input.link as string | null | undefined) ?? null,
+        links: input.links ?? [],
+        potCharge: 0,
         notes: (input.notes as string | null | undefined) ?? null,
         addedBy: me,
         completedAt: null,
         completedBy: null,
         createdAt: now,
         updatedAt: now,
-        steps: (input.steps ?? []).map((s, i) => ({ id: `tmp-step-${i}`, text: s.text, done: !!s.done })),
+        steps: (input.steps ?? []).map(toStep),
       };
       setItems((list) => [optimistic, ...list]);
       setJustAdded(tempId);
@@ -250,7 +261,7 @@ export function StoreProvider({
         const created = await track(() => api.createItem({ ...input, addedBy: me }));
         setItems((list) => list.map((i) => (i.id === tempId ? created : i)));
         setJustAdded(created.id);
-        if (created.status === "DONE") adjustPot(-spentBy(created));
+        adjustPot(-created.potCharge);
         if (!settings.members.includes(me)) setSettings((s) => ({ ...s, members: [...s.members, me] }));
         return created;
       } catch (err) {
@@ -266,8 +277,8 @@ export function StoreProvider({
     async (id, patch) => {
       const before = itemsRef.current.find((i) => i.id === id);
       if (!before || id.startsWith("tmp-")) return null;
-      const optimistic = applyPatch(before, patch, me);
-      const localDelta = spentBy(before) - spentBy(optimistic);
+      const optimistic = applyPatch(before, patch, me, settingsRef.current.potTracked);
+      const localDelta = before.potCharge - optimistic.potCharge;
       setItems((list) => list.map((i) => (i.id === id ? optimistic : i)));
       adjustPot(localDelta);
       try {
@@ -306,7 +317,8 @@ export function StoreProvider({
       patchItem(item.id, { status: completing ? "DONE" : "TODO" });
       if (!completing) return unsettle(item.id);
       const cost = item.actualPrice ?? item.estimatedPrice;
-      let message = cost ? `${item.title} — ${formatGBP(cost)} out of the pot` : `Done: ${item.title}`;
+      let message =
+        cost && settingsRef.current.potTracked ? `${item.title} — ${formatGBP(cost)} out of the pot` : `Done: ${item.title}`;
       if (item.repeat) message += `. Next one due ${formatDay(nextOccurrence(today(), item.repeat))}`;
       // The last open thing in a room that had a few: worth a moment.
       const roomItems = itemsRef.current.filter((i) => i.room === item.room);

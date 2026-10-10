@@ -25,7 +25,7 @@ export async function GET() {
     "Paid",
     "Project",
     "Steps",
-    "Link",
+    "Links",
     "Notes",
     "Added by",
     "Added",
@@ -45,8 +45,10 @@ export async function GET() {
     i.isQuote ? "Yes" : "",
     i.actualPrice,
     i.project,
-    i.steps.map((s) => `${s.done ? "[x]" : "[ ]"} ${s.text}`).join("; "),
-    i.link,
+    i.steps
+      .map((s) => `${s.done ? "[x]" : "[ ]"} ${s.text}${s.cost != null ? ` (£${s.cost})` : ""}${s.link ? ` ${s.link}` : ""}`)
+      .join("; "),
+    i.links.join(" "),
     i.notes,
     i.addedBy,
     i.createdAt.slice(0, 10),

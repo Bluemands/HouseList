@@ -23,8 +23,9 @@ function LoginForm() {
     setError(null);
     try {
       await login(pin);
+      // Same-site paths only: "//host" and "/\host" would leave the app.
       const next = searchParams.get("next") ?? "/";
-      router.replace(next.startsWith("/") ? next : "/");
+      router.replace(/^\/(?![/\\])/.test(next) ? next : "/");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong");

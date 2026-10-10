@@ -1,12 +1,32 @@
 import { prisma } from "@/lib/prisma";
 import type { Comment, Item, Quote, Settings, Step } from "@/generated/prisma/client";
-import type { ItemDTO, SettingsDTO } from "@/lib/types";
+import { stepsTotal, type ItemDTO, type SettingsDTO } from "@/lib/types";
 
 const toDay = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
 export function fromDay(day: string | null | undefined): Date | null | undefined {
   if (day === undefined) return undefined;
   return day === null ? null : new Date(`${day}T00:00:00.000Z`);
+}
+
+type StepInput = { text: string; done?: boolean; cost?: number | null; link?: string | null; notes?: string | null };
+
+/** A list of steps as rows to create, in the order given. */
+export function stepRows(steps: StepInput[]) {
+  return steps.map((s, position) => ({
+    text: s.text,
+    done: s.done ?? false,
+    cost: s.cost ?? null,
+    link: s.link ?? null,
+    notes: s.notes ?? null,
+    position,
+  }));
+}
+
+/** When steps carry costs, the item's estimate is their total. */
+export function estimateFromSteps(steps: StepInput[] | undefined) {
+  const total = steps ? stepsTotal(steps) : null;
+  return total == null ? {} : { estimatedPrice: total, estimateMax: null };
 }
 
 /** Everything an item carries, for every query that returns one. */
@@ -24,7 +44,7 @@ export function toItemDTO(item: FullItem): ItemDTO {
     updatedAt: item.updatedAt.toISOString(),
     steps: [...item.steps]
       .sort((a, b) => a.position - b.position)
-      .map(({ id, text, done }) => ({ id, text, done })),
+      .map(({ id, text, done, cost, link, notes }) => ({ id, text, done, cost, link, notes })),
     quotes: [...quotes]
       .sort((a, b) => a.amount - b.amount)
       .map(({ id, from, amount, note, chosen, addedBy, createdAt }) => ({
@@ -45,6 +65,7 @@ export function toItemDTO(item: FullItem): ItemDTO {
 export function toSettingsDTO(settings: Settings): SettingsDTO {
   return {
     budgetAvailable: settings.budgetAvailable,
+    potTracked: settings.potTracked,
     monthlySaving: settings.monthlySaving,
     members: settings.members ?? [],
     movedInOn: toDay(settings.movedInOn),

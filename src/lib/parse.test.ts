@@ -45,6 +45,12 @@ describe("kind", () => {
   it("defaults to a job", () => {
     expect(p("Find the stopcock").kind).toBe("TASK");
   });
+  it("treats work nouns anywhere in the title as jobs, even with a price", () => {
+    expect(p("Boiler service every year £90").kind).toBe("TASK");
+    expect(p("Chimney sweep £80").kind).toBe("TASK");
+    expect(p("Carpet fitting £150").kind).toBe("TASK");
+    expect(p("New doormat £25").kind).toBe("BUY");
+  });
 });
 
 describe("priority", () => {
@@ -146,6 +152,11 @@ describe("rooms", () => {
     expect(p("New lamp #sitting-room")).toMatchObject({ title: "New lamp", room: "SITTING_ROOM" });
     expect(p("Blind #bathroom2")).toMatchObject({ title: "Blind", room: "BATHROOM_2" });
     expect(p("Shelves #kitchen")).toMatchObject({ title: "Shelves", room: "KITCHEN" });
+  });
+  it("#tags can be several words, with nothing left behind", () => {
+    expect(p("Buy sofa £600-900 #sitting room")).toMatchObject({ title: "Buy sofa", room: "SITTING_ROOM" });
+    expect(p("Blind #spare room 1 tomorrow")).toMatchObject({ title: "Blind", room: "SPARE_ROOM_1" });
+    expect(p("Shelves #kitchen wall")).toMatchObject({ title: "Shelves wall", room: "KITCHEN" });
   });
   it("doesn't match rooms inside other words", () => {
     expect(p("Hallmark card").room).toBeNull();

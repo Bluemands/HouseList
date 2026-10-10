@@ -34,8 +34,8 @@ export function HomeView({ go, onSettings }: { go: (r: Route) => void; onSetting
     [items],
   );
 
-  // Rooms with something going on lead the deck; untouched rooms trail.
-  const deck = [...rooms].sort((a, b) => Number(b.total > 0) - Number(a.total > 0) || b.open - a.open);
+  // Only rooms with something in them; the rest are a tap away under "All rooms".
+  const deck = rooms.filter((r) => r.total > 0).sort((a, b) => b.open - a.open);
   // Done since Monday — a small, honest sense of momentum.
   const doneThisWeek = useMemo(() => {
     const now = new Date();
@@ -114,24 +114,26 @@ export function HomeView({ go, onSettings }: { go: (r: Route) => void; onSetting
         {items.length > 0 && items.length < 25 && <EssentialsNudge onOpen={openEssentials} />}
       </section>
 
-      <section aria-labelledby="rooms-head">
-        <SectionHead id="rooms-head" title="Rooms">
-          <button
-            type="button"
-            onClick={() => go({ view: "rooms" })}
-            className="inline-flex items-center gap-0.5 text-[14px] font-semibold text-accent-text hover:underline"
-          >
-            All rooms <ChevronRight size={16} />
-          </button>
-        </SectionHead>
-        <div className="rail -mx-4 flex gap-2.5 overflow-x-auto px-4 pt-1 pb-3 sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-4 lg:overflow-visible lg:px-0">
-          {deck.map((stats, i) => (
-            <div key={stats.room} className={clsx("contents", i >= 8 && "lg:hidden")}>
-              <SwatchCard stats={stats} compact onOpen={() => go({ view: "rooms", room: stats.room })} />
-            </div>
-          ))}
-        </div>
-      </section>
+      {deck.length > 0 && (
+        <section aria-labelledby="rooms-head">
+          <SectionHead id="rooms-head" title="Rooms">
+            <button
+              type="button"
+              onClick={() => go({ view: "rooms" })}
+              className="inline-flex items-center gap-0.5 text-[14px] font-semibold text-accent-text hover:underline"
+            >
+              All rooms <ChevronRight size={16} />
+            </button>
+          </SectionHead>
+          <div className="rail -mx-4 flex gap-2.5 overflow-x-auto px-4 pt-1 pb-3 sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:grid-cols-4 lg:overflow-visible lg:px-0">
+            {deck.map((stats, i) => (
+              <div key={stats.room} className={clsx("contents", i >= 8 && "lg:hidden")}>
+                <SwatchCard stats={stats} compact onOpen={() => go({ view: "rooms", room: stats.room })} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {recent.length > 0 && (
         <section aria-labelledby="recent-head">
@@ -155,6 +157,26 @@ export function HomeView({ go, onSettings }: { go: (r: Route) => void; onSetting
 }
 
 function MoneyStrip({ plan, onOpen }: { plan: ReturnType<typeof buildPlan>; onOpen: () => void }) {
+  // Before anyone sets the pot, "£0 · £160 short" is noise: invite it instead.
+  if (!plan.tracked) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className="group flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3.5 text-left transition-colors hover:border-line-strong"
+      >
+        <span className="grid min-w-0 flex-1 gap-0.5">
+          <span className="text-[15px] font-semibold text-ink">Set up the pot</span>
+          <span className="text-[13px] text-ink-2">
+            {plan.openTotal > 0
+              ? `${formatGBP(plan.openTotal)} of costs on the list. Say what you have to see what's affordable.`
+              : "Say what you have to spend, and the plan shows what it covers."}
+          </span>
+        </span>
+        <ChevronRight size={18} className="shrink-0 text-ink-3 transition-transform group-hover:translate-x-0.5" />
+      </button>
+    );
+  }
   const short = plan.mustSpare < 0;
   // How much of the must-haves the pot already covers.
   const covered = plan.mustTotal > 0 ? Math.min(100, (Math.max(plan.pot, 0) / plan.mustTotal) * 100) : 100;

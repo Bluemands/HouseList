@@ -298,11 +298,7 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead }: Props) {
               {!done && monthsAway !== undefined && monthsAway !== 0 && (
                 <span className="ml-auto text-[12px] text-ink-3">
                   {/* null: the pot can't cover it and there's no monthly saving to wait for. */}
-                  {monthsAway !== null
-                    ? `Affordable ${formatMonth(monthsAway, false)}`
-                    : item.priority === "MUST_HAVE"
-                      ? "Over budget"
-                      : "Beyond the pot"}
+                  {monthsAway !== null ? `Affordable ${formatMonth(monthsAway, false)}` : "Not affordable yet"}
                 </span>
               )}
             </span>

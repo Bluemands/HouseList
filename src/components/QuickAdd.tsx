@@ -219,11 +219,14 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
         )}
       </div>
 
+      {/* Floats over what's below, so focusing or leaving the box never shifts the page under a tap. */}
       <p
         id="quick-add-help"
         className={clsx(
-          "px-1 pt-2 text-[12.5px] text-ink-3 transition-opacity duration-150",
-          showHint ? "opacity-100" : "sr-only",
+          "text-[12.5px] text-ink-2",
+          showHint
+            ? "pointer-events-none absolute inset-x-0 top-full z-20 mt-1.5 rounded-xl border border-line bg-surface px-3 py-2 shadow-pop"
+            : "sr-only",
         )}
       >
         Try “{EXAMPLES[new Date().getDate() % EXAMPLES.length]}”. Use £ for cost, ! for a must, @ for who, # for a room. Paste a list to add lots at once.

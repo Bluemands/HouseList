@@ -27,7 +27,8 @@ function item(over: Partial<ItemDTO>): ItemDTO {
     project: null,
     repeat: null,
     spawnedFromId: null,
-    link: null,
+    links: [],
+    potCharge: 0,
     notes: null,
     addedBy: "Connor",
     completedAt: null,
@@ -44,6 +45,7 @@ function item(over: Partial<ItemDTO>): ItemDTO {
 
 const settings = (pot: number, monthly = 0): SettingsDTO => ({
   budgetAvailable: pot,
+  potTracked: true,
   monthlySaving: monthly,
   members: ["Connor"],
   movedInOn: null,
@@ -107,6 +109,16 @@ describe("upNext", () => {
     const plan = buildPlan([overdue, mustSoon, someday], settings(0));
     const next = upNext([someday, mustSoon, overdue], "Connor", affordabilityIndex(plan), 3);
     expect(next.map((i) => i.title)).toEqual(["Overdue", "Must soon", "Someday"]);
+  });
+  it("doesn't hold back costed must-haves before the pot is set up", () => {
+    const must = item({ title: "Paint hallway", priority: "MUST_HAVE", estimatedPrice: 120 });
+    const free = item({ title: "Call electrician" });
+    const plan = buildPlan([must, free], { ...settings(0), potTracked: false });
+    expect(affordabilityIndex(plan).size).toBe(0);
+    expect(upNext([free, must], "Connor", affordabilityIndex(plan), 2).map((i) => i.title)).toEqual([
+      "Paint hallway",
+      "Call electrician",
+    ]);
   });
 });
 

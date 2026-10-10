@@ -106,7 +106,16 @@ export type StepDTO = {
   id: string;
   text: string;
   done: boolean;
+  cost: number | null;
+  link: string | null;
+  notes: string | null;
 };
+
+/** The steps' total, or null when none of them has a cost. */
+export function stepsTotal(steps: { cost?: number | null }[]): number | null {
+  const costed = steps.filter((s) => s.cost != null);
+  return costed.length ? costed.reduce((sum, s) => sum + s.cost!, 0) : null;
+}
 
 export type ItemDTO = {
   id: string;
@@ -126,7 +135,9 @@ export type ItemDTO = {
   repeat: Repeat | null;
   spawnedFromId: string | null;
   pinned: boolean;
-  link: string | null;
+  /** What finishing it took out of the pot (0 if the pot wasn't in use). */
+  potCharge: number;
+  links: string[];
   notes: string | null;
   addedBy: string;
   completedAt: string | null;
@@ -140,6 +151,8 @@ export type ItemDTO = {
 
 export type SettingsDTO = {
   budgetAvailable: number;
+  /** Whether anyone has set up the pot; until then nothing spends from it. */
+  potTracked: boolean;
   monthlySaving: number;
   members: string[];
   /** Calendar date, YYYY-MM-DD. */

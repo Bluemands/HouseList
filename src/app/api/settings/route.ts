@@ -36,6 +36,10 @@ export async function PUT(request: NextRequest) {
     data: {
       ...rest,
       members,
+      // Setting the pot or a saving is what starts it being kept.
+      ...(rest.budgetAvailable !== undefined || addToPot !== undefined || (rest.monthlySaving ?? 0) > 0
+        ? { potTracked: true }
+        : {}),
       movedInOn: fromDay(movedInOn),
       lastPaydayOn: fromDay(lastPaydayOn),
       ...(addToPot !== undefined && rest.budgetAvailable === undefined
