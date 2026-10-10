@@ -1,8 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -13,14 +11,22 @@ datasource db {
 }
 
 enum Room {
-  KITCHEN
-  BATHROOM
-  LIVING_ROOM
-  BEDROOM
-  GARDEN
-  EXTERIOR
   WHOLE_HOUSE
-  OTHER
+  HALLWAY
+  SITTING_ROOM
+  KITCHEN
+  GAMES_ROOM
+  UNDERSTAIR_CUPBOARD
+  LANDING
+  SPARE_ROOM_1
+  SPARE_ROOM_2
+  MASTER_BEDROOM
+  BATHROOM_1
+  BATHROOM_2
+  BACK_GARDEN
+  FRONT_GARDEN
+  DRIVEWAY
+  ATTIC
 }
 
 enum Priority {
@@ -29,33 +35,126 @@ enum Priority {
   SOMEDAY
 }
 
+// A job to do, or a thing to buy. Both share every field — a job can cost
+// money (a tradesperson, materials) and a purchase can have steps.
+enum Kind {
+  TASK
+  BUY
+}
+
 enum Status {
-  WISHLIST
-  PLANNED
-  BOUGHT
+  TODO
+  DOING
+  DONE
+}
+
+enum Repeat {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  TWICE_YEARLY
+  YEARLY
 }
 
 model Item {
-  id             String   @id @default(cuid())
-  title          String
-  room           Room
-  estimatedPrice Float
+  id       String   @id @default(cuid())
+  title    String
+  kind     Kind     @default(TASK)
+  room     Room     @default(WHOLE_HOUSE)
+  priority Priority @default(WOULD_LIKE)
+  status   Status   @default(TODO)
+
+  // Cost is optional — plenty of jobs are free. A range is estimatedPrice to
+  // estimateMax; planning uses the top of the range so it never under-promises.
+  estimatedPrice Float?
+  estimateMax    Float?
+  isQuote        Boolean @default(false)
   actualPrice    Float?
-  priority       Priority
-  link           String?
-  notes          String?
-  addedBy        String
-  status         Status   @default(WISHLIST)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+
+  // Free text so it can be either of them, "Both", or a tradesperson.
+  assignee String?
+  dueDate  DateTime? @db.Date
+  // Loose grouping tag ("Kitchen reno"). Replaced the old user-created lists.
+  project  String?
+  link     String?
+  notes    String?
+
+  // Repeating jobs: finishing one creates the next, which points back here
+  // so undoing the finish can take the new one away again.
+  repeat        Repeat?
+  spawnedFromId String?
+  // Pinned by hand: "we've decided this is next", ahead of the automatic order.
+  pinned        Boolean @default(false)
+
+  addedBy     String
+  completedAt DateTime?
+  completedBy String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  steps    Step[]
+  quotes   Quote[]
+  comments Comment[]
 
   @@index([status])
   @@index([priority])
   @@index([room])
 }
 
-// Single-row table holding the shared household budget figure.
+// One line of an item's checklist ("buy paint", "first coat", …).
+model Step {
+  id        String   @id @default(cuid())
+  itemId    String
+  text      String
+  done      Boolean  @default(false)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+}
+
+// Single-row table holding the household's shared settings.
 model Settings {
-  id              Int    @id @default(1)
-  budgetAvailable Float  @default(0)
+  id              Int       @id @default(1)
+  // The pot: money available right now. Spending on an item comes out of it.
+  budgetAvailable Float     @default(0)
+  monthlySaving   Float     @default(0)
+  // Names that have used the app — offered at the name gate and as assignees.
+  members         String[]  @default([])
+  movedInOn       DateTime? @db.Date
+  // The last time the monthly saving went in, and by whom — so the other
+  // person can see it's been done before adding it a second time.
+  lastPaydayOn    DateTime? @db.Date
+  lastPaydayBy    String?
+}
+
+// A price from someone who'd do the job. Choosing one sets the item's cost.
+model Quote {
+  id        String   @id @default(cuid())
+  itemId    String
+  from      String
+  amount    Float
+  note      String?
+  chosen    Boolean  @default(false)
+  addedBy   String
+  createdAt DateTime @default(now())
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+}
+
+// A short update on an item — "rang them, waiting for a callback".
+model Comment {
+  id        String   @id @default(cuid())
+  itemId    String
+  author    String
+  text      String
+  createdAt DateTime @default(now())
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
 }

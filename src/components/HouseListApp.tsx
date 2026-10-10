@@ -1,349 +1,197 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ListFilter, Plus } from "lucide-react";
-import { NameGate } from "@/components/NameGate";
-import { BudgetBar } from "@/components/BudgetBar";
-import { FilterBar } from "@/components/FilterBar";
-import { ItemCard } from "@/components/ItemCard";
-import { ItemForm, ItemFormValues } from "@/components/ItemForm";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { MarkBoughtDialog } from "@/components/MarkBoughtDialog";
-import { EmptyState } from "@/components/EmptyState";
+import { useEffect, useState } from "react";
+import clsx from "clsx";
+import { House, LayoutGrid, ListChecks, Plus, Settings, Wallet } from "lucide-react";
 import { useDisplayName } from "@/lib/useDisplayName";
-import {
-  createItem,
-  deleteItem,
-  fetchItems,
-  fetchSettings,
-  logout,
-  updateItem,
-  updateSettings,
-} from "@/lib/api-client";
-import { NEXT_STATUS, PRIORITY_ORDER } from "@/lib/types";
-import type { ItemDTO, Priority, Room, SortKey, Status } from "@/lib/types";
+import { StoreProvider, useStore } from "@/lib/store";
+import { useRoute, type Route, type View } from "@/lib/nav";
+import type { ItemDTO, SettingsDTO } from "@/lib/types";
+import { NameGate } from "@/components/NameGate";
+import { ItemSheet } from "@/components/ItemSheet";
+import { BulkAddSheet } from "@/components/BulkAddSheet";
+import { SettingsSheet } from "@/components/SettingsSheet";
+import { Toasts } from "@/components/Toasts";
+import { OfflineBanner } from "@/components/OfflineBanner";
+import { Wordmark } from "@/components/Wordmark";
+import { HomeView } from "@/components/views/HomeView";
+import { ListView } from "@/components/views/ListView";
+import { RoomView, RoomsView } from "@/components/views/RoomsView";
+import { MoneyView } from "@/components/views/MoneyView";
 
-type Filters = {
-  priority: Priority[];
-  room: Room[];
-  status: Status[];
-};
+type Props = { initialItems: ItemDTO[]; initialSettings: SettingsDTO; calendarPath: string };
 
-const EMPTY_FILTERS: Filters = { priority: [], room: [], status: [] };
-
-function toggleValue<T>(list: T[], value: T): T[] {
-  return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
-}
-
-function sortItems(items: ItemDTO[], sort: SortKey): ItemDTO[] {
-  const copy = [...items];
-  switch (sort) {
-    case "price-desc":
-      return copy.sort((a, b) => b.estimatedPrice - a.estimatedPrice);
-    case "price-asc":
-      return copy.sort((a, b) => a.estimatedPrice - b.estimatedPrice);
-    case "recent":
-      return copy.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    case "priority":
-    default:
-      return copy.sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
-  }
-}
-
-type HouseListAppProps = {
-  initialItems: ItemDTO[];
-  initialBudget: number;
-};
-
-export function HouseListApp({ initialItems, initialBudget }: HouseListAppProps) {
-  const { name, setName } = useDisplayName();
-
-  const [items, setItems] = useState<ItemDTO[]>(initialItems);
-  const [budgetAvailable, setBudgetAvailable] = useState(initialBudget);
-
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [sort, setSort] = useState<SortKey>("priority");
-  const [filtersOpen, setFiltersOpen] = useState(false);
-
-  const [formState, setFormState] = useState<{ mode: "add" | "edit"; item?: ItemDTO } | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<ItemDTO | null>(null);
-  const [deleteBusy, setDeleteBusy] = useState(false);
-  const [boughtTarget, setBoughtTarget] = useState<ItemDTO | null>(null);
-  const [boughtBusy, setBoughtBusy] = useState(false);
-
-  // The list is shared between two people on separate devices with no
-  // realtime sync — quietly pick up their changes when this tab regains
-  // focus rather than showing stale data indefinitely.
-  const refresh = useCallback(async () => {
-    try {
-      const [freshItems, settings] = await Promise.all([fetchItems({}), fetchSettings()]);
-      setItems(freshItems);
-      setBudgetAvailable(settings.budgetAvailable);
-    } catch {
-      // Best-effort background refresh; keep showing what we already have.
-    }
-  }, []);
-
-  useEffect(() => {
-    function onVisibilityChange() {
-      if (document.visibilityState === "visible") refresh();
-    }
-    window.addEventListener("focus", refresh);
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    return () => {
-      window.removeEventListener("focus", refresh);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-    };
-  }, [refresh]);
-
-  const filteredSorted = useMemo(() => {
-    const filtered = items.filter((item) => {
-      if (filters.priority.length && !filters.priority.includes(item.priority)) return false;
-      if (filters.room.length && !filters.room.includes(item.room)) return false;
-      if (filters.status.length && !filters.status.includes(item.status)) return false;
-      return true;
-    });
-    return sortItems(filtered, sort);
-  }, [items, filters, sort]);
-
-  const totals = useMemo(() => {
-    const base = { must: 0, like: 0, someday: 0, boughtActual: 0 };
-    for (const item of items) {
-      if (item.status === "BOUGHT") {
-        base.boughtActual += item.actualPrice ?? item.estimatedPrice;
-        continue;
-      }
-      if (item.priority === "MUST_HAVE") base.must += item.estimatedPrice;
-      else if (item.priority === "WOULD_LIKE") base.like += item.estimatedPrice;
-      else base.someday += item.estimatedPrice;
-    }
-    return base;
-  }, [items]);
-
-  const activeFilterCount = filters.priority.length + filters.room.length + filters.status.length;
-
-  function closeForm() {
-    setFormState(null);
-  }
-
-  async function handleFormSubmit(values: ItemFormValues) {
-    if (formState?.mode === "edit" && formState.item) {
-      const updated = await updateItem(formState.item.id, {
-        title: values.title.trim(),
-        room: values.room,
-        estimatedPrice: Number(values.estimatedPrice),
-        priority: values.priority,
-        status: values.status,
-        link: values.link.trim() ? values.link.trim() : null,
-        notes: values.notes.trim() ? values.notes.trim() : null,
-        addedBy: values.addedBy.trim(),
-        actualPrice: values.actualPrice.trim() ? Number(values.actualPrice) : null,
-      });
-      setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
-    } else {
-      const created = await createItem({
-        title: values.title.trim(),
-        room: values.room,
-        estimatedPrice: Number(values.estimatedPrice),
-        priority: values.priority,
-        link: values.link.trim() || undefined,
-        notes: values.notes.trim() || undefined,
-        addedBy: values.addedBy.trim(),
-      });
-      setItems((prev) => [created, ...prev]);
-    }
-    closeForm();
-  }
-
-  async function handleConfirmDelete() {
-    if (!deleteTarget) return;
-    setDeleteBusy(true);
-    try {
-      await deleteItem(deleteTarget.id);
-      setItems((prev) => prev.filter((i) => i.id !== deleteTarget.id));
-      setDeleteTarget(null);
-    } catch {
-      // Leave the dialog open with its busy state cleared so they can retry.
-    } finally {
-      setDeleteBusy(false);
-    }
-  }
-
-  async function handleAdvanceStatus(item: ItemDTO) {
-    const next = NEXT_STATUS[item.status];
-    if (!next) return;
-    if (next === "BOUGHT") {
-      setBoughtTarget(item);
-      return;
-    }
-    const updated = await updateItem(item.id, { status: next });
-    setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
-  }
-
-  async function handleConfirmBought(actualPrice: number) {
-    if (!boughtTarget) return;
-    setBoughtBusy(true);
-    try {
-      const updated = await updateItem(boughtTarget.id, { status: "BOUGHT", actualPrice });
-      setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)));
-      setBoughtTarget(null);
-    } catch {
-      // keep dialog open on failure
-    } finally {
-      setBoughtBusy(false);
-    }
-  }
-
-  async function handleSaveBudget(value: number) {
-    await updateSettings(value);
-    setBudgetAvailable(value);
-  }
+export function HouseListApp({ initialItems, initialSettings, calendarPath }: Props) {
+  const { name, setName, clearName } = useDisplayName();
 
   if (!name) {
-    return (
-      <div className="blueprint-canvas min-h-screen">
-        <NameGate onSubmit={setName} />
-      </div>
-    );
+    return <NameGate members={initialSettings.members} onSubmit={setName} />;
   }
 
   return (
-    <div className="blueprint-canvas min-h-screen">
-      <header className="sticky top-0 z-30 border-b border-blueprint-border bg-blueprint-bg/90 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <h1 className="text-lg font-semibold text-blueprint-ink sm:text-xl">The House List</h1>
-          <div className="flex items-center gap-3">
-            <span className="hidden font-mono text-xs text-blueprint-ink-muted sm:inline">
-              Signed in as <span className="text-blueprint-ink">{name}</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => setFormState({ mode: "add" })}
-              className="hidden items-center gap-1.5 rounded bg-someday px-3.5 py-2 text-sm font-medium text-someday-ink transition-colors hover:bg-someday/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blueprint-ink sm:inline-flex"
-            >
-              <Plus size={16} strokeWidth={2} aria-hidden="true" />
-              Add item
-            </button>
-          </div>
-        </div>
-      </header>
+    <StoreProvider initialItems={initialItems} initialSettings={initialSettings} me={name} calendarPath={calendarPath}>
+      <Shell onSwitchUser={clearName} />
+    </StoreProvider>
+  );
+}
 
-      <main className="mx-auto max-w-5xl px-4 pb-28 pt-5 sm:px-6 sm:pb-16">
-        <div className="space-y-5">
-          <BudgetBar
-            budgetAvailable={budgetAvailable}
-            mustHaveOutstanding={totals.must}
-            wouldLikeOutstanding={totals.like}
-            somedayOutstanding={totals.someday}
-            boughtActualTotal={totals.boughtActual}
-            onSaveBudget={handleSaveBudget}
-          />
+const NAV: { view: View; label: string; icon: typeof House }[] = [
+  { view: "home", label: "Home", icon: House },
+  { view: "list", label: "List", icon: ListChecks },
+  { view: "rooms", label: "Rooms", icon: LayoutGrid },
+  { view: "money", label: "Money", icon: Wallet },
+];
 
-          <div className="rounded-md border border-blueprint-border bg-blueprint-bg-raised/40 p-3 sm:p-4">
-            <div className="flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => setFiltersOpen((v) => !v)}
-                aria-expanded={filtersOpen}
-                className="flex items-center gap-2 rounded font-mono text-xs uppercase tracking-wider text-blueprint-ink-muted transition-colors hover:text-blueprint-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-someday"
-              >
-                <ListFilter size={15} strokeWidth={2} aria-hidden="true" />
-                Filters &amp; sort
-                {activeFilterCount > 0 && (
-                  <span className="rounded-full bg-someday px-1.5 py-0.5 text-[10px] font-semibold text-someday-ink">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </button>
-              <p className="font-mono text-xs text-blueprint-ink-faint">
-                {filteredSorted.length} of {items.length} item{items.length === 1 ? "" : "s"}
-              </p>
-            </div>
+function Shell({ onSwitchUser }: { onSwitchUser: () => void }) {
+  const { route, go } = useRoute();
+  const { openItem, me, editing, bulk, closeBulk } = useStore();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-            {filtersOpen && (
-              <div className="mt-4 border-t border-blueprint-border pt-4">
-                <FilterBar
-                  priority={filters.priority}
-                  room={filters.room}
-                  status={filters.status}
-                  sort={sort}
-                  onTogglePriority={(v) => setFilters((f) => ({ ...f, priority: toggleValue(f.priority, v) }))}
-                  onToggleRoom={(v) => setFilters((f) => ({ ...f, room: toggleValue(f.room, v) }))}
-                  onToggleStatus={(v) => setFilters((f) => ({ ...f, status: toggleValue(f.status, v) }))}
-                  onSortChange={setSort}
-                  onClear={() => setFilters(EMPTY_FILTERS)}
-                />
-              </div>
-            )}
-          </div>
+  // "n" to add from anywhere on a keyboard.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement;
+      if (e.metaKey || e.ctrlKey || e.altKey || editing || settingsOpen || bulk) return;
+      if (t.closest("input, textarea, select, [contenteditable]")) return;
+      if (e.key === "n") {
+        e.preventDefault();
+        const quick = document.getElementById("quick-add");
+        if (quick) quick.focus();
+        else openItem("new");
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openItem, editing, settingsOpen, bulk]);
 
-          {items.length === 0 ? (
-            <EmptyState variant="no-items" onAddItem={() => setFormState({ mode: "add" })} />
-          ) : filteredSorted.length === 0 ? (
-            <EmptyState variant="no-matches" onClearFilters={() => setFilters(EMPTY_FILTERS)} />
-          ) : (
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {filteredSorted.map((item) => (
-                <ItemCard
-                  key={item.id}
-                  item={item}
-                  onEdit={() => setFormState({ mode: "edit", item })}
-                  onDelete={() => setDeleteTarget(item)}
-                  onAdvanceStatus={() => handleAdvanceStatus(item)}
-                />
-              ))}
-            </ul>
-          )}
-        </div>
-      </main>
+  const addDefaults = route.room ? { room: route.room } : undefined;
 
-      <button
-        type="button"
-        onClick={() => setFormState({ mode: "add" })}
-        aria-label="Add item"
-        className="fixed right-5 bottom-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-someday text-someday-ink shadow-[0_10px_24px_rgba(0,0,0,0.4)] transition-colors hover:bg-someday/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blueprint-ink sm:hidden"
-      >
-        <Plus size={24} strokeWidth={2.25} />
-      </button>
-
-      <footer className="mx-auto max-w-5xl px-4 pb-10 text-center sm:px-6">
+  return (
+    <div className="lg:grid lg:grid-cols-[240px_1fr]">
+      {/* Desktop rail */}
+      <aside className="sticky top-0 hidden h-dvh flex-col border-r border-line px-4 py-6 lg:flex">
+        <Wordmark compact className="px-2" />
         <button
           type="button"
-          onClick={() => logout().then(() => window.location.replace("/login"))}
-          className="font-mono text-xs text-blueprint-ink-faint underline decoration-blueprint-ink-faint/40 underline-offset-2 hover:text-blueprint-ink-muted"
+          onClick={() => openItem("new", addDefaults)}
+          className="mt-7 flex items-center justify-center gap-2 rounded-xl bg-accent px-3 py-2.5 text-[14px] font-semibold text-accent-ink transition-colors hover:bg-accent-hover"
         >
-          Lock this device
+          <Plus size={18} strokeWidth={2.4} /> Add something
+          <kbd className="ml-1 rounded border border-white/30 px-1 text-[11px] font-medium opacity-80">N</kbd>
         </button>
-      </footer>
+        <nav aria-label="Main" className="mt-6 grid gap-0.5">
+          {NAV.map(({ view, label, icon: Icon }) => {
+            const active = route.view === view;
+            return (
+              <button
+                key={view}
+                type="button"
+                onClick={() => go({ view })}
+                aria-current={active ? "page" : undefined}
+                className={clsx(
+                  "flex items-center gap-3 rounded-[10px] px-3 py-2 text-[15px] font-semibold transition-colors",
+                  active ? "bg-sunken text-ink" : "text-ink-2 hover:bg-sunken/60 hover:text-ink",
+                )}
+              >
+                <Icon size={19} strokeWidth={active ? 2.3 : 2} />
+                {label}
+              </button>
+            );
+          })}
+        </nav>
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          className="mt-auto flex items-center gap-3 rounded-[10px] px-3 py-2 text-left text-[14px] text-ink-2 hover:bg-sunken/60 hover:text-ink"
+        >
+          <Settings size={18} />
+          <span className="min-w-0 flex-1 truncate">
+            Settings · <span className="font-semibold text-ink">{me}</span>
+          </span>
+        </button>
+      </aside>
 
-      <ItemForm
-        key={formState ? `${formState.mode}:${formState.item?.id ?? "new"}` : "closed"}
-        open={formState !== null}
-        mode={formState?.mode ?? "add"}
-        initial={formState?.item}
-        defaultAddedBy={name}
-        onSubmit={handleFormSubmit}
-        onCancel={closeForm}
-      />
+      <main className="mx-auto w-full max-w-[800px] px-4 pt-[max(16px,env(safe-area-inset-top))] pb-[calc(env(safe-area-inset-bottom)+104px)] sm:px-6 lg:pt-10 lg:pb-16">
+        <ViewSwitch route={route} go={go} onSettings={() => setSettingsOpen(true)} />
+      </main>
 
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title={`Delete "${deleteTarget?.title ?? ""}"?`}
-        description="This can't be undone."
-        confirmLabel="Delete"
-        destructive
-        busy={deleteBusy}
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteTarget(null)}
-      />
+      {/* Phone tab bar */}
+      <nav
+        aria-label="Main"
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/92 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg lg:hidden"
+      >
+        <div className="mx-auto grid max-w-[520px] grid-cols-5 items-center px-2">
+          {NAV.slice(0, 2).map((n) => (
+            <TabButton key={n.view} {...n} active={route.view === n.view} onClick={() => go({ view: n.view })} />
+          ))}
+          <div className="grid place-items-center">
+            <button
+              type="button"
+              onClick={() => openItem("new", addDefaults)}
+              aria-label="Add something"
+              className="grid h-12 w-12 place-items-center rounded-2xl bg-accent text-accent-ink shadow-pop transition-transform duration-150 active:scale-90"
+            >
+              <Plus size={24} strokeWidth={2.4} />
+            </button>
+          </div>
+          {NAV.slice(2).map((n) => (
+            <TabButton key={n.view} {...n} active={route.view === n.view} onClick={() => go({ view: n.view })} />
+          ))}
+        </div>
+      </nav>
 
-      <MarkBoughtDialog
-        key={boughtTarget?.id ?? "none"}
-        item={boughtTarget}
-        busy={boughtBusy}
-        onConfirm={handleConfirmBought}
-        onCancel={() => setBoughtTarget(null)}
+      <ItemSheet />
+      {bulk && <BulkAddSheet key={bulk.title} {...bulk} onClose={closeBulk} />}
+      <SettingsSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onSwitchUser={() => {
+          setSettingsOpen(false);
+          onSwitchUser();
+        }}
       />
+      <Toasts />
+      <OfflineBanner />
     </div>
+  );
+}
+
+function ViewSwitch({ route, go, onSettings }: { route: Route; go: (r: Route) => void; onSettings: () => void }) {
+  switch (route.view) {
+    case "list":
+      return <ListView />;
+    case "rooms":
+      return route.room ? <RoomView key={route.room} room={route.room} go={go} /> : <RoomsView go={go} />;
+    case "money":
+      return <MoneyView />;
+    default:
+      return <HomeView go={go} onSettings={onSettings} />;
+  }
+}
+
+function TabButton({
+  label,
+  icon: Icon,
+  active,
+  onClick,
+}: {
+  label: string;
+  icon: typeof House;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-current={active ? "page" : undefined}
+      className={clsx(
+        "flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold transition-colors",
+        active ? "text-ink" : "text-ink-3",
+      )}
+    >
+      <Icon size={22} strokeWidth={active ? 2.3 : 1.9} />
+      {label}
+    </button>
   );
 }

@@ -1,4 +1,5 @@
-import type { ItemDTO, Priority, Room, SortKey, Status } from "@/lib/types";
+import type { ItemDTO, SettingsDTO } from "@/lib/types";
+import type { ItemCreateInput, ItemUpdateInput, SettingsUpdateInput } from "@/lib/validation";
 
 export class ApiError extends Error {
   fieldErrors?: Record<string, string[] | undefined>;
@@ -11,108 +12,78 @@ export class ApiError extends Error {
   }
 }
 
-async function handle<T>(res: Response): Promise<T> {
-  if (res.status === 204) return undefined as T;
+async function request<T>(url: string, init?: RequestInit): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      ...init,
+      headers: init?.body ? { "Content-Type": "application/json" } : undefined,
+    });
+  } catch {
+    throw new ApiError("You're offline — that didn't save", 0);
+  }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new ApiError(body.error ?? "Something went wrong", res.status, body.fieldErrors);
+    // A locked session (cookie cleared elsewhere) — but a wrong PIN is also a
+    // 401, and that one must stay on the login form to show its message.
+    if (res.status === 401 && url !== "/api/auth") window.location.replace("/login");
+    throw new ApiError(body.error ?? "Something went wrong — try again", res.status, body.fieldErrors);
   }
   return body as T;
 }
 
-export type ItemFilters = {
-  priority?: Priority[];
-  room?: Room[];
-  status?: Status[];
-  sort?: SortKey;
-};
-
-export function buildItemsQuery(filters: ItemFilters): string {
-  const params = new URLSearchParams();
-  filters.priority?.forEach((p) => params.append("priority", p));
-  filters.room?.forEach((r) => params.append("room", r));
-  filters.status?.forEach((s) => params.append("status", s));
-  if (filters.sort) params.set("sort", filters.sort);
-  const qs = params.toString();
-  return qs ? `?${qs}` : "";
+export function fetchState() {
+  return request<{ items: ItemDTO[]; settings: SettingsDTO }>("/api/state", { cache: "no-store" });
 }
 
-export async function fetchItems(filters: ItemFilters): Promise<ItemDTO[]> {
-  const res = await fetch(`/api/items${buildItemsQuery(filters)}`);
-  const data = await handle<{ items: ItemDTO[] }>(res);
+export async function createItem(input: ItemCreateInput): Promise<ItemDTO> {
+  const data = await request<{ item: ItemDTO }>("/api/items", { method: "POST", body: JSON.stringify(input) });
+  return data.item;
+}
+
+export async function createItems(items: Omit<ItemCreateInput, "addedBy">[], addedBy: string): Promise<ItemDTO[]> {
+  const data = await request<{ items: ItemDTO[] }>("/api/items/bulk", {
+    method: "POST",
+    body: JSON.stringify({ items, addedBy }),
+  });
   return data.items;
 }
 
-export type ItemCreateInput = {
-  title: string;
-  room: Room;
-  estimatedPrice: number;
-  priority: Priority;
-  link?: string;
-  notes?: string;
-  addedBy: string;
-};
-
-export async function createItem(input: ItemCreateInput): Promise<ItemDTO> {
-  const res = await fetch("/api/items", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  const data = await handle<{ item: ItemDTO }>(res);
-  return data.item;
-}
-
-export type ItemUpdateInput = Partial<{
-  title: string;
-  room: Room;
-  estimatedPrice: number;
-  actualPrice: number | null;
-  priority: Priority;
-  status: Status;
-  link: string | null;
-  notes: string | null;
-  addedBy: string;
-}>;
-
-export async function updateItem(id: string, input: ItemUpdateInput): Promise<ItemDTO> {
-  const res = await fetch(`/api/items/${id}`, {
+export function updateItem(id: string, input: ItemUpdateInput) {
+  return request<{ item: ItemDTO; potDelta: number; spawned: ItemDTO | null; removedIds: string[] }>(`/api/items/${id}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
-  const data = await handle<{ item: ItemDTO }>(res);
+}
+
+async function itemCall(url: string, method: string, body?: unknown): Promise<ItemDTO> {
+  const data = await request<{ item: ItemDTO }>(url, { method, body: body ? JSON.stringify(body) : undefined });
   return data.item;
 }
+
+export const addQuote = (itemId: string, quote: { from: string; amount: number; note?: string | null; addedBy: string }) =>
+  itemCall(`/api/items/${itemId}/quotes`, "POST", quote);
+export const updateQuote = (quoteId: string, patch: { from?: string; amount?: number; note?: string | null; chosen?: boolean }) =>
+  itemCall(`/api/quotes/${quoteId}`, "PATCH", patch);
+export const deleteQuote = (quoteId: string) => itemCall(`/api/quotes/${quoteId}`, "DELETE");
+export const addComment = (itemId: string, text: string, author: string) =>
+  itemCall(`/api/items/${itemId}/comments`, "POST", { text, author });
+export const deleteComment = (commentId: string) => itemCall(`/api/comments/${commentId}`, "DELETE");
 
 export async function deleteItem(id: string): Promise<void> {
-  const res = await fetch(`/api/items/${id}`, { method: "DELETE" });
-  await handle<{ ok: true }>(res);
+  await request(`/api/items/${id}`, { method: "DELETE" });
 }
 
-export async function fetchSettings(): Promise<{ id: number; budgetAvailable: number }> {
-  const res = await fetch("/api/settings");
-  const data = await handle<{ settings: { id: number; budgetAvailable: number } }>(res);
-  return data.settings;
-}
-
-export async function updateSettings(budgetAvailable: number) {
-  const res = await fetch("/api/settings", {
+export async function updateSettings(input: SettingsUpdateInput): Promise<SettingsDTO> {
+  const data = await request<{ settings: SettingsDTO }>("/api/settings", {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ budgetAvailable }),
+    body: JSON.stringify(input),
   });
-  const data = await handle<{ settings: { id: number; budgetAvailable: number } }>(res);
   return data.settings;
 }
 
 export async function login(pin: string): Promise<void> {
-  const res = await fetch("/api/auth", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pin }),
-  });
-  await handle<{ ok: true }>(res);
+  await request("/api/auth", { method: "POST", body: JSON.stringify({ pin }) });
 }
 
 export async function logout(): Promise<void> {

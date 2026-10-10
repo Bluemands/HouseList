@@ -1,54 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { itemCreateSchema } from "@/lib/validation";
-import { PRIORITIES, PRIORITY_ORDER, ROOMS, STATUSES } from "@/lib/types";
-import type { Prisma } from "@/generated/prisma/client";
-
-function parseEnumList<T extends string>(
-  values: string[],
-  allowed: readonly T[],
-): T[] {
-  return values.filter((v): v is T => (allowed as readonly string[]).includes(v));
-}
-
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-
-  const priorities = parseEnumList(searchParams.getAll("priority"), PRIORITIES);
-  const rooms = parseEnumList(searchParams.getAll("room"), ROOMS);
-  const statuses = parseEnumList(searchParams.getAll("status"), STATUSES);
-  const sort = searchParams.get("sort") ?? "priority";
-
-  const where: Prisma.ItemWhereInput = {};
-  if (priorities.length) where.priority = { in: priorities };
-  if (rooms.length) where.room = { in: rooms };
-  if (statuses.length) where.status = { in: statuses };
-
-  let orderBy: Prisma.ItemOrderByWithRelationInput | Prisma.ItemOrderByWithRelationInput[];
-  switch (sort) {
-    case "price-desc":
-      orderBy = { estimatedPrice: "desc" };
-      break;
-    case "price-asc":
-      orderBy = { estimatedPrice: "asc" };
-      break;
-    case "recent":
-      orderBy = { createdAt: "desc" };
-      break;
-    case "priority":
-    default:
-      orderBy = { createdAt: "desc" };
-      break;
-  }
-
-  const items = await prisma.item.findMany({ where, orderBy });
-
-  if (sort === "priority" || !sort) {
-    items.sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]);
-  }
-
-  return NextResponse.json({ items });
-}
+import { ITEM_INCLUDE, fromDay, getSettings, toItemDTO } from "@/lib/data";
 
 export async function POST(request: NextRequest) {
   let body: unknown;
@@ -61,22 +14,40 @@ export async function POST(request: NextRequest) {
   const parsed = itemCreateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Validation failed", fieldErrors: parsed.error.flatten().fieldErrors },
+      { error: "Check the highlighted fields", fieldErrors: parsed.error.flatten().fieldErrors },
       { status: 400 },
     );
   }
 
-  const item = await prisma.item.create({
-    data: {
-      title: parsed.data.title,
-      room: parsed.data.room,
-      estimatedPrice: parsed.data.estimatedPrice,
-      priority: parsed.data.priority,
-      link: parsed.data.link ?? null,
-      notes: parsed.data.notes ?? null,
-      addedBy: parsed.data.addedBy,
-    },
+  const { steps, dueDate, ...data } = parsed.data;
+  const done = data.status === "DONE";
+  const actualPrice = done ? (data.actualPrice ?? data.estimatedPrice ?? null) : (data.actualPrice ?? null);
+
+  const settings = await getSettings();
+  const item = await prisma.$transaction(async (tx) => {
+    const created = await tx.item.create({
+      data: {
+        ...data,
+        actualPrice,
+        dueDate: fromDay(dueDate),
+        completedAt: done ? new Date() : null,
+        completedBy: done ? data.addedBy : null,
+        steps: steps?.length
+          ? { create: steps.map((s, position) => ({ text: s.text, done: s.done ?? false, position })) }
+          : undefined,
+      },
+      include: ITEM_INCLUDE,
+    });
+    await tx.settings.update({
+      where: { id: 1 },
+      data: {
+        // Logging something already bought spends it from the pot.
+        budgetAvailable: done && actualPrice ? { decrement: actualPrice } : undefined,
+        members: settings.members.includes(data.addedBy) ? undefined : { push: data.addedBy },
+      },
+    });
+    return created;
   });
 
-  return NextResponse.json({ item }, { status: 201 });
+  return NextResponse.json({ item: toItemDTO(item) }, { status: 201 });
 }

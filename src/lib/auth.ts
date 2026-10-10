@@ -56,3 +56,22 @@ export function isValidPin(pin: string): boolean {
   }
   return timingSafeEqualStr(pin, expected);
 }
+
+// The calendar feed can't send a cookie (calendar apps fetch it on their own),
+// so it's protected by an unguessable token in the URL instead — derived from
+// the same secret, so rotating AUTH_SECRET revokes old subscriptions too.
+export async function computeCalendarToken(): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(getSecret()),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode("calendar-feed"));
+  return toHex(signature).slice(0, 40);
+}
+
+export async function isValidCalendarToken(token: string): Promise<boolean> {
+  return timingSafeEqualStr(token, await computeCalendarToken());
+}

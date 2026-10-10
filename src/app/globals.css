@@ -1,145 +1,322 @@
 @import "tailwindcss";
 
+/* Dark mode follows the system unless someone picks a side in settings,
+   which sets data-theme on <html>. Components only ever use these tokens. */
 :root {
-  /* Blueprint canvas — the dark architectural-drawing chrome */
-  --color-blueprint-bg: #0a1626;
-  --color-blueprint-bg-raised: #0f2038;
-  --color-blueprint-bg-inset: #071120;
-  --color-blueprint-line: rgba(150, 185, 255, 0.06);
-  --color-blueprint-line-strong: rgba(150, 185, 255, 0.13);
-  --color-blueprint-ink: #dfe9f7;
-  --color-blueprint-ink-muted: #8ea0c2;
-  /* 5.3:1 on --color-blueprint-bg — small uppercase labels need 4.5:1, not the
-     3:1 large-text minimum, so this sits well clear of the line. */
-  --color-blueprint-ink-faint: #7c8caa;
-  --color-blueprint-border: rgba(150, 185, 255, 0.18);
+  /* Limestone — a warm grey-white ground, not cream. */
+  --bg: #f3f0ea;
+  --surface: #fbfaf7;
+  --sunken: #ebe7df;
+  --line: #e2ddd3;
+  --line-strong: #cbc4b6;
+  --ink: #211f1b;
+  --ink-2: #57524a;
+  --ink-3: #6f695e;
 
-  /* Paper — the card surface pinned onto the canvas */
-  --color-paper: #f4efe2;
-  --color-paper-raised: #faf7ee;
-  --color-paper-ink: #1d2333;
-  --color-paper-ink-muted: #5c6274;
-  --color-paper-line: #ddd4bd;
-  --color-paper-shadow: rgba(5, 12, 24, 0.45);
+  /* Front Door Green — every action, selection and "done". */
+  --accent: #2c6a55;
+  --accent-hover: #245a48;
+  --accent-ink: #ffffff;
+  --accent-soft: #dceae3;
+  --accent-text: #24604c;
 
-  /* Priority — never the only signal, always paired with text. Each color
-     plays several roles that need different tuning to clear 4.5:1 body-text
-     contrast (a swatch dark enough to host white text on its own solid fill
-     is a different requirement than one used as text on its own pale tint,
-     or as text directly on the paper/blueprint surface) — hence the spread
-     of variants below rather than one swatch reused everywhere.
-       X        — saturated swatch: fills, tabs, borders, solid buttons
-                  (paired with X-ink or --color-on-solid, never bare text)
-       X-ink    — dark text for use on X-soft
-       X-soft   — pale tint background (badges)
-       X-bright / X-dark — X-colored text used directly on the blueprint /
-                  paper surface respectively */
-  --color-must: #c2402c;
-  --color-must-ink: #4a140b;
-  --color-must-soft: #f6ded7;
-  --color-must-bright: #f0897a;
-  --color-like: #d69f3a;
-  --color-like-ink: #402d05;
-  --color-like-soft: #f4e3c2;
-  --color-someday: #3a739e;
-  --color-someday-ink: #ffffff;
-  --color-someday-soft: #d9e7f2;
-  --color-someday-dark: #1f4e6e;
+  --danger: #b03d27;
+  --danger-soft: #f6e1da;
+  --warn: #8f5d0e;
+  --warn-soft: #f4e7cd;
 
-  /* Text/icons on a sufficiently dark solid fill (must, someday, good-solid).
-     Not usable on --color-like, which is light enough to need dark ink
-     instead — see --color-like-ink. */
-  --color-on-solid: #ffffff;
-
-  /* Functional */
-  --color-good: #4c9868; /* good-colored text directly on the blueprint surface */
-  --color-good-solid: #2e6b47; /* good-colored solid fills (buttons) */
-  --color-good-ink: #ffffff;
-  --color-good-dark: #1f5c3a; /* good-colored text on paper */
+  --chip-edge: rgb(0 0 0 / 0.08);
+  --shadow-sheet: 0 -12px 40px rgb(33 31 27 / 0.16);
+  --shadow-pop: 0 10px 30px rgb(33 31 27 / 0.14), 0 2px 6px rgb(33 31 27 / 0.08);
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-blueprint-bg: var(--color-blueprint-bg);
-  --color-blueprint-bg-raised: var(--color-blueprint-bg-raised);
-  --color-blueprint-bg-inset: var(--color-blueprint-bg-inset);
-  --color-blueprint-line: var(--color-blueprint-line);
-  --color-blueprint-line-strong: var(--color-blueprint-line-strong);
-  --color-blueprint-ink: var(--color-blueprint-ink);
-  --color-blueprint-ink-muted: var(--color-blueprint-ink-muted);
-  --color-blueprint-ink-faint: var(--color-blueprint-ink-faint);
-  --color-blueprint-border: var(--color-blueprint-border);
-
-  --color-paper: var(--color-paper);
-  --color-paper-raised: var(--color-paper-raised);
-  --color-paper-ink: var(--color-paper-ink);
-  --color-paper-ink-muted: var(--color-paper-ink-muted);
-  --color-paper-line: var(--color-paper-line);
-
-  --color-must: var(--color-must);
-  --color-must-ink: var(--color-must-ink);
-  --color-must-soft: var(--color-must-soft);
-  --color-must-bright: var(--color-must-bright);
-  --color-like: var(--color-like);
-  --color-like-ink: var(--color-like-ink);
-  --color-like-soft: var(--color-like-soft);
-  --color-someday: var(--color-someday);
-  --color-someday-ink: var(--color-someday-ink);
-  --color-someday-soft: var(--color-someday-soft);
-  --color-someday-dark: var(--color-someday-dark);
-
-  --color-on-solid: var(--color-on-solid);
-
-  --color-good: var(--color-good);
-  --color-good-solid: var(--color-good-solid);
-  --color-good-ink: var(--color-good-ink);
-  --color-good-dark: var(--color-good-dark);
-
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151412;
+    --surface: #1d1c19;
+    --sunken: #262420;
+    --line: #2e2c28;
+    --line-strong: #45413b;
+    --ink: #efebe4;
+    --ink-2: #b9b2a6;
+    --ink-3: #9a9387;
+    --accent: #5fb497;
+    --accent-hover: #74c3a7;
+    --accent-ink: #0f2a21;
+    --accent-soft: #1e352d;
+    --accent-text: #7fcbb0;
+    --danger: #f08a73;
+    --danger-soft: #3b211b;
+    --warn: #e2b15b;
+    --warn-soft: #362b16;
+    --chip-edge: rgb(255 255 255 / 0.16);
+    --shadow-sheet: 0 -12px 40px rgb(0 0 0 / 0.5);
+    --shadow-pop: 0 10px 30px rgb(0 0 0 / 0.45), 0 2px 6px rgb(0 0 0 / 0.3);
+    color-scheme: dark;
+  }
 }
 
-* {
-  border-color: var(--color-blueprint-border);
-}
-
-html {
+:root[data-theme="dark"] {
+  --bg: #151412;
+  --surface: #1d1c19;
+  --sunken: #262420;
+  --line: #2e2c28;
+  --line-strong: #45413b;
+  --ink: #efebe4;
+  --ink-2: #b9b2a6;
+  --ink-3: #9a9387;
+  --accent: #5fb497;
+  --accent-hover: #74c3a7;
+  --accent-ink: #0f2a21;
+  --accent-soft: #1e352d;
+  --accent-text: #7fcbb0;
+  --danger: #f08a73;
+  --danger-soft: #3b211b;
+  --warn: #e2b15b;
+  --warn-soft: #362b16;
+  --chip-edge: rgb(255 255 255 / 0.16);
+  --shadow-sheet: 0 -12px 40px rgb(0 0 0 / 0.5);
+  --shadow-pop: 0 10px 30px rgb(0 0 0 / 0.45), 0 2px 6px rgb(0 0 0 / 0.3);
   color-scheme: dark;
 }
 
-body {
-  background: var(--color-blueprint-bg);
-  color: var(--color-blueprint-ink);
-  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --shadow-sheet: var(--shadow-sheet);
+  --shadow-pop: var(--shadow-pop);
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* The drafting-table canvas: faint ruled grid, a touch denser every 4th line
-   to read like graph paper rather than a decorative pattern. */
-.blueprint-canvas {
-  background-color: var(--color-blueprint-bg);
-  background-image:
-    linear-gradient(var(--color-blueprint-line-strong) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-blueprint-line-strong) 1px, transparent 1px),
-    linear-gradient(var(--color-blueprint-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-blueprint-line) 1px, transparent 1px);
-  background-size:
-    96px 96px,
-    96px 96px,
-    24px 24px,
-    24px 24px;
-  background-position: -1px -1px;
+@layer base {
+  html {
+    background: var(--bg);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01";
+    caret-color: var(--accent);
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--ink-3);
+    opacity: 1;
+  }
+
+  a {
+    text-underline-offset: 3px;
+  }
 }
 
-.font-tabular {
+.tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* Horizontal scroll rails (room chips, the swatch deck) hide their bar but
+   keep momentum scrolling. */
+.rail {
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.rail::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---- Paint chips ---------------------------------------------------------
+   The one signature: a room's paint as a small square chip, and on swatch
+   cards a strip that fills in, one painted cell per finished job. */
+.chip {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 3px;
+  background: var(--paint);
+  box-shadow: inset 0 0 0 1px var(--chip-edge);
+  flex: none;
+}
+
+/* ---- Motion -------------------------------------------------------------- */
+
+/* Ticking an item off: the circle floods with paint, the tick draws itself. */
+@keyframes tick-flood {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes tick-draw {
+  from {
+    stroke-dashoffset: 16;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.tick-fill {
+  animation: tick-flood 320ms var(--ease-out-expo);
+}
+.tick-path {
+  stroke-dasharray: 16;
+  animation: tick-draw 260ms 80ms var(--ease-out-expo) both;
+}
+
+/* A ticked row stays long enough for its paint to flood, then folds away.
+   Ends just inside SETTLE_MS in the store, which then drops it from the list. */
+@keyframes row-leave {
+  to {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    border-bottom-color: transparent;
+  }
+}
+/* Doubled so it outranks .row-arrive when a just-added row is ticked. */
+.row-leave.row-leave {
+  animation: row-leave 320ms 620ms var(--ease-out-expo) forwards;
+}
+
+/* A freshly added row arrives from the quick-add box above it. */
+@keyframes row-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+    background-color: var(--accent-soft);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.row-arrive {
+  animation: row-arrive 420ms var(--ease-out-expo);
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes panel-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+dialog.sheet[open] {
+  animation: sheet-up 340ms var(--ease-out-expo);
+}
+dialog.sheet[open]::backdrop {
+  background: rgb(20 18 15 / 0.42);
+  animation: fade-in 200ms ease-out;
+}
+@media (min-width: 1024px) {
+  dialog.sheet[open] {
+    animation: panel-in 260ms var(--ease-out-expo);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.toast-in {
+  animation: toast-in 240ms var(--ease-out-expo);
+}
+
+/* The swatch strip paints in cell by cell on first view. */
+@keyframes paint-in {
+  from {
+    transform: scaleY(0.2);
+    opacity: 0.2;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.paint-in {
+  transform-origin: bottom;
+  animation: paint-in 480ms var(--ease-out-expo) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+  *::after,
+  dialog.sheet[open],
+  dialog.sheet[open]::backdrop {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
   }
 }

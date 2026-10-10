@@ -1,0 +1,190 @@
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { parseQuickAdd } from "@/lib/parse";
+
+// Friday 9 October 2026, mid-afternoon.
+beforeAll(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(2026, 9, 9, 15, 0));
+});
+afterAll(() => vi.useRealTimers());
+
+const members = ["Connor", "Sam"];
+const p = (s: string) => parseQuickAdd(s, members);
+
+describe("money", () => {
+  it("reads a plain price and treats it as a purchase", () => {
+    expect(p("Hallway runner £60")).toMatchObject({ title: "Hallway runner", estimatedPrice: 60, kind: "BUY" });
+  });
+  it("reads ranges in either spelling", () => {
+    expect(p("Sofa £800-1200")).toMatchObject({ title: "Sofa", estimatedPrice: 800, estimateMax: 1200 });
+    expect(p("Sofa £800 to £1,200")).toMatchObject({ estimatedPrice: 800, estimateMax: 1200 });
+    expect(p("Sofa £800–1200")).toMatchObject({ estimatedPrice: 800, estimateMax: 1200 });
+  });
+  it("reads thousands shorthand and pence", () => {
+    expect(p("New boiler £2.5k")).toMatchObject({ estimatedPrice: 2500 });
+    expect(p("Bulbs £4.99")).toMatchObject({ estimatedPrice: 4.99 });
+    expect(p("Kitchen £8k-12k").estimateMax).toBe(12000);
+  });
+  it("reads 'quid'", () => {
+    expect(p("Paint 40 quid")).toMatchObject({ title: "Paint", estimatedPrice: 40 });
+  });
+  it("leaves numbers that aren't money in the title", () => {
+    expect(p("Fit 2 shelves")).toMatchObject({ title: "Fit 2 shelves", estimatedPrice: null });
+  });
+});
+
+describe("kind", () => {
+  it("treats job verbs as jobs even with a price", () => {
+    expect(p("Fix bathroom tap £40").kind).toBe("TASK");
+    expect(p("Paint hallway £120").kind).toBe("TASK");
+  });
+  it("treats buy verbs as purchases", () => {
+    expect(p("Buy curtain poles").kind).toBe("BUY");
+    expect(p("Order new mattress").kind).toBe("BUY");
+  });
+  it("defaults to a job", () => {
+    expect(p("Find the stopcock").kind).toBe("TASK");
+  });
+});
+
+describe("priority", () => {
+  it("! and !! and !must mean must", () => {
+    expect(p("Smoke alarms !").priority).toBe("MUST_HAVE");
+    expect(p("Smoke alarms !!").priority).toBe("MUST_HAVE");
+    expect(p("Smoke alarms !must").priority).toBe("MUST_HAVE");
+  });
+  it("!someday and !want", () => {
+    expect(p("Hot tub !someday").priority).toBe("SOMEDAY");
+    expect(p("Rug !want").priority).toBe("WOULD_LIKE");
+  });
+  it("asap means must", () => {
+    expect(p("Fix tap asap")).toMatchObject({ title: "Fix tap", priority: "MUST_HAVE" });
+    expect(p("Fix tap ASAP !someday").priority).toBe("SOMEDAY");
+  });
+  it("doesn't eat exclamations inside words", () => {
+    expect(p("Wow! new rug")).toMatchObject({ priority: null, title: "Wow! new rug" });
+  });
+});
+
+describe("people", () => {
+  it("matches household names case-insensitively", () => {
+    expect(p("Bleed radiators @connor")).toMatchObject({ assignee: "Connor", title: "Bleed radiators" });
+  });
+  it("@both and tradespeople", () => {
+    expect(p("Paint @both").assignee).toBe("Both");
+    expect(p("Rewire @electrician").assignee).toBe("Electrician");
+  });
+  it("leaves email addresses alone", () => {
+    expect(p("Email quote to bob@example.com").assignee).toBeNull();
+  });
+});
+
+describe("dates", () => {
+  it("today / tomorrow", () => {
+    expect(p("Bins today").dueDate).toBe("2026-10-09");
+    expect(p("Bins tomorrow")).toMatchObject({ title: "Bins", dueDate: "2026-10-10" });
+  });
+  it("weekdays roll forward", () => {
+    expect(p("Call plumber by monday").dueDate).toBe("2026-10-12");
+    expect(p("Call plumber on fri").dueDate).toBe("2026-10-16");
+    expect(p("Call plumber friday").dueDate).toBe("2026-10-16");
+  });
+  it("doesn't read weekday-ish words as dates", () => {
+    expect(p("Sat nav holder").dueDate).toBeNull();
+    expect(p("Sun lounger").dueDate).toBeNull();
+    expect(p("Wed pictures frame").dueDate).toBeNull();
+  });
+  it("this weekend / next week / next month / end of month", () => {
+    expect(p("Mow lawn this weekend").dueDate).toBe("2026-10-10");
+    expect(p("Mow lawn next week").dueDate).toBe("2026-10-12");
+    expect(p("Mow lawn next month").dueDate).toBe("2026-11-01");
+    expect(p("Mow lawn end of month").dueDate).toBe("2026-10-31");
+  });
+  it("in N days / weeks", () => {
+    expect(p("Reseal bath in 3 days").dueDate).toBe("2026-10-12");
+    expect(p("Reseal bath in 2 weeks").dueDate).toBe("2026-10-23");
+  });
+  it("next/this weekday, without leaving the word behind", () => {
+    expect(p("Book electrician next friday")).toMatchObject({ title: "Book electrician", dueDate: "2026-10-16" });
+    expect(p("Book electrician next mon").dueDate).toBe("2026-10-12");
+    expect(p("Fix shed next sat").dueDate).toBe("2026-10-17");
+    expect(p("Fix shed this sat")).toMatchObject({ title: "Fix shed", dueDate: "2026-10-10" });
+    expect(p("Bins this friday").dueDate).toBe("2026-10-09");
+  });
+  it("in a week / a fortnight / N months, and end of the week", () => {
+    expect(p("Clean gutters in a week")).toMatchObject({ title: "Clean gutters", dueDate: "2026-10-16" });
+    expect(p("Clean gutters in a fortnight").dueDate).toBe("2026-10-23");
+    expect(p("Service boiler in 3 months")).toMatchObject({ title: "Service boiler", dueDate: "2027-01-09" });
+    expect(p("Paint fence by end of the week")).toMatchObject({ title: "Paint fence", dueDate: "2026-10-11" });
+  });
+  it("on the 15th", () => {
+    expect(p("Call plumber on the 15th")).toMatchObject({ title: "Call plumber", dueDate: "2026-10-15" });
+    expect(p("Pay window cleaner the 2nd").dueDate).toBe("2026-11-02");
+  });
+  it("explicit dates, rolling into next year when passed", () => {
+    expect(p("Gutters by 12 Nov").dueDate).toBe("2026-11-12");
+    expect(p("Gutters nov 12").dueDate).toBe("2026-11-12");
+    expect(p("Gutters 3rd march").dueDate).toBe("2027-03-03");
+    expect(p("Gutters 12/11").dueDate).toBe("2026-11-12");
+  });
+  it("doesn't read fractions or sizes as dates", () => {
+    expect(p("Buy 1/2 inch drill bit").dueDate).toBeNull();
+  });
+});
+
+describe("rooms", () => {
+  it("recognises a room in passing without removing it", () => {
+    expect(p("Fix bathroom tap")).toMatchObject({ title: "Fix bathroom tap", room: "BATHROOM_1" });
+    expect(p("Clear the loft")).toMatchObject({ room: "ATTIC" });
+    expect(p("Front garden hedge")).toMatchObject({ room: "FRONT_GARDEN" });
+  });
+  it("prefers the longest match", () => {
+    expect(p("Spare room 2 blinds").room).toBe("SPARE_ROOM_2");
+    expect(p("Bathroom 2 extractor").room).toBe("BATHROOM_2");
+  });
+  it("#tags are removed from the title", () => {
+    expect(p("New lamp #sitting-room")).toMatchObject({ title: "New lamp", room: "SITTING_ROOM" });
+    expect(p("Blind #bathroom2")).toMatchObject({ title: "Blind", room: "BATHROOM_2" });
+    expect(p("Shelves #kitchen")).toMatchObject({ title: "Shelves", room: "KITCHEN" });
+  });
+  it("doesn't match rooms inside other words", () => {
+    expect(p("Hallmark card").room).toBeNull();
+    expect(p("Test drive car").room).toBe("DRIVEWAY"); // known, acceptable: "drive" is an alias
+  });
+});
+
+describe("everything at once", () => {
+  it("parses the example from the hint", () => {
+    expect(p("Fix bathroom tap £40 tomorrow !must @Sam")).toEqual({
+      title: "Fix bathroom tap",
+      kind: "TASK",
+      room: "BATHROOM_1",
+      priority: "MUST_HAVE",
+      estimatedPrice: 40,
+      estimateMax: null,
+      dueDate: "2026-10-10",
+      assignee: "Sam",
+      repeat: null,
+    });
+  });
+  it("capitalises the title and collapses spaces", () => {
+    expect(p("  buy   bin bags  ").title).toBe("Buy bin bags");
+  });
+});
+
+describe("repeats", () => {
+  it("reads common phrasings and removes them from the title", () => {
+    expect(p("Boiler service every year")).toMatchObject({ title: "Boiler service", repeat: "YEARLY" });
+    expect(p("Test smoke alarms monthly")).toMatchObject({ title: "Test smoke alarms", repeat: "MONTHLY" });
+    expect(p("Clean filters every 3 months").repeat).toBe("QUARTERLY");
+    expect(p("Clean filters quarterly").repeat).toBe("QUARTERLY");
+    expect(p("Clear gutters twice a year").repeat).toBe("TWICE_YEARLY");
+    expect(p("Clear gutters every 6 months").repeat).toBe("TWICE_YEARLY");
+    expect(p("Bins every week").repeat).toBe("WEEKLY");
+    expect(p("Service boiler annually £90").repeat).toBe("YEARLY");
+  });
+  it("doesn't confuse repeats with due dates", () => {
+    expect(p("Bins every week").dueDate).toBeNull();
+    expect(p("Water plants weekly tomorrow")).toMatchObject({ repeat: "WEEKLY", dueDate: "2026-10-10" });
+  });
+});

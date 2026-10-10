@@ -1,18 +1,29 @@
 # The House List
 
-A shared home-renovation wishlist and budget tracker for two people. Log things you want to buy, fix, or change in the house, see the running cost, and see at a glance what your "must have" items would do to the budget you've got right now.
-
-Not a spreadsheet: items are scannable, colour-coded cards, and a live budget bar at the top always shows how much of your available money the must-have items would use.
+A shared to-do list and budget planner for a new house, for two people. Log every job and every thing to buy, room by room, and the app tells you what to do next, what the money covers right now, and roughly when the rest becomes affordable.
 
 ## Features
 
-- Add / edit / delete items (title, room, estimated price, actual price, priority, link, notes, who added it, status)
-- Move items Wishlist → Planned → Bought, prompting for the actual price paid when marked Bought
-- Live budget bar: set a "budget available now" figure and see it compared against outstanding must-have costs, with remainder or overspend shown clearly
-- Filter by priority / room / status (multi-select) and sort by priority, price, or recency
-- Running totals per priority tier, a grand total, and actual spend on bought items shown separately
-- A single shared PIN gate (no accounts) plus a one-time "what's your name" prompt remembered per device
-- Mobile-first, dark "architectural blueprint" design with accessible colour contrast throughout
+- **One-line quick add** — type `Fix bathroom tap £40 tomorrow !must @Sam` and it's filed: cost, due date, priority, who and room are pulled out of the sentence. `#kitchen` names a room explicitly; `£100-150` is a range.
+- **Paste a list** — paste several lines (from Notes, a chat, a spreadsheet) and each becomes its own item, reviewed before adding.
+- **New-home essentials** — a one-tap starter checklist of the jobs most UK households do in the first months (locks, stopcock, meter readings, boiler service…).
+- **Repeating jobs** — weekly to yearly. Ticking one off schedules the next, counted from the day it was done (`Boiler service every year` works in quick add).
+- **Jobs and purchases** — cost is optional, so "call the electrician" works as well as "buy a sofa". Statuses read To do / Doing / Done (or To buy / Ordered / Bought).
+- **Everything editable** in one sheet: room, priority, who's on it (either of you, both, or a tradesperson), due date, cost range, firm-quote flag, actual price paid, a checklist of steps, link, notes, project tag.
+- **Home** — the one thing to do next, then four more; the money in one line; rooms filling in; what the other person finished recently.
+- **Rooms** — every room has its own paint colour; its swatch strip paints in as jobs get done.
+- **Money** — the pot (money you have now) and a monthly saving. The plan spends the pot on the list in priority order, marks where it runs out, and dates the rest month by month. Ticking off something with a cost takes it out of the pot automatically. Spending so far, accuracy vs. estimates, and a CSV export of everything.
+- **Shopping trip** — under *To buy*, show only what the pot covers right now and tick things off in the shop.
+- **Compare quotes** — log quotes from tradespeople against a job; the cheapest is flagged, and choosing one sets the job's cost.
+- **Updates** — a short thread on any item ("rang them, waiting for a callback"), with who said it and when.
+- **Pin to the top** — anything you've decided is next leads Up next and its list group.
+- **Swipe on your phone** — right to finish, left to delete.
+- **Undo instead of "are you sure?"** for ticks, swipes and deletes.
+- **Offline banner** — no signal in the shop? It says so instead of failing quietly.
+- **Since you last looked** — opening the app shows what the other person added and finished.
+- **Due dates in your phone calendar** — subscribe once (Settings) and everything with a date shows up with a 9am reminder. The link is private and unguessable; rotating `AUTH_SECRET` revokes it.
+- Light and dark mode, installable to your phone's home screen, keyboard shortcut `N` to add on desktop.
+- A single shared PIN plus "who's this?" per device.
 
 ## Tech stack
 
@@ -39,6 +50,10 @@ cp .env.example .env
 | `HOUSE_PIN` | Yes | The shared PIN the two of you type in to unlock the app. The example ships with `changeme`; pick your own before sharing the app with anyone. |
 | `AUTH_SECRET` | Yes | A long random string used to sign the login cookie. Generate one with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` and paste the output in — the shipped placeholder is fine for local dev only. |
 | `DATABASE_POOL_MAX` | No (local dev only) | Leave at `1` locally — see the note below. Omit this variable entirely in production. |
+
+### Tests
+
+`npm test` runs the unit tests for the quick-add parser and the budget planner.
 
 ### 2. Install and run
 
@@ -76,8 +91,8 @@ This assumes you've never deployed anything before. It takes about 15 minutes.
 ### Step 2: Create a free Postgres database on Neon
 
 1. Go to [neon.tech](https://neon.tech) and sign up (free tier is plenty for this app).
-2. Create a new project (any name and region are fine).
-3. On the project dashboard, find the **connection string** (it looks like `postgresql://user:password@host/dbname?sslmode=require`). Copy it — you'll need it in Step 4.
+2. Create a new project (any name; pick a region near you, e.g. London).
+3. Click **Connect** on the project dashboard. Copy the connection string twice — once with **Connection pooling** on (its host contains `-pooler`), once with it off. You will need both in Step 4.
 
 ### Step 3: Import the project into Vercel
 
@@ -91,7 +106,8 @@ Still on the import screen (or afterwards under **Project Settings → Environme
 
 | Name | Value |
 |---|---|
-| `DATABASE_URL` | The Neon connection string from Step 2 |
+| `DATABASE_URL` | The **pooled** Neon connection string from Step 2 |
+| `DATABASE_URL_UNPOOLED` | The **direct** (non-pooled) Neon connection string — used only to apply database migrations |
 | `HOUSE_PIN` | Whatever PIN you and your partner want to use |
 | `AUTH_SECRET` | A long random string — generate one locally with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 
@@ -99,17 +115,7 @@ Do **not** add `DATABASE_POOL_MAX` — leave it unset in production.
 
 ### Step 5: Deploy
 
-Click **Deploy**. Vercel installs dependencies and builds the project (this also runs `prisma generate` automatically via the `postinstall` script already configured in `package.json`).
-
-### Step 6: Create the database tables
-
-The first deploy creates the app but not the database tables yet. From your local machine, with `DATABASE_URL` temporarily pointed at your **Neon** connection string, run:
-
-```bash
-DATABASE_URL="your-neon-connection-string-here" npx prisma migrate deploy
-```
-
-(On Windows PowerShell: `$env:DATABASE_URL="your-neon-connection-string-here"; npx prisma migrate deploy`.) This applies the same schema you've been using locally to your live database. You only need to do this once, and again any time the schema changes in the future.
+Click **Deploy**. Vercel runs the `vercel-build` script, which applies any pending database migrations (creating the tables on the first deploy) and then builds the app. Schema changes in later pushes are applied the same way, so there is nothing to run by hand.
 
 ### You're live
 
@@ -122,17 +128,18 @@ src/
   app/
     page.tsx          # server component: fetches initial data
     login/page.tsx     # PIN entry
-    api/                # items, settings, auth routes
-  components/           # BudgetBar, ItemCard, ItemForm, FilterBar, dialogs, HouseListApp (the client app shell)
-  lib/                   # prisma client, validation, auth, formatting, types
+    api/                # state, items, settings, export (CSV), auth routes
+  components/           # HouseListApp (shell), views/ (Home, List, Rooms, Money), ItemRow, QuickAdd, ItemSheet, …
+  lib/                   # store (shared state + sync), plan (budget maths), parse (quick add), rooms (paints), …
   proxy.ts               # PIN-gate middleware (Next.js 16's middleware convention)
 prisma/
-  schema.prisma          # Item + Settings models
+  schema.prisma          # Item, Step, Settings models
 ```
 
 ## Non-functional notes
 
-- Form validation runs both client-side (inline, immediate) and server-side (the API routes re-validate everything, so the app is safe even if a request bypasses the UI).
-- Deleting an item requires an explicit confirmation step; there's no undo, by design (kept simple for two trusted users).
-- The list has no realtime sync between devices, but it quietly refreshes in the background whenever the tab regains focus, so switching back to it after your partner's made changes picks them up without a manual reload.
-- Out of scope for v1 (see the original brief): photo uploads, multiple households/lists, email notifications, and a native mobile app.
+- Validation runs on the server for every write (zod), so the API is safe even if a request bypasses the UI.
+- Changes appear instantly and save in the background. If a save fails, the change is rolled back and a message says so.
+- Deletes wait out a few-second undo window before they reach the server.
+- No realtime push: the app polls every 15 seconds while it's open and refreshes when you switch back to it, so your partner's changes show up within moments.
+- Out of scope: photo uploads, multiple households, reminders/notifications, a native app.

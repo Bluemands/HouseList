@@ -1,216 +1,365 @@
 ---
 name: The House List
-description: A shared home-renovation wishlist and budget tracker, styled as an architectural blueprint.
+description: A shared jobs, buys and budget app for one house, organised as a paint chart where every room owns a named colour.
 colors:
-  blueprint-bg: "#0a1626"
-  blueprint-bg-raised: "#0f2038"
-  blueprint-bg-inset: "#071120"
-  blueprint-ink: "#dfe9f7"
-  blueprint-ink-muted: "#8ea0c2"
-  blueprint-ink-faint: "#7c8caa"
-  paper: "#f4efe2"
-  paper-raised: "#faf7ee"
-  paper-ink: "#1d2333"
-  paper-ink-muted: "#5c6274"
-  paper-line: "#ddd4bd"
-  must: "#c2402c"
-  must-ink: "#4a140b"
-  must-soft: "#f6ded7"
-  must-bright: "#f0897a"
-  like: "#d69f3a"
-  like-ink: "#402d05"
-  like-soft: "#f4e3c2"
-  someday: "#3a739e"
-  someday-ink: "#ffffff"
-  someday-soft: "#d9e7f2"
-  someday-dark: "#1f4e6e"
-  good: "#4c9868"
-  good-solid: "#2e6b47"
-  good-ink: "#ffffff"
-  good-dark: "#1f5c3a"
-  on-solid: "#ffffff"
+  limestone: "#f3f0ea"
+  surface: "#fbfaf7"
+  sunken: "#ebe7df"
+  line: "#e2ddd3"
+  line-strong: "#cbc4b6"
+  ink: "#211f1b"
+  ink-2: "#57524a"
+  ink-3: "#6f695e"
+  front-door-green: "#2c6a55"
+  front-door-green-hover: "#245a48"
+  front-door-green-ink: "#ffffff"
+  front-door-green-soft: "#dceae3"
+  front-door-green-text: "#24604c"
+  danger: "#b03d27"
+  danger-soft: "#f6e1da"
+  night-ground: "#151412"
+  night-surface: "#1d1c19"
+  night-sunken: "#262420"
+  night-line: "#2e2c28"
+  night-line-strong: "#45413b"
+  night-ink: "#efebe4"
+  night-ink-2: "#b9b2a6"
+  night-ink-3: "#9a9387"
+  night-green: "#5fb497"
+  night-green-hover: "#74c3a7"
+  night-green-ink: "#0f2a21"
+  night-green-soft: "#1e352d"
+  night-green-text: "#7fcbb0"
+  night-danger: "#f08a73"
+  night-danger-soft: "#3b211b"
+  paint-plaster: "#d9ccb9"
+  paint-hall-stone: "#b8a184"
+  paint-moss: "#879360"
+  paint-sage: "#9db39a"
+  paint-billiard: "#2f5e4e"
+  paint-mousehole: "#958c7f"
+  paint-skylight: "#a9c3d3"
+  paint-lavender: "#b3a6cb"
+  paint-apricot: "#e6b48a"
+  paint-midnight: "#33405f"
+  paint-seafoam: "#94c7bd"
+  paint-tile-blue: "#5f8fb3"
+  paint-fern: "#5c7d45"
+  paint-lichen: "#bdb86c"
+  paint-slate: "#5f6368"
+  paint-rafter: "#a5683f"
 typography:
   display:
-    fontFamily: "Geist Sans, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "1.875rem"
+    fontFamily: "Figtree, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "32px"
+    fontWeight: 700
+    lineHeight: 1
+    letterSpacing: "-0.03em"
+  headline:
+    fontFamily: "Figtree, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "28px"
+    fontWeight: 700
+    lineHeight: 1.25
+    letterSpacing: "-0.025em"
+  figure:
+    fontFamily: "Figtree, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "34px"
+    fontWeight: 700
+    lineHeight: 1.25
+    letterSpacing: "-0.025em"
+    fontFeature: "\"tnum\" 1"
+  sheet-title:
+    fontFamily: "Figtree, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "22px"
+    fontWeight: 700
+    lineHeight: 1.25
+    letterSpacing: "-0.015em"
+  item-lead:
+    fontFamily: "Figtree, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "18px"
     fontWeight: 600
-    lineHeight: 1.2
+    lineHeight: 1.375
+    letterSpacing: "-0.01em"
   title:
-    fontFamily: "Geist Sans, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "1.125rem"
-    fontWeight: 600
-    lineHeight: 1.35
+    fontFamily: "Figtree, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "17px"
+    fontWeight: 700
+    letterSpacing: "-0.01em"
   body:
-    fontFamily: "Geist Sans, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "0.875rem"
-    fontWeight: 400
-    lineHeight: 1.5
-  label:
-    fontFamily: "Geist Mono, ui-monospace, monospace"
-    fontSize: "0.6875rem"
+    fontFamily: "Figtree, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "15px"
     fontWeight: 500
-    letterSpacing: "0.2em"
+    lineHeight: 1.375
+  supporting:
+    fontFamily: "Figtree, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "14px"
+    fontWeight: 400
+  meta:
+    fontFamily: "Figtree, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 400
+  hint:
+    fontFamily: "Figtree, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "12px"
+    fontWeight: 400
+  label:
+    fontFamily: "Figtree, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "11px"
+    fontWeight: 600
+    letterSpacing: "0.02em"
 rounded:
-  sm: "4px"
-  md: "6px"
+  paint-cell: "2px"
+  chip: "3px"
+  pill: "4px"
+  control: "10px"
+  card: "14px"
+  panel: "16px"
+  room-header: "20px"
+  sheet: "22px"
   full: "9999px"
 spacing:
   xs: "4px"
   sm: "8px"
-  md: "16px"
-  lg: "20px"
-  xl: "32px"
+  md: "12px"
+  lg: "16px"
+  xl: "20px"
+  2xl: "28px"
 components:
   button-primary:
-    backgroundColor: "{colors.someday}"
-    textColor: "{colors.someday-ink}"
-    rounded: "{rounded.sm}"
-    padding: "8px 14px"
-  button-primary-hover:
-    backgroundColor: "{colors.someday}"
-  button-secondary:
-    backgroundColor: "{colors.blueprint-bg}"
-    textColor: "{colors.blueprint-ink}"
-    rounded: "{rounded.sm}"
+    backgroundColor: "{colors.front-door-green}"
+    textColor: "{colors.front-door-green-ink}"
+    typography: "{typography.body}"
+    rounded: "{rounded.control}"
     padding: "10px 16px"
-  button-destructive:
-    backgroundColor: "{colors.must}"
-    textColor: "{colors.on-solid}"
-    rounded: "{rounded.sm}"
-    padding: "8px 14px"
-  card:
-    backgroundColor: "{colors.paper}"
-    textColor: "{colors.paper-ink}"
-    rounded: "{rounded.md}"
-    padding: "16px"
+  button-primary-hover:
+    backgroundColor: "{colors.front-door-green-hover}"
+  button-secondary:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.control}"
+    padding: "10px 16px"
+  button-secondary-hover:
+    backgroundColor: "{colors.sunken}"
+  button-ghost:
+    textColor: "{colors.ink-2}"
+    rounded: "{rounded.control}"
+    padding: "10px 16px"
+  button-ghost-hover:
+    backgroundColor: "{colors.sunken}"
+    textColor: "{colors.ink}"
+  tab-add:
+    backgroundColor: "{colors.front-door-green}"
+    textColor: "{colors.front-door-green-ink}"
+    rounded: "{rounded.panel}"
+    size: "48px"
+  filter-chip:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink-2}"
+    rounded: "{rounded.full}"
+    padding: "6px 12px"
+  filter-chip-selected:
+    backgroundColor: "{colors.front-door-green-soft}"
+    textColor: "{colors.front-door-green-text}"
+  priority-must:
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.limestone}"
+    typography: "{typography.label}"
+    rounded: "{rounded.pill}"
+    padding: "1px 6px"
+  input:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.control}"
+    padding: "10px 12px"
+  quick-add:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.panel}"
+    padding: "6px 6px 6px 14px"
+  paint-chip:
+    rounded: "{rounded.chip}"
+    size: "12px"
+  swatch-card:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.card}"
+    width: "148px"
+  toast:
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.limestone}"
+    rounded: "{rounded.card}"
+    padding: "6px 6px 6px 16px"
+  item-sheet:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.sheet}"
+    width: "460px"
 ---
 
 # Design System: The House List
 
 ## Overview
 
-**Creative North Star: "The Drafting Table"**
+**Creative North Star: "The Paint Chart"**
 
-The House List renders as a working architectural drawing: a deep-navy canvas ruled with a faint measurement grid, with each real thing on the list — a hob, a fan, a shed — pinned to it as a paper spec sheet. The system exists to make a financial tradeoff legible in seconds, not to decorate a todo list. Every device serves that: the budget bar reads as a dimension line rather than a progress ring, prices set in tabular monospace so figures compare cleanly down a column, and priority is a paper title-block tab rather than a colored dot.
+The house is a fan deck of paint chips. Every room owns a named paint with a card number (No. 01 Plaster through No. 16 Rafter), and the app is organised by the rooms you are actually standing in. Everything else is deliberately quiet: a warm limestone ground, near-black ink, one family of type, and a single deep Front Door Green for anything you can press, pick or finish. The paints are the only saturated colour on any screen, so a room is recognisable at a glance from a 12px chip beside a row.
 
-This is an **Operate**-mode surface (a tool used mid-decision, not browsed for pleasure), so the system deliberately refuses ornament: no kickers, no icon-plus-heading feature cards, no gradient text. Color is functional throughout — red/amber/blue never appear as decoration, only as the priority or status they name, and always paired with a text label so the system never depends on color alone.
+Density is Things/Linear-grade: hairline rows sitting directly on the ground, a short meta line under each title, numbers in tabular figures aligned on the right. Progress is shown as paint, not as percentages: a room's swatch card carries a strip of cells that paint in one per finished job, and ticking an item floods its circle with that room's colour. Mistakes are undone, not prevented; there are no "are you sure?" dialogs, only an undo toast.
+
+Light and dark are both first-class. Dark swaps limestone for a warm near-black (night ground) and lifts the green to a lighter mint; the room paints stay the same pigment in both, because a paint does not change colour when the lights go off.
 
 **Key Characteristics:**
-- Dark drafting-table canvas (ruled grid) as permanent chrome; content lives on paper-toned cards pinned to it.
-- Monospace for every price, date, tag, and room name — data reads as data, distinct from prose.
-- A dimension-line budget bar, not a progress bar or a KPI tile.
-- Every priority color is paired with a text label; never color alone.
-- Calm, flat, and quiet — the system's only job is legibility under a real spending decision.
+- Limestone ground, ink text, Front Door Green as the only interface accent.
+- Sixteen named room paints are the only saturated colour, shown as square chips, swatch cards and a full-bleed painted room header.
+- One family (Figtree), bold for headings and figures, tabular figures for every pound.
+- Hairline rows on the ground, not cards; cards are reserved for swatches, the money strip and the quick-add box.
+- Priority is typographic: an inked "Must" pill, a muted italic "Someday", nothing for the default.
+- Undo toasts instead of confirmation dialogs.
+- Bottom tab bar with a central add button on phones; left rail and a right side panel on desktop.
 
 ## Colors
 
-Color plays a strictly functional role: navy is the app's permanent chrome, paper is where content lives, and red/amber/blue are reserved entirely for priority and status — never used decoratively.
+A neutral, warm limestone system with one green voice and a deck of sixteen room paints that carry all the colour.
 
 ### Primary
-- **Someday Blue** (`#3a739e`): the one interactive accent — primary buttons, the add-item action, active filter chips, focus rings. Doubles as the "Someday" priority color; this dual role is deliberate, keeping the palette from growing a separate "brand blue."
+- **Front Door Green** (front-door-green; night-green in dark): every action, selection and focus ring. Primary buttons, the tab-bar add button, the quick-add plus and focus border, selected filter chips (on front-door-green-soft with front-door-green-text), the must-haves coverage bar on the money strip, "Doing" status text and in-text links ("All 15", "All rooms").
+- **Front Door Green Soft** (front-door-green-soft): the tint behind selected chips, the hover fill of an empty tick circle, the flash a freshly added row arrives on, and text selection.
 
-### Secondary
-- **Must Red** (`#c2402c`): the "Must have" priority color and the destructive/danger color (delete, overspend). Darkened from a lighter red specifically so white text on a solid fill clears 4.5:1 contrast — see the Named Rule below.
-- **Would-Like Amber** (`#d69f3a`): the "Would like" priority color. Light enough that it always pairs with dark ink text, never white — the one priority color that inverts the usual light-on-solid pattern.
-- **Bought Green** (`#4c9868` text / `#2e6b47` solid fills): marks completed purchases and positive budget states. Not a priority color — reserved for "this is done" / "this is fine," so it never competes visually with the three priority hues.
+### Tertiary: the room paints
+Sixteen paints, one per room, each with a computed ink (dark ink #211f1b or white, whichever contrasts better; every pairing clears 4.5:1). Plaster (Whole house), Hall Stone (Hallway), Moss (Sitting room), Sage (Kitchen), Billiard (Games room), Mousehole (Understair cupboard), Skylight (Landing), Lavender (Spare room 1), Apricot (Spare room 2), Midnight (Master bedroom), Seafoam (Bathroom 1), Tile Blue (Bathroom 2), Fern (Back garden), Lichen (Front garden), Slate (Driveway), Rafter (Attic). They appear only as: the square paint chip beside a room name, the top panel of a swatch card, the painted cells of a progress strip, a ticked circle, and the full-bleed header of a room page.
 
 ### Neutral
-- **Blueprint Navy** (`#0a1626`, raised `#0f2038`, inset `#071120`): the permanent dark canvas — page background, sticky header, the budget-bar panel.
-- **Blueprint Ink** (`#dfe9f7` primary text, `#8ea0c2` muted, `#7c8caa` faint labels): text on the navy canvas, three steps of emphasis.
-- **Paper** (`#f4efe2`, raised `#faf7ee`): the card and modal surface pinned onto the canvas.
-- **Paper Ink** (`#1d2333` primary, `#5c6274` muted): text on paper.
+- **Limestone** (limestone / night-ground): the page ground and the theme colour of the browser chrome. Rows sit directly on it.
+- **Surface** (surface / night-surface): raised containers only: swatch cards, the money strip, quick-add, inputs, the item sheet, the tab bar (at 92% with blur).
+- **Sunken** (sunken / night-sunken): hover fill on rows and ghost controls, the active rail item, the segmented control track, parsed chips in quick-add.
+- **Line** (line, line-strong): hairline row dividers and card borders; line-strong for empty tick circles, dashed empty states and input hover.
+- **Ink** (ink, ink-2, ink-3): titles and figures; meta lines and secondary labels; hints, placeholders, done items and "Someday".
+- **Danger** (danger, danger-soft): overdue dates, "short for must-haves", late counts on swatch cards, destructive ghost buttons and error toasts. Never used for priority.
 
 ### Named Rules
-**The Never-Color-Alone Rule.** Every priority is a text badge ("MUST HAVE" / "WOULD LIKE" / "SOMEDAY"), never a bare color swatch or dot. Confirmed by the user as an explicit accessibility requirement.
+**The Paint Is The Only Colour Rule.** Saturated colour on any screen comes from a room paint or from Front Door Green. Nothing else gets a hue: not priority, not kind, not person.
 
-**The Surface-Tuned Ink Rule.** A priority's saturated swatch is never used as body text directly. Each color carries separate variants for its three real contexts — dark `*-ink` for text on its own pale `*-soft` tint, `*-bright`/`*-dark` for that color used as text directly on the blueprint or paper surface, and (for must/someday) a deliberately darkened solid swatch so white button text clears 4.5:1. A swatch light enough for one context (like's `#d69f3a` solid) is too light for white text, so it pairs with dark ink instead — the rule is "tune per context," not "one color, one text pairing."
+**The Green Means Press Rule.** Front Door Green marks what you can act on or what is selected. A paint never marks an action, and green never marks a room.
+
+**The Same Paint Day And Night Rule.** Room paints are fixed pigments; only the neutrals and the green change between light and dark.
 
 ## Typography
 
-**UI Font:** Geist Sans (with ui-sans-serif, system-ui fallback)
-**Label/Mono Font:** Geist Mono (with ui-monospace fallback)
+**Display Font:** Figtree (with ui-sans-serif, system-ui, sans-serif)
+**Body Font:** Figtree
+**Label/Mono Font:** none; figures use Figtree's tabular numerals.
 
-**Character:** A modern geometric sans for prose and controls, paired with its matching mono for anything measured — prices, dates, room names, priority tags. The pairing itself carries the "technical drawing" register without needing a display face.
+**Character:** One rounded grotesk throughout, friendly without being soft. Hierarchy comes from weight and size steps, with tight negative tracking on the big sizes. Stylistic set 01 is on globally.
 
 ### Hierarchy
-- **Display** (600, 1.875rem / 30px, 1.2): page-level heading, login screen only.
-- **Title** (600, 1.125rem, 1.35): card titles, dialog headings, section headings.
-- **Body** (400, 0.875rem, 1.5): notes, descriptions, form helper text.
-- **Label** (500, 0.6875rem / 11px, tracking 0.2em, uppercase, mono): every field label, section header ("PRIORITY", "BUDGET AVAILABLE NOW"), and metadata line.
-- **Figures** (mono, tabular-nums): every price and percentage — the `font-tabular` utility forces tabular figure widths so columns of prices align.
+- **Display** (700, 32px, line-height 1, -0.03em): the room name in a painted room header.
+- **Headline** (700, 28px, -0.025em): the view title on Home ("Evening, Connor"), Everything, Rooms, Money, and the login welcome (26px).
+- **Figure** (700, 34px, tabular): the headline money figure on the Money view; 28px and 22px steps of the same style for secondary totals.
+- **Sheet title** (700, 22px, -0.015em): the editable item title at the top of the detail sheet.
+- **Item lead** (600, 18px, -0.01em): the first "Up next" row only.
+- **Title** (700, 17px, -0.01em): section heads ("Up next", "Rooms") and the pot figure in the money strip. Sticky group heads in the list step down to 700 at 14px.
+- **Body** (500, 15px, line-height 1.375): row titles and input text. Supporting sentences run 14px regular in ink-2.
+- **Meta** (400, 13px; 12-12.5px for hints): the line under a row title: room tag, due date, assignee, steps, affordability month.
+- **Label** (600-700, 11px): paint number and name on a swatch, the "Must" pill, tab-bar labels.
 
 ### Named Rules
-**The Mono-Is-Data Rule.** Monospace marks measurement, not "technical mood": prices, dates, room/status/priority tags. Prose (titles, notes, descriptions) stays in the sans face. Applying mono to a heading or paragraph is a violation of this rule.
+**The Tabular Pound Rule.** Every money figure, count and date-like number is set in tabular figures, so prices align down the right edge of a list.
+
+**The One Family Rule.** Figtree is the only typeface. Emphasis is weight (500, 600, 700) and size, never a second family.
+
+**The Typographic Priority Rule.** Priority is shown by type, never colour: "Must" is an inked pill (ink ground, limestone text, 11px bold); "Someday" is 12px italic in ink-3; the default ("Would like") shows nothing.
 
 ## Layout
 
-Mobile-first, single-column by default; content widens into a responsive card grid (`sm:grid-cols-2`, `xl:grid-cols-3`) and a max-width-5xl centered shell at desktop widths. The header is sticky (`position: sticky; top: 0`) with a translucent blurred navy background so scrolled content remains legible beneath it. On mobile, the primary "add item" action moves from a header button to a fixed bottom-right floating action button for one-thumb reach; both never render simultaneously (`sm:hidden` / `hidden sm:inline-flex`). Spacing follows Tailwind's default scale; card interiors use 16–20px padding, sections stack with 12–20px gaps.
+Phone-first, single column. Content sits in a centred column capped at 800px with 16px side gutters on phones and 24px from 640px up; bottom padding clears the tab bar and the safe-area inset. Views stack sections on a 28px gap (Home) or 20px gap (Rooms, room pages, lists). Rows pad 12px vertically, 16px for the lead row.
+
+At 1024px the shell becomes a two-column grid: a 240px sticky left rail (wordmark, a full-width green "Add something" button with an N shortcut hint, the four nav items, settings at the foot) and the content column. The room swatch rail on Home scrolls horizontally on phones (148px cards, hidden scrollbar, momentum kept) and becomes a four-column grid on desktop showing the first eight rooms. The Rooms view is a 2/3/4-column grid of swatch cards for the rooms with something in them, followed by a "Not started" grid of compact paint tiles (a 36px square of the room's paint carrying its card number, beside the room name) on the same columns, so busy rooms are never buried under empty ones. A brand-new house shows all sixteen as swatch cards.
+
+In the Everything list the filter bar and group heads are sticky on the limestone ground so you always know which group you are in. The painted room header bleeds to the screen edges on phones and becomes a rounded block from 640px.
 
 ## Elevation & Depth
 
-Flat by default — the blueprint canvas has no shadows. Depth is reserved for content pinned "on top of" the canvas: paper cards and modals carry a soft, warm-toned shadow (`rgba(5, 12, 24, 0.45)`) that reads as the paper lifting slightly off the navy surface, never a hard offset or neobrutalist block shadow.
+Flat by default, tonal by structure. Rows have no surface at all; raised containers are separated by a 1px line border and the slightly lighter surface tone, not by shadow. Shadows appear only on things that float above the page or respond to touch.
 
 ### Shadow Vocabulary
-- **Card rest** (`0 6px 20px rgba(5,12,24,0.45)`): item cards against the canvas.
-- **Modal** (`0 20px 48px rgba(5,12,24,0.45)`, or `0 -8px 40px` for the mobile bottom sheet): dialogs and the add/edit form.
-- **Floating action button** (`0 10px 24px rgba(0,0,0,0.4)`): the mobile add-item button, slightly heavier since it floats free of any card.
+- **Sheet** (`0 -12px 40px rgb(33 31 27 / 0.16)`; dark `0 -12px 40px rgb(0 0 0 / 0.5)`): the item sheet and settings sheet, over a 42% warm-black backdrop.
+- **Pop** (`0 10px 30px rgb(33 31 27 / 0.14), 0 2px 6px rgb(33 31 27 / 0.08)`; darker in dark mode): toasts, the tab-bar add button, and a swatch card on hover (with a 2px lift).
+- **Paint edge** (`inset 0 0 0 1px rgb(0 0 0 / 0.08)`): the inner edge on a paint chip so pale paints hold against limestone.
 
 ### Named Rules
-**The Paper-Lifts Rule.** Only surfaces literally described as "paper pinned to the canvas" (cards, dialogs, the FAB) ever carry a shadow. The canvas itself, the header, and the budget-bar panel are flat — they're the wall, not the paper.
+**The Float-Only Shadow Rule.** A shadow means the element is floating (sheet, toast, add button) or being hovered. Resting cards and rows never carry one.
 
 ## Shapes
 
-Corners stay small and drafted-looking rather than soft/app-like: 4px (`rounded`) on buttons, inputs, and chips; 6px (`rounded-md`) on cards, dialogs, and section panels; full pill radius reserved for status chips and the FAB. Priority is marked with a 7px solid-color tab running the full height of a card's left edge — deliberately thicker than a typical 1–2px accent border so it reads as a physical tab/bookmark rather than a decorative line, per the user's explicit brief.
+Softly rounded, with radius growing with the size of the thing. Paint cells are 2px, paint chips 3px (deliberately square, like a chip cut from a card), the "Must" pill 4px, buttons, inputs and segmented controls 10px, swatch cards and toasts 14px, the quick-add box and money strip 16px, the painted room header 20px, sheets 22px on their leading edge. Tick targets and filter chips are full circles and pills. Empty states use a dashed line-strong border instead of an illustration.
 
 ## Components
 
 ### Buttons
-- **Shape:** 4px radius (`rounded`), never fully rounded except icon-only circular buttons (FAB).
-- **Primary:** solid `someday` fill, white text, used for the one primary action per screen (Add item, Save budget).
-- **Secondary:** solid navy (`blueprint-bg`) fill with light ink text — used for the card-level "Mark [status]" action and non-destructive dialog confirms.
-- **Destructive:** solid `must` fill, white text (`text-on-solid`) — delete confirmation only.
-- **Ghost/ text link:** no fill, muted ink, used for Cancel actions and the "Clear filters" control.
-- **Hover / Focus:** solid fills darken slightly (`/90` opacity) on hover; every interactive element gets a 2px `someday`-colored focus-visible outline, offset 2px — the one focus treatment used everywhere, deliberately not varied per component.
+- **Shape:** gently rounded (10px).
+- **Primary:** Front Door Green with white text (dark ink on mint in dark mode), 600 weight, 10px by 16px padding; hover deepens to the hover green; press scales to 0.97.
+- **Secondary:** surface fill with a hairline border, ink text; hover fills sunken.
+- **Ghost:** no fill, ink-2 text; hover fills sunken and darkens to ink. **Danger** is a ghost in danger red with a danger-soft hover.
+- **Focus:** a 2px green outline offset 2px, everywhere.
 
-### Chips (filter chips)
-- **Style:** pill-shaped (full radius), 1px border, transparent background at rest.
-- **State:** unselected — muted ink text, border only. Selected — solid `someday` fill, white text, border becomes `someday`.
+### Chips
+- **Filter chips:** full pills, hairline border on surface, ink-2 text at 13px 500; selected switches to a green border, green-soft fill and green text.
+- **Parsed chips (quick-add):** sunken pills at 12.5px that appear under the input as you type, showing the parsed room (with its paint chip), priority, cost, date and person.
 
 ### Cards / Containers
-- **Corner Style:** 6px radius.
-- **Background:** `paper` (`#f4efe2`), `paper-raised` (`#faf7ee`) for input fields and the card footer strip.
-- **Shadow Strategy:** see Elevation & Depth — card-rest shadow.
-- **Border:** 1px `paper-line` (`#ddd4bd`).
-- **Internal Padding:** 16–20px, with a 7px reserved gutter on the left edge for the priority tab.
-- **Bought state:** the whole card drops to 75% opacity (`opacity-75`) rather than changing shape — a quiet, reversible-feeling way to mark "done" without the item disappearing from view.
+- **Corner Style:** 14px (swatch cards) and 16px (money strip, quick-add).
+- **Background:** surface, with a 1px line border.
+- **Shadow Strategy:** none at rest; swatch cards lift 2px with the pop shadow on hover.
+- **Internal Padding:** 10px on swatch cards, 14px by 16px on the money strip.
 
 ### Inputs / Fields
-- **Style:** 1px `paper-line` border, `paper-raised` background, 4px radius, generous padding (12px vertical).
-- **Focus:** 2px `someday` ring with 2px offset against the paper surface (`focus-visible:ring-2 focus-visible:ring-someday focus-visible:ring-offset-2 focus-visible:ring-offset-paper`).
-- **Error:** inline text below the field in `must-ink` (dark red — tuned for the paper surface, not the brighter `must-bright` used on navy), paired with `aria-invalid` and `aria-describedby`.
+- **Style:** surface fill, 1px line border, 10px radius, 15px text, 10px by 12px padding; money inputs carry a £ prefix in ink-3 and tabular figures.
+- **Focus:** border turns green with a soft green ring (20% of the accent).
+- **Labels:** 13px semibold ink-2 above the field; hints 12px ink-3 below.
 
 ### Navigation
-- Sticky header only — no persistent nav chrome beyond the page title, signed-in name, and the primary action. Filters live in a collapsible in-page panel, not a separate navigation surface.
+- **Phone:** a fixed bottom tab bar on translucent surface with blur and a top hairline: Home, List, a central 48px green add button (16px radius, pop shadow, scales to 0.9 on press), Rooms, Money. Labels 11px semibold; active is ink with a heavier icon stroke, inactive ink-3.
+- **Desktop:** the 240px left rail; active item is a sunken fill with ink text.
 
-### The Budget Bar (signature component)
-A dimension-line reinterpretation of a progress bar: a thin ruled track with tick marks at 25/50/75%, end-cap ticks taller than the track (echoing an architectural dimension line), a percentage label that walks along the fill, and the remaining-or-overspend figure right-aligned in its own color. The percentage label is suppressed once overspent — the bar is already full and the £-over figure carries the information, so showing both created a real layout collision at high percentages. Fill color steps through good → like → must as the must-have total approaches and passes the budget.
+### Item Row (signature)
+A hairline row directly on the ground: a round tick target on the left (26px, 32px on the lead row, inside a 44px hit area), the title, a right-aligned tabular cost (with a small "QUOTE" qualifier for quotes, and ranges as "£450–600"), and a 13px meta line: priority, room tag (paint chip plus name), due date (danger when overdue), person, steps done, and "Affordable Jun 2027" right-aligned when the pot does not yet cover it. Done rows go ink-3 with a soft strikethrough. Hover fills sunken at 60%.
+
+Ticking a row in an open list does not remove it on the spot: for one second the list holds the house as it was just before the tick, so the row keeps its place while its circle floods and its title strikes through, then the row folds away (its grid row collapses to nothing) and the list re-sorts against the new pot. Nothing reshuffles under the finger. On phones a row swipes right to finish and left to delete; the action icon underneath pops (scale 1.1) and the phone gives a light tap at the moment letting go would count.
+
+### Tick (signature)
+An empty circle with a line-strong edge; on hover it tints green-soft and previews a faint green tick. Finishing floods the circle with the room's paint (scale 0.6 to 1.12 to 1, 320ms) and draws the tick in the paint's ink (260ms, 80ms delay).
+
+### Paint Chip and Swatch Card (signature)
+The paint chip is a 12px square (10px inline in tags) at 3px radius with the paint edge. The swatch card is a surface card whose top panel is solid paint (68px compact, 88px full) carrying the paint number and name in the paint's ink; below it the room name, a "3 to do · £1.2k" line, and the paint strip: one 6px cell per job, painted cells in the room's colour and open cells in line, painting in from the bottom 40ms apart on first view. Over twelve jobs the strip becomes a proportional bar. A room with nothing in it shows a dashed strip.
+
+### Painted Room Header
+A room's page opens on a full-bleed block of its paint, with the room name in display type, To do / Done / Still to spend / Spent stats in tabular figures, the tall strip on an 85% surface inset, and the paint number and name at the foot.
+
+### Item Sheet
+A native dialog that rises as a bottom sheet on phones (92dvh max, 22px top corners, drag handle, 340ms rise) and slides in as a 460px right side panel on desktop (22px left corners, 260ms). Closing, tapping the backdrop or pulling the sheet down by its top bar saves; there is no cancel-and-lose path. Every bottom sheet (item, settings, bulk add) follows the finger when pulled down by its handle: a pull past 110px or a quick flick dismisses it, anything less springs back.
+
+### Toasts
+Ink pills (limestone text) that rise 8px into view above the tab bar, carrying the message and an "Undo" action in green-soft bold. Errors use a danger fill. They replace every confirmation dialog. While a sheet is open the toasts render inside it (a modal sheet makes everything outside it inert), so an undo or an error raised from a sheet is always visible and tappable.
+
+### Motion
+One easing (`cubic-bezier(0.16, 1, 0.3, 1)`) for tick flood and draw, row arrive (420ms, from 6px above with a green-soft flash), row leave (320ms fold after a 620ms pause), sheet up and panel in, toast in and paint-in. Under reduced motion every animation and transition collapses to 1ms.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** pair every priority color with its text label — badge, filter chip, or status text. Never a bare swatch.
-- **Do** use monospace exclusively for measured data (prices, dates, tags) — never for prose.
-- **Do** use the 7px solid priority tab on any new card-like surface that carries a priority; keep it a full-height tab, not a thin accent border.
-- **Do** reach for the `*-ink` / `*-bright` / `*-dark` surface-tuned variant whenever a priority or status color is used as text; never the bare saturated swatch.
-- **Do** keep the canvas flat and reserve shadow for surfaces literally "pinned on top of" it.
+- **Do** give every room-bearing element its paint chip, and keep the chip square (3px radius).
+- **Do** use Front Door Green for every action, selection, focus ring and the must-haves coverage bar, and for nothing decorative.
+- **Do** set every pound, count and date in tabular figures.
+- **Do** lay lists out as hairline rows on the limestone ground, with the cost right-aligned.
+- **Do** show progress as paint: a strip that fills one cell per finished job, a tick that floods with the room's colour.
+- **Do** offer undo in a toast after ticking, deleting or changing the pot, instead of asking first.
+- **Do** design both themes; check the dark ground (night-ground) against every new token.
+- **Do** honour reduced motion by collapsing animation rather than removing state changes.
 
 ### Don't:
-- **Don't** add a kicker/eyebrow label above a heading anywhere in the system — removed twice already ("Drawing No. HL-001", "One-time setup") as a category default the brief never asked for; the heading carries its own weight.
-- **Don't** use a hard-edged, zero-blur "neobrutalist" shadow anywhere — this system's depth language is a soft lifted-paper shadow only.
-- **Don't** introduce a second accent color. `someday` blue is the only non-semantic accent; a new feature should reuse it rather than adding a brand color.
-- **Don't** render a priority/status color as body text without checking which surface it's on — the same red is a different hex depending on whether it sits on navy, on paper, or on its own soft tint.
-
-<!-- Documenter note: this DESIGN.md was produced by the build agent running the
-degraded in-thread documenter role, not the dedicated impeccable-documenter
-subagent — this harness session has no subagent capability under that name.
-Disclosed per the skill's substitution-disclosure requirement. -->
+- **Don't** colour priority, item kind or people; priority is the inked "Must" pill, italic "Someday", or nothing.
+- **Don't** introduce a hue outside the room paints and Front Door Green (danger red is reserved for overdue, short and destructive).
+- **Don't** wrap rows in cards or give resting containers a shadow.
+- **Don't** add a confirmation dialog where an undo toast will do.
+- **Don't** bring in a second typeface or a monospace for numbers.
+- **Don't** use a room paint as a button fill or a link colour, and don't use the green to mark a room.

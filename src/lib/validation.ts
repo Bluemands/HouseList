@@ -1,71 +1,112 @@
 import { z } from "zod";
-import { PRIORITIES, ROOMS, STATUSES } from "@/lib/types";
+import { KINDS, PRIORITIES, REPEATS, ROOMS, STATUSES, TITLE_MAX } from "@/lib/types";
 
-const emptyToUndefined = (val: unknown) =>
-  typeof val === "string" && val.trim() === "" ? undefined : val;
+const emptyToNull = (val: unknown) => (typeof val === "string" && val.trim() === "" ? null : val);
 
-const price = z
-  .number({ error: "Enter a valid number" })
-  .positive("Price must be greater than 0")
-  .max(10_000_000, "That price looks too large");
+const money = z
+  .number({ error: "Enter a number" })
+  .min(0, "Can't be negative")
+  .max(10_000_000, "That looks too large");
 
-const optionalPrice = z.preprocess(
-  emptyToUndefined,
-  z
-    .number({ error: "Enter a valid number" })
-    .positive("Price must be greater than 0")
-    .max(10_000_000, "That price looks too large")
-    .optional(),
-);
+const optionalMoney = money.nullable().optional();
 
-const optionalUrl = z.preprocess(
-  emptyToUndefined,
-  z.url({ error: "Enter a valid URL, e.g. https://example.com" }).optional(),
-);
+const isoDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a real date")
+  .refine((s) => !Number.isNaN(Date.parse(`${s}T00:00:00Z`)), "Use a real date");
 
-const optionalText = z.preprocess(
-  emptyToUndefined,
-  z.string().max(2000, "Keep it under 2000 characters").optional(),
-);
+const optionalText = (max: number) =>
+  z.preprocess(emptyToNull, z.string().trim().max(max, `Keep it under ${max} characters`).nullable()).optional();
+
+const optionalUrl = z
+  .preprocess(emptyToNull, z.url({ error: "Enter a full link, e.g. https://…" }).nullable())
+  .optional();
+
+const stepInput = z.object({
+  id: z.string().optional(),
+  text: z.string().trim().min(1).max(200),
+  done: z.boolean().optional(),
+});
+
+const title = z
+  .string({ error: "Give it a name" })
+  .trim()
+  .min(1, "Give it a name")
+  .max(TITLE_MAX, `Keep it under ${TITLE_MAX} characters`);
+
+const itemFields = {
+  kind: z.enum(KINDS).optional(),
+  room: z.enum(ROOMS).optional(),
+  priority: z.enum(PRIORITIES).optional(),
+  status: z.enum(STATUSES).optional(),
+  estimatedPrice: optionalMoney,
+  estimateMax: optionalMoney,
+  isQuote: z.boolean().optional(),
+  actualPrice: optionalMoney,
+  assignee: optionalText(60),
+  dueDate: isoDate.nullable().optional(),
+  project: optionalText(60),
+  repeat: z.enum(REPEATS).nullable().optional(),
+  pinned: z.boolean().optional(),
+  link: optionalUrl,
+  notes: optionalText(4000),
+  steps: z.array(stepInput).max(50).optional(),
+};
 
 export const itemCreateSchema = z.object({
-  title: z
-    .string({ error: "Title is required" })
-    .trim()
-    .min(1, "Title is required")
-    .max(200, "Keep the title under 200 characters"),
-  room: z.enum(ROOMS, { error: "Choose a room" }),
-  estimatedPrice: price,
-  priority: z.enum(PRIORITIES, { error: "Choose a priority" }),
-  link: optionalUrl,
-  notes: optionalText,
-  addedBy: z
-    .string({ error: "Missing name" })
-    .trim()
-    .min(1, "Missing name")
-    .max(80),
+  title,
+  addedBy: z.string({ error: "Missing name" }).trim().min(1, "Missing name").max(60),
+  ...itemFields,
+});
+
+export const itemBulkCreateSchema = z.object({
+  addedBy: z.string({ error: "Missing name" }).trim().min(1, "Missing name").max(60),
+  items: z.array(itemCreateSchema.omit({ addedBy: true })).min(1).max(100),
 });
 
 export const itemUpdateSchema = z.object({
-  title: z
-    .string()
-    .trim()
-    .min(1, "Title is required")
-    .max(200, "Keep the title under 200 characters")
-    .optional(),
-  room: z.enum(ROOMS).optional(),
-  estimatedPrice: price.optional(),
-  actualPrice: optionalPrice.nullable(),
-  priority: z.enum(PRIORITIES).optional(),
-  status: z.enum(STATUSES).optional(),
-  link: optionalUrl.nullable(),
-  notes: optionalText.nullable(),
-  addedBy: z.string().trim().min(1, "Missing name").max(80).optional(),
+  title: title.optional(),
+  // Who made the change — recorded as completedBy when it completes the item.
+  actor: z.string().trim().max(60).optional(),
+  ...itemFields,
+});
+
+export const quoteCreateSchema = z.object({
+  from: z.string({ error: "Who's the quote from?" }).trim().min(1, "Who's the quote from?").max(80),
+  amount: money,
+  note: optionalText(500),
+  addedBy: z.string().trim().min(1).max(60),
+});
+
+export const quoteUpdateSchema = z.object({
+  from: z.string().trim().min(1).max(80).optional(),
+  amount: money.optional(),
+  note: optionalText(500),
+  chosen: z.boolean().optional(),
+});
+
+export const commentCreateSchema = z.object({
+  text: z.string({ error: "Write something first" }).trim().min(1, "Write something first").max(1000),
+  author: z.string().trim().min(1).max(60),
 });
 
 export const settingsUpdateSchema = z.object({
   budgetAvailable: z
-    .number({ error: "Enter a valid number" })
-    .min(0, "Budget can't be negative")
-    .max(100_000_000, "That number looks too large"),
+    .number({ error: "Enter a number" })
+    .min(-10_000_000)
+    .max(100_000_000, "That looks too large")
+    .optional(),
+  // Added to whatever the pot holds on the server, so it can't overwrite a
+  // change the other phone made in the meantime (Payday, and its undo).
+  addToPot: z.number().min(-100_000_000).max(100_000_000).optional(),
+  monthlySaving: money.optional(),
+  movedInOn: isoDate.nullable().optional(),
+  lastPaydayOn: isoDate.nullable().optional(),
+  lastPaydayBy: optionalText(60),
+  addMember: z.string().trim().min(1).max(60).optional(),
+  removeMember: z.string().trim().min(1).max(60).optional(),
 });
+
+export type ItemCreateInput = z.input<typeof itemCreateSchema>;
+export type ItemUpdateInput = z.input<typeof itemUpdateSchema>;
+export type SettingsUpdateInput = z.input<typeof settingsUpdateSchema>;

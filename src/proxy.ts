@@ -8,6 +8,8 @@ export async function proxy(request: NextRequest) {
 
   const isPublicPath = PUBLIC_PATHS.includes(pathname);
   const isAuthApi = pathname === "/api/auth";
+  // Calendar apps subscribe without a cookie; the route checks its own token.
+  const isCalendarFeed = pathname.startsWith("/api/calendar/");
 
   const token = request.cookies.get(AUTH_COOKIE)?.value;
   const authed = await isValidAuthToken(token);
@@ -19,7 +21,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (isPublicPath || isAuthApi) {
+  if (isPublicPath || isAuthApi || isCalendarFeed) {
     return NextResponse.next();
   }
 
@@ -34,6 +36,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon|apple-icon|.*\\.(?:svg|png|jpg|jpeg|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon|apple-icon|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|webp|ico)$).*)",
   ],
 };

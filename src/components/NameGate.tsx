@@ -1,70 +1,97 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { ROOM_PAINT } from "@/lib/rooms";
+import { Button, inputClass } from "@/components/ui";
+import { Wordmark } from "@/components/Wordmark";
 
-export function NameGate({ onSubmit }: { onSubmit: (name: string) => void }) {
+export function NameGate({ members, onSubmit }: { members: string[]; onSubmit: (name: string) => void }) {
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [typing, setTyping] = useState(members.length === 0);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const trimmed = value.trim();
     if (!trimmed) {
-      setError("Enter a name so items show who added them");
+      setError("Pop your name in so we know who added what");
       return;
     }
     onSubmit(trimmed);
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-blueprint-bg-inset/90 p-4 backdrop-blur-sm"
-      role="presentation"
-    >
-      <form
-        onSubmit={handleSubmit}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="name-gate-title"
-        className="w-full max-w-sm rounded-md border border-paper-line bg-paper p-6 shadow-[0_20px_48px_var(--color-paper-shadow)]"
-      >
-        <h2 id="name-gate-title" className="text-lg font-semibold text-paper-ink">
-          Who&apos;s using this?
-        </h2>
-        <p className="mt-1 text-sm text-paper-ink-muted">
-          Remembered on this device so items show who added them.
+    <main className="grid min-h-dvh place-items-center px-5 py-10">
+      <div className="w-full max-w-[380px]">
+        <Wordmark className="mb-8" />
+        <h1 className="text-[26px] leading-tight font-bold tracking-[-0.02em]">Who&apos;s this?</h1>
+        <p className="mt-1 text-[15px] text-ink-2">
+          So the list knows who added, bought and finished what. Remembered on this device.
         </p>
 
-        <label htmlFor="display-name" className="mt-4 block font-mono text-xs uppercase tracking-wider text-paper-ink-muted">
-          Your name
-        </label>
-        <input
-          id="display-name"
-          autoFocus
-          value={value}
-          onChange={(e) => {
-            setValue(e.target.value);
-            if (error) setError(null);
-          }}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error ? "name-error" : undefined}
-          maxLength={80}
-          className="mt-2 w-full rounded border border-paper-line bg-paper-raised px-3 py-2.5 text-paper-ink outline-none focus-visible:ring-2 focus-visible:ring-someday focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
-          placeholder="e.g. Kerrigan"
-        />
-        {error && (
-          <p id="name-error" role="alert" className="mt-2 text-sm font-medium text-must-ink">
-            {error}
-          </p>
+        {members.length > 0 && (
+          <div className="mt-6 grid gap-2">
+            {members.map((m, i) => {
+              const room = (["KITCHEN", "SPARE_ROOM_2", "BATHROOM_2", "SITTING_ROOM"] as const)[i % 4];
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => onSubmit(m)}
+                  className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 text-left text-[16px] font-semibold transition-colors hover:border-accent"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="grid h-10 w-10 place-items-center rounded-[10px] text-[17px] font-bold"
+                    style={{ background: ROOM_PAINT[room].hex, color: ROOM_PAINT[room].ink }}
+                  >
+                    {m.charAt(0).toUpperCase()}
+                  </span>
+                  {m}
+                </button>
+              );
+            })}
+            {!typing && (
+              <button
+                type="button"
+                onClick={() => setTyping(true)}
+                className="rounded-2xl border border-dashed border-line-strong p-3.5 text-[15px] font-semibold text-ink-2 hover:text-ink"
+              >
+                Someone new
+              </button>
+            )}
+          </div>
         )}
 
-        <button
-          type="submit"
-          className="mt-5 w-full rounded bg-blueprint-bg py-2.5 font-medium text-blueprint-ink transition-colors hover:bg-blueprint-bg-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-someday"
-        >
-          Continue
-        </button>
-      </form>
-    </div>
+        {typing && (
+          <form onSubmit={handleSubmit} noValidate className="mt-6 grid gap-3">
+            <label htmlFor="name" className="text-[13px] font-semibold text-ink-2">
+              Your name
+            </label>
+            <input
+              id="name"
+              autoFocus
+              autoComplete="given-name"
+              value={value}
+              onChange={(e) => {
+                setValue(e.target.value);
+                if (error) setError(null);
+              }}
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? "name-error" : undefined}
+              className={inputClass}
+            />
+            {error && (
+              <p id="name-error" role="alert" className="text-sm font-medium text-danger">
+                {error}
+              </p>
+            )}
+            <Button type="submit" className="mt-1 py-3">
+              Let&apos;s go
+            </Button>
+          </form>
+        )}
+      </div>
+    </main>
   );
 }
