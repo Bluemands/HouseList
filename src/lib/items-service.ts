@@ -87,11 +87,21 @@ export async function createItem(input: ItemCreate, options: WriteOptions = {}):
 /** Many items at once: a pasted list, the new-home essentials, or Claude's research. */
 export async function createItems({ addedBy, items }: ItemBulkCreate, options: WriteOptions = {}): Promise<ItemDTO[]> {
   const settings = await getSettings();
+  const now = new Date();
   const created = await prisma.$transaction(async (tx) => {
     const out = [];
+    let potDelta = 0;
     // Oldest-first timestamps keep the list in the order it was written.
     const base = Date.now() - items.length;
     for (const [index, { steps, dueDate, warrantyUntil, ...data }] of items.entries()) {
+      // Stages already paid ("Deposit £200", ticked) spend from the pot, as
+      // they do when an item is added on its own.
+      const pot = settlePot(
+        { status: "TODO", potCharge: null, steps: [] },
+        { status: "TODO", actualPrice: null, steps },
+        settings.potTracked,
+      );
+      potDelta += pot.delta;
       out.push(
         await tx.item.create({
           data: {
@@ -102,14 +112,27 @@ export async function createItems({ addedBy, items }: ItemBulkCreate, options: W
             dueDate: fromDay(dueDate),
             warrantyUntil: fromDay(warrantyUntil),
             createdAt: new Date(base + index),
-            steps: steps?.length ? { create: stepRows(steps) } : undefined,
+            steps: steps?.length
+              ? {
+                  create: stepRows(steps).map((row, i) => ({
+                    ...row,
+                    potCharge: pot.stepCharges![i],
+                    doneAt: row.done ? now : null,
+                  })),
+                }
+              : undefined,
           },
           include: ITEM_INCLUDE,
         }),
       );
     }
     const push = memberPush(settings.members, addedBy, options);
-    if (push) await tx.settings.update({ where: { id: 1 }, data: { members: push } });
+    if (push || potDelta) {
+      await tx.settings.update({
+        where: { id: 1 },
+        data: { budgetAvailable: potDelta ? { increment: potDelta } : undefined, members: push },
+      });
+    }
     return out;
   });
   return created.map(toItemDTO);
