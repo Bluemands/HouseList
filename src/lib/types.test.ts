@@ -1,5 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { nextOccurrence } from "@/lib/types";
+import { nextOccurrence, stepsGap } from "@/lib/types";
+
+describe("stepsGap", () => {
+  const quoted = { estimatedPrice: 2000, estimateMax: null, steps: [] };
+  it("is what costed steps leave out of the figure the item had", () => {
+    expect(stepsGap(quoted, 500)).toBe(1500);
+    expect(stepsGap({ estimatedPrice: 300, estimateMax: 450, steps: [{ cost: null }] }, 100)).toBe(350);
+    expect(stepsGap(quoted, 2150.5)).toBe(-150.5);
+  });
+  it("is null with nothing to compare, or once the steps set the figure", () => {
+    expect(stepsGap(quoted, 2000)).toBeNull();
+    expect(stepsGap(quoted, null)).toBeNull();
+    expect(stepsGap({ estimatedPrice: null, estimateMax: null, steps: [] }, 500)).toBeNull();
+    // Already the total of its steps: changing a step's cost is just a new total.
+    expect(stepsGap({ estimatedPrice: 500, estimateMax: null, steps: [{ cost: 200 }, { cost: 300 }] }, 650)).toBeNull();
+  });
+});
 
 describe("nextOccurrence", () => {
   it("steps by each interval", () => {

@@ -13,6 +13,7 @@ import {
   STATUS_LABELS,
   TITLE_MAX,
   stepCostsKey,
+  stepsGap,
   stepsTotal,
   type ItemDTO,
   type Kind,
@@ -221,6 +222,20 @@ function SheetBody({
     fromSteps != null &&
     (costsKey(draft) !== costsKey(initial) || parseMoney(initial.estimatedPrice) === initialTotal);
   const paidSoFar = draft.steps.reduce((sum, st, i) => sum + (st.done && stepCosts[i] ? stepCosts[i]! : 0), 0);
+  // Costing a stage of a quoted job (the deposit, say) would otherwise shrink
+  // the job to that stage: say so, and offer the rest as a step of its own.
+  const gap = followsSteps
+    ? stepsGap(
+        {
+          estimatedPrice: parseMoney(initial.estimatedPrice),
+          estimateMax: parseMoney(initial.estimateMax),
+          steps: initial.steps.map((s) => ({ cost: parseMoney(s.cost) })),
+        },
+        fromSteps,
+      )
+    : null;
+  const priorFigure = gap != null && fromSteps != null ? fromSteps + gap : null;
+  const priorLabel = initial.isQuote ? "quote" : initial.estimateMax ? "top of the estimate" : "estimate";
 
   // The item as saving it now would leave it, for the plan to place. Typos
   // count as blank here; saving is what catches them.
@@ -379,6 +394,20 @@ function SheetBody({
     if (!added.length) return;
     setDraft((d) => ({ ...d, steps: [...d.steps, ...added] }));
     setNewStep("");
+  }
+
+  // The part of a quote or estimate the costed steps don't cover, as a last
+  // step, so the total stays what was agreed and paying it is a tick.
+  function addBalance(amount: number) {
+    const step: DraftStep = {
+      key: `balance-${Date.now()}`,
+      text: initial.isQuote ? "Pay the balance" : "The rest",
+      done: false,
+      cost: num(amount),
+      link: "",
+      notes: "",
+    };
+    setDraft((d) => ({ ...d, steps: [...d.steps, step] }));
   }
 
   // The same thing again — for another room, or next time — as a new item.
@@ -681,6 +710,20 @@ function SheetBody({
                 <MoneyInput label="Estimate" placeholder="Estimate" value={draft.estimatedPrice} onChange={(v) => set("estimatedPrice", v)} />
                 <span className="text-sm text-ink-3">to</span>
                 <MoneyInput label="Up to" placeholder="Up to" value={draft.estimateMax} onChange={(v) => set("estimateMax", v)} />
+              </div>
+            )}
+            {gap != null && priorFigure != null && draft.status !== "DONE" && (
+              <div className="grid justify-items-start gap-1.5" aria-live="polite">
+                <span className="text-[13px] text-ink-2 tabular">
+                  That&apos;s {formatGBP(Math.abs(gap))} {gap > 0 ? "less" : "more"} than the {priorLabel} of{" "}
+                  {formatGBP(priorFigure)}
+                  {gap > 0 ? ", so the plan would count only the steps." : "."}
+                </span>
+                {gap > 0 && (
+                  <Suggestion onClick={() => addBalance(gap)}>
+                    Add the {formatGBP(gap)} balance as a step
+                  </Suggestion>
+                )}
               </div>
             )}
             <label className="flex items-center gap-2.5 py-1 text-[14px] text-ink-2">
