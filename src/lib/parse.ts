@@ -139,11 +139,15 @@ function parseDue(text: string): { day: string; match: RegExpMatchArray } | null
   if (m && Number(m[2]) >= 1 && Number(m[2]) <= 12) {
     return { day: futureDate(Number(m[1]), Number(m[2]) - 1), match: m };
   }
-  // "on the 15th" — the next time that day of the month comes round.
-  m = text.match(/(?:^|\s)(?:(?:by|on|due|before)\s+)?the\s+(\d{1,2})(?:st|nd|rd|th)\b/i);
-  if (m && Number(m[1]) >= 1 && Number(m[1]) <= 31) {
+  // "on the 15th" — the next time that day of the month comes round. Without
+  // "on" or "by" it has to end the line (bar a #room), or "Fix the 2nd step"
+  // would be due on the 2nd.
+  m = text.match(
+    /(?:^|\s)(?:(?:by|on|due|before)\s+the\s+(\d{1,2})(?:st|nd|rd|th)\b|the\s+(\d{1,2})(?:st|nd|rd|th)(?=(?:\s+#\S+)*\s*$))/i,
+  );
+  const n = m ? Number(m[1] ?? m[2]) : 0;
+  if (m && n >= 1 && n <= 31) {
     const d = new Date();
-    const n = Number(m[1]);
     const inMonth = (offset: number) => {
       const last = new Date(d.getFullYear(), d.getMonth() + offset + 1, 0).getDate();
       return toDayString(new Date(d.getFullYear(), d.getMonth() + offset, Math.min(n, last)));

@@ -131,6 +131,12 @@ describe("dates", () => {
   it("on the 15th", () => {
     expect(p("Call plumber on the 15th")).toMatchObject({ title: "Call plumber", dueDate: "2026-10-15" });
     expect(p("Pay window cleaner the 2nd").dueDate).toBe("2026-11-02");
+    expect(p("Pay window cleaner the 2nd #hallway").dueDate).toBe("2026-11-02");
+  });
+  it("leaves 'the 2nd' alone mid-sentence, where it's a word, not a date", () => {
+    expect(p("Fix the 2nd step on the stairs")).toMatchObject({ title: "Fix the 2nd step on the stairs", dueDate: null });
+    expect(p("Paint the 3rd bedroom")).toMatchObject({ title: "Paint the 3rd bedroom", dueDate: null });
+    expect(p("Fix the 2nd step by the 15th")).toMatchObject({ title: "Fix the 2nd step", dueDate: "2026-10-15" });
   });
   it("explicit dates, rolling into next year when passed", () => {
     expect(p("Gutters by 12 Nov").dueDate).toBe("2026-11-12");
