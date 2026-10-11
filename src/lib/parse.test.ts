@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { isShoppingStep, parseQuickAdd, parseStep, pastedLines } from "@/lib/parse";
+import { guessRoom, isShoppingStep, parseQuickAdd, parseStep, pastedLines } from "@/lib/parse";
 
 // Friday 9 October 2026, mid-afternoon.
 beforeAll(() => {
@@ -225,5 +225,18 @@ describe("shopping steps", () => {
     expect(isShoppingStep(step("Faceplates", "https://screwfix.com/p/1", 45))).toBe(true);
     expect(isShoppingStep(step("Watch the how-to", "https://youtube.com/x"))).toBe(false);
     expect(isShoppingStep(step("Fit the sockets", null, 220))).toBe(false);
+  });
+});
+
+describe("guessing a room from a product", () => {
+  it("uses a room named in the title, then product words", () => {
+    expect(guessRoom("GoodHome Kitchen Mixer Tap")).toBe("KITCHEN");
+    expect(guessRoom("Mira Sport Max 9.8kW Electric Shower")).toBe("BATHROOM_1");
+    expect(guessRoom("Bosch Cordless Lawnmower CityMower 18V")).toBe("BACK_GARDEN");
+    expect(guessRoom("Argos Home Ava Fabric 3 Seater Sofa - Grey")).toBe("SITTING_ROOM");
+  });
+  it("leaves the rest alone", () => {
+    expect(guessRoom("Dewalt DCD796 18V XR Brushless Combi Drill")).toBeNull();
+    expect(guessRoom("Screwdriver set")).toBeNull();
   });
 });

@@ -12,6 +12,7 @@ import {
   Repeat,
   ShieldCheck,
   ShoppingBag,
+  Sparkles,
   Trash2,
   User,
 } from "lucide-react";
@@ -105,7 +106,7 @@ function useSwipe(onRight: () => void, onLeft: () => void) {
 }
 
 export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Props) {
-  const { toggleDone, toggleStep, openItem, removeItem, justAdded, settling, itemById } = useStore();
+  const { toggleDone, toggleStep, openItem, removeItem, justAdded, settling, itemById, jobByItem } = useStore();
   // Just ticked: the list still holds its place, but the row shows it done.
   const leaving = settling.has(listed.id);
   const item = leaving ? (itemById.get(listed.id) ?? listed) : listed;
@@ -200,6 +201,16 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
         <MessageSquare size={12} strokeWidth={2.2} className="text-ink-3" aria-hidden="true" />
         {item.comments.length}
         <span className="sr-only">{item.comments.length === 1 ? "update" : "updates"}</span>
+      </span>,
+    );
+  }
+  // Claude has answered and nobody's looked yet: a nudge to open it.
+  if (jobByItem.get(item.id)?.status === "DONE") {
+    meta.push(
+      <span key="claude" className="inline-flex items-center gap-1 font-medium text-accent-text">
+        <Sparkles size={12} strokeWidth={2.2} aria-hidden="true" />
+        Suggestion
+        <span className="sr-only">from Claude ready</span>
       </span>,
     );
   }

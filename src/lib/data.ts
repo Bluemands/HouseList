@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import type { Comment, Item, Quote, Settings, Step } from "@/generated/prisma/client";
+import type { AiJob, Comment, Item, Quote, Settings, Step } from "@/generated/prisma/client";
 import { stepCostsKey, stepsTotal, type ItemDTO, type SettingsDTO } from "@/lib/types";
+import { OPEN_JOB_STATUSES, aiResultSchema, type AiJobDTO } from "@/lib/ai";
 
 const toDay = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
@@ -86,7 +87,36 @@ export function toSettingsDTO(settings: Settings): SettingsDTO {
     movedInOn: toDay(settings.movedInOn),
     lastPaydayOn: toDay(settings.lastPaydayOn),
     lastPaydayBy: settings.lastPaydayBy,
+    workerSeenAt: settings.workerSeenAt?.toISOString() ?? null,
   };
+}
+
+export function toAiJobDTO(job: AiJob): AiJobDTO {
+  // Stored results were validated on the way in; parse again so a shape
+  // change never reaches the UI half-formed.
+  const result = job.result == null ? null : aiResultSchema.safeParse(job.result);
+  return {
+    id: job.id,
+    itemId: job.itemId,
+    kind: job.kind,
+    question: job.question,
+    status: job.status,
+    result: result?.success ? result.data : null,
+    error: job.error,
+    requestedBy: job.requestedBy,
+    claimedAt: job.claimedAt?.toISOString() ?? null,
+    finishedAt: job.finishedAt?.toISOString() ?? null,
+    createdAt: job.createdAt.toISOString(),
+  };
+}
+
+/** Questions for Claude that still need someone: waiting, working, answered or failed. */
+export async function getOpenJobs(): Promise<AiJobDTO[]> {
+  const jobs = await prisma.aiJob.findMany({
+    where: { status: { in: [...OPEN_JOB_STATUSES] } },
+    orderBy: { createdAt: "desc" },
+  });
+  return jobs.map(toAiJobDTO);
 }
 
 /** Names are matched without regard to case: "connor" is Connor. */
@@ -97,11 +127,12 @@ export function getSettings() {
   return prisma.settings.upsert({ where: { id: 1 }, update: {}, create: { id: 1 } });
 }
 
-export async function getState(): Promise<{ items: ItemDTO[]; settings: SettingsDTO }> {
+export async function getState(): Promise<{ items: ItemDTO[]; settings: SettingsDTO; jobs: AiJobDTO[] }> {
   // Sequential, not Promise.all: concurrent queries over the same adapter
   // pool have triggered "prepared statement" protocol errors against the
   // local Prisma Postgres dev server.
   const items = await prisma.item.findMany({ include: ITEM_INCLUDE, orderBy: { createdAt: "desc" } });
   const settings = await getSettings();
-  return { items: items.map(toItemDTO), settings: toSettingsDTO(settings) };
+  const jobs = await getOpenJobs();
+  return { items: items.map(toItemDTO), settings: toSettingsDTO(settings), jobs };
 }

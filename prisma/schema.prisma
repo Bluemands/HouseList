@@ -103,6 +103,7 @@ model Item {
   steps    Step[]
   quotes   Quote[]
   comments Comment[]
+  aiJobs   AiJob[]
 
   @@index([status])
   @@index([priority])
@@ -148,6 +149,9 @@ model Settings {
   // person can see it's been done before adding it a second time.
   lastPaydayOn    DateTime? @db.Date
   lastPaydayBy    String?
+  // When the AI worker last asked for work, so the app can say honestly
+  // whether anything is listening for its questions.
+  workerSeenAt    DateTime?
 }
 
 // A price from someone who'd do the job. Choosing one sets the item's cost.
@@ -176,6 +180,52 @@ model Comment {
 
   item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
+  @@index([itemId])
+}
+
+// What Claude is asked to do with an item. Research and finding products are
+// one tap; ASK carries the household's own question.
+enum AiJobKind {
+  RESEARCH_ITEM
+  FIND_PRODUCT
+  ASK
+}
+
+// QUEUED until a worker claims it, RUNNING while Claude works, then DONE (a
+// suggestion waiting for someone) or FAILED. ACCEPTED and DISMISSED have been
+// dealt with, and no longer show.
+enum AiJobStatus {
+  QUEUED
+  RUNNING
+  DONE
+  FAILED
+  ACCEPTED
+  DISMISSED
+}
+
+// A question for Claude about an item. The app only queues it: a worker on
+// someone's own computer runs Claude Code on their subscription, and the
+// answer comes back as a suggestion that a person chooses to use.
+model AiJob {
+  id          String      @id @default(cuid())
+  itemId      String?
+  kind        AiJobKind
+  question    String?
+  status      AiJobStatus @default(QUEUED)
+  // The validated suggestion (see lib/ai.ts for its shape).
+  result      Json?
+  error       String?
+  // Claims so far. A worker that dies mid-job leaves it RUNNING; it's handed
+  // out again, but not forever.
+  attempts    Int         @default(0)
+  requestedBy String
+  claimedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime    @default(now())
+
+  item Item? @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
   @@index([itemId])
 }
 

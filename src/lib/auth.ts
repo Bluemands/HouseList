@@ -75,3 +75,44 @@ export async function computeCalendarToken(): Promise<string> {
 export async function isValidCalendarToken(token: string): Promise<boolean> {
   return timingSafeEqualStr(token, await computeCalendarToken());
 }
+
+// Claude's connector (claude.ai → Settings → Connectors) can't log in with
+// the PIN either, so it gets its own URL token, under a different label so
+// the calendar link and the connector link can't stand in for each other.
+export async function computeConnectorToken(): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(getSecret()),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode("claude-connector"));
+  return toHex(signature).slice(0, 40);
+}
+
+export async function isValidConnectorToken(token: string): Promise<boolean> {
+  return timingSafeEqualStr(token, await computeConnectorToken());
+}
+
+// The AI worker runs on someone's own computer and has no cookie, so it sends
+// this as a bearer token. Same secret, its own label: rotating AUTH_SECRET
+// revokes it along with everything else.
+export async function computeWorkerToken(): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(getSecret()),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode("ai-worker"));
+  return toHex(signature);
+}
+
+/** Whether a request carries the worker's `Authorization: Bearer` token. */
+export async function isWorkerRequest(request: Request): Promise<boolean> {
+  const token = request.headers.get("authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
+  if (!token) return false;
+  return timingSafeEqualStr(token, await computeWorkerToken());
+}

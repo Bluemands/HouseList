@@ -11,6 +11,7 @@ import { ROOM_PAINT } from "@/lib/rooms";
 import { haptic } from "@/lib/haptics";
 import type { ItemCreateInput, ItemUpdateInput, SettingsUpdateInput } from "@/lib/validation";
 import type { BulkCandidate } from "@/components/BulkAddSheet";
+import type { AiJobDTO, AiJobUpdate } from "@/lib/ai";
 
 export type SheetRestore = { draft: unknown; error: string };
 
@@ -54,6 +55,18 @@ type Store = {
   deleteComment: (commentId: string) => Promise<ItemDTO | null>;
   /** Private calendar subscription path for due dates. */
   calendarPath: string;
+  /** Private path of Claude's connector (the MCP server). */
+  connectorPath: string;
+  /** The bearer token the AI worker uses. A secret, like the calendar path. */
+  workerToken: string;
+  /** Questions for Claude still to deal with (waiting, working, answered, failed). */
+  jobs: AiJobDTO[];
+  /** The newest of those for each item. */
+  jobByItem: ReadonlyMap<string, AiJobDTO>;
+  /** Queue a question for Claude about an item; resolves to whether it was queued. */
+  askClaude: (itemId: string, question?: string) => Promise<boolean>;
+  /** Used, dismissed, sent round again (a failed one), or back (an undone dismiss). */
+  updateJob: (job: AiJobDTO, status: AiJobUpdate) => Promise<boolean>;
   patchItem: (id: string, patch: ItemUpdateInput) => Promise<ItemDTO | null>;
   toggleDone: (item: ItemDTO) => void;
   /** Tick (or untick) one step, straight from a list row. */
@@ -148,18 +161,25 @@ function toStep(s: NonNullable<ItemUpdateInput["steps"]>[number], i: number): St
 export function StoreProvider({
   initialItems,
   initialSettings,
+  initialJobs,
   me,
   calendarPath,
+  connectorPath,
+  workerToken,
   children,
 }: {
   initialItems: ItemDTO[];
   initialSettings: SettingsDTO;
+  initialJobs: AiJobDTO[];
   me: string;
   calendarPath: string;
+  connectorPath: string;
+  workerToken: string;
   children: React.ReactNode;
 }) {
   const [items, setItems] = useState(initialItems);
   const [settings, setSettings] = useState(initialSettings);
+  const [jobs, setJobs] = useState(initialJobs);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [editing, setEditing] = useState<Store["editing"]>(null);
   const [justAdded, setJustAdded] = useState<string | null>(null);
@@ -234,6 +254,7 @@ export function StoreProvider({
       if (inFlight.current > 0 || pendingDeletes.current.size > 0) return;
       setItems(state.items);
       setSettings(state.settings);
+      setJobs(state.jobs);
     } catch {
       // Background sync is best-effort; keep what's on screen.
     }
@@ -525,6 +546,51 @@ export function StoreProvider({
     [fail],
   );
 
+  // Asking only queues the question; the answer arrives with a later poll,
+  // once a worker has run it past Claude.
+  const askClaude = useCallback<Store["askClaude"]>(
+    async (itemId, question) => {
+      try {
+        const job = await track(() => api.askClaude(itemId, { question: question || null, requestedBy: me }));
+        // It replaces the item's last answer, as it does on the server.
+        setJobs((list) => [job, ...list.filter((j) => j.itemId !== itemId)]);
+        return true;
+      } catch (err) {
+        fail(err);
+        return false;
+      }
+    },
+    [me, fail],
+  );
+
+  const updateJob = useCallback<Store["updateJob"]>(
+    async (job, status) => {
+      const before = jobs;
+      // Used and dismissed ones leave the list; the others are (back) in it.
+      setJobs((list) =>
+        status === "ACCEPTED" || status === "DISMISSED"
+          ? list.filter((j) => j.id !== job.id)
+          : [{ ...job, status, error: status === "QUEUED" ? null : job.error }, ...list.filter((j) => j.id !== job.id)],
+      );
+      try {
+        await track(() => api.updateJob(job.id, status));
+        return true;
+      } catch (err) {
+        setJobs(before);
+        fail(err);
+        return false;
+      }
+    },
+    [jobs, fail],
+  );
+
+  const jobByItem = useMemo(() => {
+    const map = new Map<string, AiJobDTO>();
+    // Newest first, so the first seen for an item wins.
+    for (const job of jobs) if (job.itemId && !map.has(job.itemId)) map.set(job.itemId, job);
+    return map;
+  }, [jobs]);
+
   const itemById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
   const settling = useMemo<ReadonlyMap<string, ItemDTO>>(() => settle?.ids ?? new Map(), [settle]);
   // Anything deleted meanwhile is dropped even from the snapshot.
@@ -551,6 +617,12 @@ export function StoreProvider({
       addComment,
       deleteComment,
       calendarPath,
+      connectorPath,
+      workerToken,
+      jobs,
+      jobByItem,
+      askClaude,
+      updateJob,
       patchItem,
       toggleDone,
       toggleStep,
@@ -569,7 +641,7 @@ export function StoreProvider({
       openBulk: setBulk,
       closeBulk: () => setBulk(null),
     }),
-    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, calendarPath, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, toasts, editing, justAdded, bulk],
+    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, calendarPath, connectorPath, workerToken, jobs, jobByItem, askClaude, updateJob, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, toasts, editing, justAdded, bulk],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

@@ -5,7 +5,9 @@ import clsx from "clsx";
 import { ArrowDown, ArrowUp, ChevronDown, ExternalLink, GripVertical, Link2, Plus, Trash2 } from "lucide-react";
 import { formatGBP, linkLabel, normaliseLink } from "@/lib/format";
 import { pastedLines } from "@/lib/parse";
-import { Button, Field, MoneyInput, inputClass } from "@/components/ui";
+import { readableLink, titleFromUrl } from "@/lib/unfurl";
+import { useUnfurl } from "@/lib/useUnfurl";
+import { Button, Field, MoneyInput, Suggestion, inputClass } from "@/components/ui";
 
 export type DraftStep = {
   id?: string;
@@ -54,6 +56,18 @@ export function StepsField({
     stepsRef.current = steps;
     onChangeRef.current = onChange;
   });
+
+  // A step with a shop link (supplies for a job) can take its price, and its
+  // name if it's still named after the link, from the page. Only one is read
+  // at a time: the open step, or else the latest one added.
+  const wantsPage = (s: DraftStep) => {
+    const url = readableLink(s.link);
+    return !!url && (!s.cost.trim() || s.text.trim() === titleFromUrl(url));
+  };
+  const probe =
+    steps.find((s) => s.key === open && wantsPage(s)) ??
+    [...steps].reverse().find((s) => s.key.startsWith("new-") && wantsPage(s));
+  const page = useUnfurl(probe ? readableLink(probe.link) : null);
 
   const update = (key: string, patch: Partial<DraftStep>) =>
     onChange(steps.map((s) => (s.key === key ? { ...s, ...patch } : s)));
@@ -112,6 +126,10 @@ export function StepsField({
             const isOpen = open === step.key;
             const link = normaliseLink(step.link);
             const cost = parseMoney(step.cost);
+            const found = probe?.key === step.key ? page.data : null;
+            const offerCost = found?.price != null && !step.cost.trim() ? found.price : null;
+            const offerName =
+              found?.title && step.text.trim() === titleFromUrl(readableLink(step.link) ?? "") ? found.title : null;
             return (
               <li
                 key={step.key}
@@ -184,6 +202,21 @@ export function StepsField({
                       </a>
                     )}
                     {step.notes.trim() && <span className="min-w-0 truncate">{step.notes}</span>}
+                  </div>
+                )}
+
+                {(offerCost != null || offerName) && (
+                  <div className="flex min-w-0 flex-wrap gap-1.5 pr-3 pb-2.5 pl-[58px]" aria-live="polite">
+                    {offerCost != null && (
+                      <Suggestion onClick={() => update(step.key, { cost: String(offerCost) })}>
+                        Use {formatGBP(offerCost)} from {found!.siteName ?? linkLabel(found!.url)}
+                      </Suggestion>
+                    )}
+                    {offerName && (
+                      <Suggestion onClick={() => update(step.key, { text: offerName.slice(0, 200) })}>
+                        Call it “{offerName}”
+                      </Suggestion>
+                    )}
                   </div>
                 )}
 
@@ -272,7 +305,8 @@ export function StepsField({
           }}
           placeholder={steps.length ? "Add another step" : "Break it down — e.g. Deposit £200, Fit tiles…"}
           aria-label="New step"
-          maxLength={200}
+          // Long enough for a pasted product link, which becomes the step's link.
+          maxLength={2000}
           className={inputClass}
         />
         <Button variant="secondary" onClick={() => onAdd()} aria-label="Add step" className="shrink-0 px-3">
@@ -290,12 +324,15 @@ export function LinksField({
   newLink,
   onNewLink,
   onAdd,
+  children,
 }: {
   links: { key: string; url: string }[];
   onChange: (links: { key: string; url: string }[]) => void;
   newLink: string;
   onNewLink: (url: string) => void;
   onAdd: () => void;
+  /** Shown under the box: what was found on a linked page. */
+  children?: React.ReactNode;
 }) {
   return (
     <Field label="Links">
@@ -356,6 +393,7 @@ export function LinksField({
           <Plus size={17} />
         </Button>
       </div>
+      {children}
     </Field>
   );
 }

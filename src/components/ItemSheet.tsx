@@ -25,10 +25,13 @@ import { ROOM_PAINT } from "@/lib/rooms";
 import { addDays, addYears, formatDay, formatGBP, isWebLink, normaliseLink, timeAgo, today, toDayString } from "@/lib/format";
 import { useStore, type SheetRestore } from "@/lib/store";
 import { parseStep } from "@/lib/parse";
+import { readableLink, siteOf, splitLink, titleFromUrl } from "@/lib/unfurl";
+import { useUnfurl } from "@/lib/useUnfurl";
 import { useSheetDrag } from "@/lib/useSheetDrag";
 import type { ItemUpdateInput } from "@/lib/validation";
-import { Button, Chip, Field, MoneyInput, PaintChip, Segmented, inputClass } from "@/components/ui";
+import { Button, Chip, Field, MoneyInput, PaintChip, Segmented, Suggestion, inputClass } from "@/components/ui";
 import { QuotesField, UpdatesField } from "@/components/ItemExtras";
+import { AskClaude } from "@/components/AskClaude";
 import { LinksField, StepsField, parseMoney, type DraftStep } from "@/components/StepsField";
 
 type Draft = {
@@ -126,6 +129,10 @@ function SheetBody({
   const [error, setError] = useState<string | null>(restore?.error ?? null);
   const [newStep, setNewStep] = useState("");
   const [newLink, setNewLink] = useState("");
+  // The link to read for a name and price: one added in this sheet, or the
+  // link a new item arrived with from quick add.
+  const [lookup, setLookup] = useState<string | null>(() => (isNew ? (defaults?.links?.[0] ?? null) : null));
+  const page = useUnfurl(readableLink(newLink) ?? lookup);
   // Where focus was when the sheet opened, to hand it back on close.
   const [opener] = useState(() => (typeof document === "undefined" ? null : document.activeElement));
   const [customWho, setCustomWho] = useState(false);
@@ -293,8 +300,18 @@ function SheetBody({
     const added: DraftStep[] = lines
       .filter((l) => l.trim())
       .map((line, i) => {
-        const { text, cost } = parseStep(line);
-        return { key: `new-${Date.now()}-${i}`, text: text.slice(0, 200), done: false, cost: num(cost), link: "", notes: "" };
+        // A pasted product link becomes the step's link, named from the link
+        // until the page is read.
+        const { url, rest } = splitLink(line);
+        const { text, cost } = rest ? parseStep(rest) : { text: titleFromUrl(url!), cost: null };
+        return {
+          key: `new-${Date.now()}-${i}`,
+          text: text.slice(0, 200),
+          done: false,
+          cost: num(cost),
+          link: url ?? "",
+          notes: "",
+        };
       });
     if (!added.length) return;
     setDraft((d) => ({ ...d, steps: [...d.steps, ...added] }));
@@ -327,11 +344,58 @@ function SheetBody({
     } as Partial<ItemDTO>);
   }
 
+  // Parts of Claude's suggestion go into the draft as if typed, so they save
+  // with everything else through the usual item update (and its pot and
+  // estimate rules). Each hands back how to take itself out again.
+  function applyEstimate(min: number, max: number) {
+    const before = { estimatedPrice: draft.estimatedPrice, estimateMax: draft.estimateMax };
+    const low = Math.round(min);
+    const high = Math.round(max);
+    setDraft((d) => ({ ...d, estimatedPrice: num(low), estimateMax: high > low ? num(high) : "" }));
+    return () => setDraft((d) => ({ ...d, ...before }));
+  }
+
+  function addSuggestedSteps(steps: { text: string; cost?: number; link?: string; notes?: string }[]) {
+    const stamp = Date.now();
+    const added: DraftStep[] = steps.map((s, i) => ({
+      key: `claude-${stamp}-${i}`,
+      text: s.text.slice(0, 200),
+      done: false,
+      cost: s.cost ? num(Math.round(s.cost * 100) / 100) : "",
+      link: s.link ?? "",
+      notes: s.notes ?? "",
+    }));
+    const keys = new Set(added.map((s) => s.key));
+    setDraft((d) => ({ ...d, steps: [...d.steps, ...added].slice(0, 50) }));
+    return () => setDraft((d) => ({ ...d, steps: d.steps.filter((s) => !keys.has(s.key)) }));
+  }
+
+  function addSuggestedLink(url: string) {
+    const key = `claude-${Date.now()}`;
+    setDraft((d) =>
+      d.links.some((l) => l.url === url) || d.links.length >= 20 ? d : { ...d, links: [...d.links, { key, url }] },
+    );
+    return () => setDraft((d) => ({ ...d, links: d.links.filter((l) => l.key !== key) }));
+  }
+
   function addLink() {
     if (!newLink.trim()) return;
+    const url = normaliseLink(newLink);
+    if (url && isWebLink(url)) setLookup(url);
     setDraft((d) => ({ ...d, links: [...d.links, { key: `new-${Date.now()}`, url: newLink.trim() }] }));
     setNewLink("");
   }
+
+  // A shop link added here (or pasted, before it's even added) is read for
+  // its name and price, offered with a tap — never filled in unasked.
+  const found = page.data;
+  const placeholderTitle =
+    !draft.title.trim() ||
+    [lookup, readableLink(newLink), found?.url].some((u) => u && titleFromUrl(u) === draft.title.trim());
+  const offerTitle = found?.title && placeholderTitle && found.title !== draft.title.trim() ? found.title : null;
+  const offerPrice =
+    found?.price != null && !followsSteps && !draft.estimatedPrice.trim() && !draft.estimateMax.trim() ? found.price : null;
+  const shop = found ? (found.siteName ?? siteOf(found.url)) : null;
 
   const isPerson = !draft.assignee || people.includes(draft.assignee);
   const t = today();
@@ -609,6 +673,16 @@ function SheetBody({
           )}
 
           {item && (
+            <AskClaude
+              item={item}
+              canSetEstimate={!followsSteps && !draft.isQuote}
+              onEstimate={applyEstimate}
+              onAddSteps={addSuggestedSteps}
+              onAddLink={addSuggestedLink}
+            />
+          )}
+
+          {item && (
             <QuotesField
               item={item}
               onChosen={(u) => {
@@ -640,7 +714,27 @@ function SheetBody({
             newLink={newLink}
             onNewLink={setNewLink}
             onAdd={addLink}
-          />
+          >
+            {page.status === "loading" && (placeholderTitle || !draft.estimatedPrice.trim()) && (
+              <span className="text-[12px] text-ink-3" aria-live="polite">
+                Looking up that page…
+              </span>
+            )}
+            {(offerPrice != null || offerTitle) && (
+              <div className="flex min-w-0 flex-wrap gap-1.5" aria-live="polite">
+                {offerPrice != null && (
+                  <Suggestion onClick={() => set("estimatedPrice", String(offerPrice))}>
+                    Use {formatGBP(offerPrice)} from {shop}
+                  </Suggestion>
+                )}
+                {offerTitle && (
+                  <Suggestion onClick={() => set("title", offerTitle.slice(0, TITLE_MAX))}>
+                    Name it “{offerTitle}”
+                  </Suggestion>
+                )}
+              </div>
+            )}
+          </LinksField>
 
           <Field label="Notes">
             <textarea

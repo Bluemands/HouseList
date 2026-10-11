@@ -1,6 +1,7 @@
 import { PRIORITY_ORDER, ROOMS, type ItemDTO, type Room, type SettingsDTO } from "@/lib/types";
 import { dayDiff, today } from "@/lib/format";
 import { doneStepsCost } from "@/lib/pot";
+import { ROOM_PAINT } from "@/lib/rooms";
 
 export const isOpen = (item: ItemDTO) => item.status !== "DONE";
 
@@ -132,6 +133,29 @@ export function upNext(items: ItemDTO[], me: string | null, afford: Map<string, 
     .sort((a, b) => b.s - a.s)
     .slice(0, limit)
     .map((x) => x.item);
+}
+
+// ---------------------------------------------------------------------------
+// Search: everything written on an item, so "electrician" finds the job the
+// electrician quoted for.
+
+export function matchesSearch(item: ItemDTO, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return [
+    item.title,
+    item.notes,
+    item.assignee,
+    item.project,
+    ROOM_PAINT[item.room].label,
+    ...item.links,
+    ...item.steps.map((s) => `${s.text} ${s.notes ?? ""} ${s.link ?? ""}`),
+    ...item.comments.map((c) => c.text),
+    ...item.quotes.map((q) => `${q.from} ${q.note ?? ""}`),
+  ]
+    .join(" ")
+    .toLowerCase()
+    .includes(q);
 }
 
 // ---------------------------------------------------------------------------

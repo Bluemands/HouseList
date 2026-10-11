@@ -15,7 +15,7 @@ import {
   type Room,
 } from "@/lib/types";
 import { ROOM_PAINT } from "@/lib/rooms";
-import { affordabilityIndex, buildPlan, compareForList, isOpen, planCost } from "@/lib/plan";
+import { affordabilityIndex, buildPlan, compareForList, isOpen, matchesSearch, planCost } from "@/lib/plan";
 import { formatGBP, today } from "@/lib/format";
 import { QuickAdd } from "@/components/QuickAdd";
 import { ItemList, ItemRow } from "@/components/ItemRow";
@@ -115,23 +115,7 @@ export function ListView() {
         if (trip && (i.kind !== "BUY" || (plan.tracked && isOpen(i) && afford.get(i.id) !== 0 && planCost(i) > 0))) {
           return false;
         }
-        if (q) {
-          const hay = [
-            i.title,
-            i.notes,
-            i.assignee,
-            i.project,
-            ROOM_PAINT[i.room].label,
-            ...i.links,
-            ...i.steps.map((s) => `${s.text} ${s.notes ?? ""} ${s.link ?? ""}`),
-            ...i.comments.map((c) => c.text),
-            ...i.quotes.map((q) => `${q.from} ${q.note ?? ""}`),
-          ]
-            .join(" ")
-            .toLowerCase();
-          if (!hay.includes(q)) return false;
-        }
-        return true;
+        return matchesSearch(i, q);
       }),
     [listing, kind, priorities, rooms, who, trip, q, afford, plan.tracked],
   );

@@ -7,6 +7,7 @@ import { useDisplayName } from "@/lib/useDisplayName";
 import { StoreProvider, useStore } from "@/lib/store";
 import { useRoute, type Route, type View } from "@/lib/nav";
 import type { ItemDTO, SettingsDTO } from "@/lib/types";
+import type { AiJobDTO } from "@/lib/ai";
 import { NameGate } from "@/components/NameGate";
 import { ItemSheet } from "@/components/ItemSheet";
 import { BulkAddSheet } from "@/components/BulkAddSheet";
@@ -19,9 +20,16 @@ import { ListView } from "@/components/views/ListView";
 import { RoomView, RoomsView } from "@/components/views/RoomsView";
 import { MoneyView } from "@/components/views/MoneyView";
 
-type Props = { initialItems: ItemDTO[]; initialSettings: SettingsDTO; calendarPath: string };
+type Props = {
+  initialItems: ItemDTO[];
+  initialSettings: SettingsDTO;
+  initialJobs: AiJobDTO[];
+  calendarPath: string;
+  connectorPath: string;
+  workerToken: string;
+};
 
-export function HouseListApp({ initialItems, initialSettings, calendarPath }: Props) {
+export function HouseListApp({ initialItems, initialSettings, initialJobs, calendarPath, connectorPath, workerToken }: Props) {
   const { name, setName, clearName } = useDisplayName();
 
   if (!name) {
@@ -29,7 +37,15 @@ export function HouseListApp({ initialItems, initialSettings, calendarPath }: Pr
   }
 
   return (
-    <StoreProvider initialItems={initialItems} initialSettings={initialSettings} me={name} calendarPath={calendarPath}>
+    <StoreProvider
+      initialItems={initialItems}
+      initialSettings={initialSettings}
+      initialJobs={initialJobs}
+      me={name}
+      calendarPath={calendarPath}
+      connectorPath={connectorPath}
+      workerToken={workerToken}
+    >
       <Shell onSwitchUser={clearName} />
     </StoreProvider>
   );

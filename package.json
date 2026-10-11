@@ -12,7 +12,8 @@
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "test": "vitest run"
+    "test": "vitest run",
+    "ai-worker": "node scripts/ai-worker.mjs"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",

@@ -5,6 +5,7 @@ A shared to-do list and budget planner for a new house, for two people. Log ever
 ## Features
 
 - **One-line quick add** — type `Fix bathroom tap £40 tomorrow !must @Sam` and it's filed: cost, due date, priority, who and room are pulled out of the sentence. `#kitchen` names a room explicitly; `£100-150` is a range.
+- **Paste a product link** — paste a shop link into quick add (on its own, or with `!must #kitchen` and the rest) and it's filed as something to buy, with the product's name, price and the link filled in from the page, and a room guessed from the name ("shower" → bathroom). No AI: it reads the page's own product data. Works with Screwfix, B&Q, IKEA, Wickes, Toolstation and usually Amazon; shops that turn servers away (Argos) still get added straight away, named from the link. Adding a link in the detail sheet, or as a step, offers "Use £X from Screwfix" with one tap.
 - **Paste a list** — paste several lines (from Notes, a chat, a spreadsheet) and each becomes its own item, reviewed before adding.
 - **New-home essentials** — a one-tap starter checklist of the jobs most UK households do in the first months (locks, stopcock, meter readings, boiler service…).
 - **Repeating jobs** — weekly to yearly. Ticking one off schedules the next, counted from the day it was done (`Boiler service every year` works in quick add).
@@ -17,6 +18,7 @@ A shared to-do list and budget planner for a new house, for two people. Log ever
 - **Shopping trip** — under *To buy*, show only what the pot covers right now and tick things off in the shop. Supplies inside jobs ("Buy socket faceplates" under "Fit new sockets", or any step with a product link and a price) are listed too, under *For jobs*.
 - **Select several** in the list to finish, move, re-prioritise, hand over or delete them in one go — with one undo.
 - **Guarantees** — note when a guarantee or warranty runs out; it's listed under Money and the calendar feed reminds you a month before.
+- **Ask Claude** — on any item, one tap for "Research this" (or "Find options" for things to buy), or ask your own question. Claude comes back with a short summary, a typical UK cost range, suggested steps, product options with prices, useful links and things to watch out for (Part P, Gas Safe…). Each part is one tap to use — "Use this estimate", "Add these steps", "Add link", "Log as quote" — and a second tap takes it back. It runs on your own Claude subscription through a small worker on your computer (see [Ask Claude: the worker](#ask-claude-the-worker)), so your partner gets it without a Claude account. A row shows **Suggestion** when an answer is waiting.
 - **Compare quotes** — log quotes from tradespeople against a job; the cheapest is flagged, and choosing one sets the job's cost.
 - **Updates** — a short thread on any item ("rang them, waiting for a callback"), with who said it and when.
 - **Duplicate** anything — the same job in another room, or again next year.
@@ -26,6 +28,7 @@ A shared to-do list and budget planner for a new house, for two people. Log ever
 - **Offline banner** — no signal in the shop? It says so instead of failing quietly.
 - **Since you last looked** — opening the app shows what the other person added and finished.
 - **Due dates in your phone calendar** — subscribe once (Settings) and everything with a date shows up with a 9am reminder. The link is private and unguessable; rotating `AUTH_SECRET` revokes it.
+- **Use it from Claude** — add the app to Claude as a connector and ask in plain English: "research what rewiring a 3-bed costs and put a range on the rewire job", "log this quote against the boiler job", "break 'tile bathroom 1' into steps", "what can we afford this month?". Claude does the research and writes the results into the list, signed "Claude" (see [Use it from Claude](#use-it-from-claude)).
 - Light and dark mode, installable to your phone's home screen, keyboard shortcut `N` to add on desktop.
 - A single shared PIN plus "who's this?" per device. Wrong PINs are rate-limited (10 per 15 minutes per device, 60 an hour overall), but use something longer than a single word.
 
@@ -54,10 +57,15 @@ cp .env.example .env
 | `HOUSE_PIN` | Yes | The shared PIN the two of you type in to unlock the app. The example ships with `changeme`; pick your own before sharing the app with anyone. |
 | `AUTH_SECRET` | Yes | A long random string used to sign the login cookie. Generate one with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` and paste the output in — the shipped placeholder is fine for local dev only. |
 | `DATABASE_POOL_MAX` | No (local dev only) | Leave at `1` locally — see the note below. Omit this variable entirely in production. |
+| `HOUSE_LIST_URL` | Worker only | Where the [Ask Claude worker](#ask-claude-the-worker) finds the app. Defaults to `http://localhost:3000`. |
+| `HOUSE_LIST_WORKER_TOKEN` | Worker only | The worker's key, from Settings → Ask Claude. Locally it can be left out (it's derived from `AUTH_SECRET`). |
+| `HOUSE_LIST_CLAUDE_MODEL` | No | Model alias the worker asks `claude` for. Defaults to `sonnet`. |
+| `HOUSE_LIST_CLAUDE_BIN` | No | Path to the `claude` executable, if the worker can't find it on your PATH. |
+| `HOUSE_LIST_WORKER_MAX_IDLE` | No | Longest wait between checks when nothing's happening, in seconds. Defaults to `60`. |
 
 ### Tests
 
-`npm test` runs the unit tests for the quick-add parser and the budget planner.
+`npm test` runs the unit tests for the quick-add parser, the product-link reader (against saved shop-page shapes, no network), the budget planner, the pot rules, the Claude connector and the Ask Claude worker (prompt, `claude` arguments, answer checking).
 
 ### 2. Install and run
 
@@ -115,7 +123,7 @@ Still on the import screen (or afterwards under **Project Settings → Environme
 | `HOUSE_PIN` | Whatever PIN you and your partner want to use |
 | `AUTH_SECRET` | A long random string — generate one locally with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 
-Do **not** add `DATABASE_POOL_MAX` — leave it unset in production.
+Do **not** add `DATABASE_POOL_MAX` — leave it unset in production. Nothing for Ask Claude goes on Vercel either: the worker variables live on the computer that runs the worker.
 
 ### Step 5: Deploy
 
@@ -125,6 +133,49 @@ Click **Deploy**. Vercel runs the `vercel-build` script, which applies any pendi
 
 Vercel gives you a URL like `your-project.vercel.app`. Share that link and the PIN with your partner — that's the whole rollout. Every time you push to the `main` branch on GitHub, Vercel redeploys automatically.
 
+## Use it from Claude
+
+The app is also a remote [MCP](https://modelcontextprotocol.io) server, so Claude can read and edit the list on your Claude plan (no API key).
+
+1. Deploy first: claude.ai needs to reach the app over the internet, so `localhost` won't work.
+2. In the app, open **Settings** and copy the link under **Use it from Claude**.
+3. In [claude.ai](https://claude.ai), go to **Settings → Connectors → Add custom connector**, give it a name ("The House List") and paste the link. Leave the OAuth fields empty.
+4. That's it: it's available in the Claude apps on your phone and desktop too, and in Claude Code (`claude mcp add --transport http house-list <link>`).
+
+Claude can see the overview and budget plan, find and read items, add and update them (steps, costs, links, notes, due dates, status), log and choose quotes, post updates and delete items when asked. Its changes go through the same rules as the app (finishing something costed spends from the pot, repeating jobs reschedule) and show up on both phones, attributed to "Claude" and in *Since you last looked*. Claude isn't added to your household.
+
+The link carries its own key, like the calendar link, so keep it private. Rotating `AUTH_SECRET` changes it (and the calendar link); you'd then re-add the connector with the new link.
+
+## Ask Claude: the worker
+
+The app never calls Claude itself. Pressing **Ask Claude** queues the question; a small worker script, running on a computer that's signed in to Claude Code, picks it up, runs `claude -p` (Claude Code's headless mode) with **your own Claude Pro/Max subscription**, and sends the answer back. No API key, nothing to pay beyond the subscription. While no worker is running, the app says so honestly ("Waiting for Claude… It runs when the worker's computer is on"), and Settings shows when the worker last checked in.
+
+**Set it up once, on your computer:**
+
+1. Install [Claude Code](https://code.claude.com) and sign in with your Claude account (run `claude` and follow the login). `claude auth status` should say `"loggedIn": true`.
+2. In this project's `.env` on that computer, add:
+   ```bash
+   HOUSE_LIST_URL="https://your-project.vercel.app"
+   HOUSE_LIST_WORKER_TOKEN="paste from Settings → Ask Claude → Copy token"
+   ```
+3. Run it:
+   ```bash
+   npm run ai-worker
+   ```
+   It checks for questions every 20 seconds or so (easing off to once a minute when it's quiet), answers them one at a time, and stops with Ctrl+C. An answer usually takes under a minute and uses a little of your subscription's usage.
+
+Against your local copy (`npm run dev`), step 2's variables aren't needed: the worker defaults to `http://localhost:3000` and derives the token from `AUTH_SECRET` in `.env`.
+
+**Start it with Windows.** Task Scheduler → *Create Task…* → Triggers: *At log on*; Actions: *Start a program*, Program `node`, Arguments `scripts/ai-worker.mjs`, Start in: this project's folder. Leave *Run only when user is logged on* ticked (Claude Code needs your login). On a Mac, a login item or `launchd` agent running the same command does the same job.
+
+**Or don't keep a computer on.** A scheduled [Claude Code cloud routine](https://code.claude.com/docs/en/scheduled-tasks) on this repository, with `HOUSE_LIST_URL` and `HOUSE_LIST_WORKER_TOKEN` set, can run `node scripts/ai-worker.mjs --once` every so often: `--once` answers whatever is waiting and exits. Answers then arrive on the routine's schedule rather than within a minute.
+
+**What Claude can do from the worker:** web search and web fetch, nothing else. It runs in an empty temporary folder with no shell, no file editing and none of your MCP servers, hooks or plugins (`--tools WebSearch,WebFetch`, `--permission-mode dontAsk`, `--safe-mode`, `--strict-mcp-config`). The household's text is passed in as data, not instructions, the prompt goes in on stdin rather than the command line, and each job is stopped after five minutes. Answers are checked against a schema when they arrive, and links that aren't plain web addresses are refused.
+
+> **Neon note:** every check is a tiny database query, so while the worker runs, a Neon free-tier database doesn't get to sleep. That's fine for a computer that's on during the day; for round-the-clock use, raise `HOUSE_LIST_WORKER_MAX_IDLE` or use the scheduled `--once` option.
+
+Rotating `AUTH_SECRET` revokes the worker token along with the calendar link; copy the new one from Settings.
+
 ## Project structure
 
 ```
@@ -132,12 +183,14 @@ src/
   app/
     page.tsx          # server component: fetches initial data
     login/page.tsx     # PIN entry
-    api/                # state, items, settings, export (CSV), auth routes
+    api/                # state, items, settings, export (CSV), unfurl (product links), auth, calendar feed, mcp (Claude connector), ai-jobs, worker routes
   components/           # HouseListApp (shell), views/ (Home, List, Rooms, Money), ItemRow, QuickAdd, ItemSheet, …
-  lib/                   # store (shared state + sync), plan (budget maths), parse (quick add), rooms (paints), …
+  lib/                   # store (shared state + sync), items-service (write rules), plan (budget maths), parse (quick add), mcp + mcp-tools (connector), rooms (paints), …
   proxy.ts               # PIN-gate middleware (Next.js 16's middleware convention)
 prisma/
-  schema.prisma          # Item, Step, Settings models
+  schema.prisma          # Item, Step, Quote, Comment, AiJob, Settings models
+scripts/
+  ai-worker.mjs          # the Ask Claude worker (runs claude -p on your computer)
 ```
 
 ## Non-functional notes

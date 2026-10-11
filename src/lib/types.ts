@@ -172,6 +172,8 @@ export type SettingsDTO = {
   /** Calendar date, YYYY-MM-DD. */
   lastPaydayOn: string | null;
   lastPaydayBy: string | null;
+  /** When the AI worker last asked for work (ISO); null if one never has. */
+  workerSeenAt: string | null;
 };
 
 export const TITLE_MAX = 200;

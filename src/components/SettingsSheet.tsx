@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CalendarPlus, Check, Copy, Download, ListPlus, Lock, X } from "lucide-react";
+import { CalendarPlus, Check, Copy, Download, Eye, EyeOff, ListPlus, Lock, X } from "lucide-react";
 import { ESSENTIALS } from "@/lib/essentials";
 import { useStore } from "@/lib/store";
 import { useSheetDrag } from "@/lib/useSheetDrag";
 import { logout } from "@/lib/api-client";
+import { workerState } from "@/lib/ai";
+import { timeAgo } from "@/lib/format";
 import { Button, Field, Segmented, inputClass } from "@/components/ui";
 
 type Theme = "system" | "light" | "dark";
@@ -32,8 +34,12 @@ function applyTheme(theme: Theme) {
 }
 
 export function SettingsSheet({ open, onClose, onSwitchUser }: { open: boolean; onClose: () => void; onSwitchUser: () => void }) {
-  const { me, settings, saveSettings, calendarPath, openBulk } = useStore();
-  const [copied, setCopied] = useState(false);
+  const { me, settings, saveSettings, calendarPath, connectorPath, workerToken, openBulk } = useStore();
+  const [copied, setCopied] = useState<"calendar" | "connector" | null>(null);
+  const [origin, setOrigin] = useState("");
+  const [tokenCopied, setTokenCopied] = useState(false);
+  const [showToken, setShowToken] = useState(false);
+  const worker = workerState(settings.workerSeenAt);
   const [theme, setTheme] = useState<Theme>("system");
   const [movedIn, setMovedIn] = useState(settings.movedInOn ?? "");
   const ref = useRef<HTMLDialogElement>(null);
@@ -45,10 +51,19 @@ export function SettingsSheet({ open, onClose, onSwitchUser }: { open: boolean; 
     if (open && !d.open) {
       setTheme(readTheme());
       setMovedIn(settings.movedInOn ?? "");
+      setOrigin(window.location.origin);
       d.showModal();
     }
     if (!open && d.open) d.close();
   }, [open, settings.movedInOn]);
+
+  async function copy(which: "calendar" | "connector", path: string) {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}${path}`);
+      setCopied(which);
+      window.setTimeout(() => setCopied(null), 2000);
+    } catch {}
+  }
 
   return (
     <dialog
@@ -130,17 +145,62 @@ export function SettingsSheet({ open, onClose, onSwitchUser }: { open: boolean; 
             >
               <CalendarPlus size={16} /> Subscribe
             </a>
+            <Button variant="secondary" onClick={() => copy("calendar", calendarPath)}>
+              {copied === "calendar" ? <Check size={16} /> : <Copy size={16} />} {copied === "calendar" ? "Copied" : "Copy link"}
+            </Button>
+          </div>
+        </Field>
+
+        <Field
+          label="Use it from Claude"
+          hint="In claude.ai, open Settings → Connectors → Add custom connector and paste this link. Claude can then research jobs and add them here from any Claude app. Keep the link private."
+        >
+          <div className="flex gap-2">
+            <input
+              readOnly
+              value={`${origin}${connectorPath}`}
+              onFocus={(e) => e.currentTarget.select()}
+              aria-label="Claude connector link"
+              className={`${inputClass} min-w-0 truncate`}
+            />
+            <Button variant="secondary" onClick={() => copy("connector", connectorPath)} className="shrink-0">
+              {copied === "connector" ? <Check size={16} /> : <Copy size={16} />} {copied === "connector" ? "Copied" : "Copy"}
+            </Button>
+          </div>
+        </Field>
+
+        <Field
+          label="Ask Claude"
+          hint="A worker answers questions from the app: a small script running Claude Code on a computer signed in to a Claude subscription (see the README). It needs this token. Keep it private, like the calendar link."
+        >
+          <p className="text-[14px] text-ink-2">
+            {worker === "never"
+              ? "No worker has checked in yet."
+              : worker === "active"
+                ? `The worker is running. Last checked in ${timeAgo(settings.workerSeenAt!)}.`
+                : `The worker last checked in ${timeAgo(settings.workerSeenAt!)}. It runs when its computer is on.`}
+          </p>
+          <p
+            aria-label={showToken ? "Worker token" : "Worker token, hidden"}
+            className="rounded-[10px] border border-line bg-sunken px-3 py-2.5 text-[13px] break-all text-ink tabular"
+          >
+            {showToken ? workerToken : `${"•".repeat(16)}${workerToken.slice(-4)}`}
+          </p>
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="secondary"
               onClick={async () => {
                 try {
-                  await navigator.clipboard.writeText(`${window.location.origin}${calendarPath}`);
-                  setCopied(true);
-                  window.setTimeout(() => setCopied(false), 2000);
+                  await navigator.clipboard.writeText(workerToken);
+                  setTokenCopied(true);
+                  window.setTimeout(() => setTokenCopied(false), 2000);
                 } catch {}
               }}
             >
-              {copied ? <Check size={16} /> : <Copy size={16} />} {copied ? "Copied" : "Copy link"}
+              {tokenCopied ? <Check size={16} /> : <Copy size={16} />} {tokenCopied ? "Copied" : "Copy token"}
+            </Button>
+            <Button variant="ghost" aria-pressed={showToken} onClick={() => setShowToken((v) => !v)}>
+              {showToken ? <EyeOff size={16} /> : <Eye size={16} />} {showToken ? "Hide" : "Show"}
             </Button>
           </div>
         </Field>

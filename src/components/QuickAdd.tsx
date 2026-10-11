@@ -2,11 +2,13 @@
 
 import { useMemo, useRef, useState } from "react";
 import clsx from "clsx";
-import { ArrowUp, Calendar, Hammer, Plus, Repeat, ShoppingBag, SlidersHorizontal, User } from "lucide-react";
+import { ArrowUp, Calendar, Hammer, Link2, LoaderCircle, Plus, Repeat, ShoppingBag, SlidersHorizontal, User } from "lucide-react";
 import type { Kind, Room } from "@/lib/types";
 import { PRIORITY_LABELS, REPEAT_SHORT, TITLE_MAX } from "@/lib/types";
 import { ROOM_PAINT } from "@/lib/rooms";
-import { parseQuickAdd, pastedLines } from "@/lib/parse";
+import { guessRoom, parseQuickAdd, pastedLines } from "@/lib/parse";
+import { readableLink, siteOf, splitLink, titleFromUrl } from "@/lib/unfurl";
+import { unfurlLink, useUnfurl } from "@/lib/useUnfurl";
 import { describeDue, formatCost } from "@/lib/format";
 import { useStore } from "@/lib/store";
 import { PaintChip } from "@/components/ui";
@@ -17,6 +19,8 @@ type Props = {
   placeholder?: string;
 };
 
+const LINE_MAX = 2000;
+
 const EXAMPLES = [
   "Fix bathroom tap £40 tomorrow !must",
   "Buy hallway runner £60–90 @Sam",
@@ -25,28 +29,42 @@ const EXAMPLES = [
 ];
 
 export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
-  const { addItem, openItem, settings, openBulk, items } = useStore();
+  const { addItem, patchItem, openItem, settings, openBulk, items } = useStore();
   const [text, setText] = useState("");
   const [kindOverride, setKindOverride] = useState<Kind | null>(null);
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const parsed = useMemo(() => (text.trim() ? parseQuickAdd(text, settings.members) : null), [text, settings.members]);
-  const kind = kindOverride ?? (parsed && (parsed.kind === "BUY" || !defaultKind) ? parsed.kind : defaultKind) ?? "TASK";
-  const room = parsed?.room ?? defaultRoom ?? null;
+  // A product link anywhere in the line is read for its name and price while
+  // the rest of the line is parsed as usual, so "!must #kitchen" still work.
+  const { url: link, rest } = useMemo(() => splitLink(text), [text]);
+  const parsed = useMemo(
+    () => (text.trim() ? parseQuickAdd(rest, settings.members) : null),
+    [text, rest, settings.members],
+  );
+  const page = useUnfurl(link);
+  const kind =
+    kindOverride ??
+    (link ? "BUY" : parsed && (parsed.kind === "BUY" || !defaultKind) ? parsed.kind : defaultKind) ??
+    "TASK";
+  // What the user typed wins; the page fills the gaps, then the link itself.
+  const title = parsed ? (parsed.title || page.data?.title || (link ? titleFromUrl(link) : "")).slice(0, TITLE_MAX) : "";
+  const price = parsed?.estimatedPrice ?? page.data?.price ?? null;
+  const room = parsed?.room ?? defaultRoom ?? (link ? guessRoom(title) : null);
 
   function draft() {
     if (!parsed) return null;
     return {
-      title: parsed.title,
+      title,
       kind,
       room: room ?? undefined,
       priority: parsed.priority ?? undefined,
-      estimatedPrice: parsed.estimatedPrice,
+      estimatedPrice: price,
       estimateMax: parsed.estimateMax,
       dueDate: parsed.dueDate,
       assignee: parsed.assignee,
       repeat: parsed.repeat,
+      links: link ? [page.data?.url ?? link] : undefined,
     };
   }
 
@@ -56,14 +74,21 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
     const lines = pastedLines(e.clipboardData.getData("text"));
     if (lines.length < 2) return;
     e.preventDefault();
+    // A product shared from a shop's app arrives as its name and its link on
+    // two lines: that's one thing, not two.
+    if (lines.length === 2 && lines.filter((l) => readableLink(l)).length === 1) {
+      setText((t) => [t.trim(), ...lines].filter(Boolean).join(" ").slice(0, LINE_MAX));
+      return;
+    }
     openBulk({
       title: `Add ${lines.length} things`,
       intro: "One per line from what you pasted. Untick anything you don't want.",
       candidates: lines.slice(0, 100).map((line) => {
-        const p = parseQuickAdd(line, settings.members);
+        const { url, rest } = splitLink(line);
+        const p = parseQuickAdd(rest, settings.members);
         return {
-          title: (p.title || line).slice(0, TITLE_MAX),
-          kind: p.kind,
+          title: (p.title || (url ? titleFromUrl(url) : line)).slice(0, TITLE_MAX),
+          kind: url ? "BUY" : p.kind,
           room: p.room ?? defaultRoom,
           priority: p.priority ?? undefined,
           estimatedPrice: p.estimatedPrice,
@@ -71,6 +96,7 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
           dueDate: p.dueDate,
           assignee: p.assignee,
           repeat: p.repeat,
+          links: url ? [url] : undefined,
         };
       }),
     });
@@ -87,7 +113,19 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
     if (!d || !d.title) return;
     reset();
     inputRef.current?.focus();
-    await addItem(d);
+    // Adding never waits on a slow shop: it goes in now with the link's own
+    // name, and the page's name and price follow when they arrive.
+    const reading = link && page.status === "loading" ? unfurlLink(link) : null;
+    const created = await addItem(d);
+    if (!created || !reading) return;
+    const found = await reading;
+    if (!found) return;
+    const upgrade = {
+      title: !parsed?.title && found.title ? found.title.slice(0, TITLE_MAX) : undefined,
+      estimatedPrice: d.estimatedPrice == null && found.price != null ? found.price : undefined,
+      room: !d.room && found.title ? (guessRoom(found.title) ?? undefined) : undefined,
+    };
+    if (Object.values(upgrade).some((v) => v !== undefined)) await patchItem(created.id, upgrade);
   }
 
   function moreDetails() {
@@ -96,10 +134,11 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
     openItem("new", d ? { ...d, room: d.room ?? defaultRoom } : { kind, room: defaultRoom });
   }
 
-  const cost = parsed ? formatCost(parsed.estimatedPrice, parsed.estimateMax) : null;
-  const duplicate = parsed?.title
-    ? items.find((i) => i.status !== "DONE" && i.title.trim().toLowerCase() === parsed.title.toLowerCase())
+  const cost = parsed ? formatCost(price, parsed.estimateMax) : null;
+  const duplicate = title
+    ? items.find((i) => i.status !== "DONE" && i.title.trim().toLowerCase() === title.toLowerCase())
     : undefined;
+  const site = link ? (page.data?.siteName ?? siteOf(link)) : null;
   const due = parsed?.dueDate ? describeDue(parsed.dueDate) : null;
   const showHint = focused && !text;
 
@@ -124,7 +163,8 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
             onKeyDown={(e) => e.key === "Escape" && (reset(), inputRef.current?.blur())}
             placeholder={placeholder ?? "Add a job or something to buy…"}
             aria-label="Add a job or something to buy"
-            maxLength={TITLE_MAX}
+            // Room for a long shop link; the title itself is cut to TITLE_MAX.
+            maxLength={LINE_MAX}
             aria-describedby="quick-add-help"
             autoComplete="off"
             enterKeyHint="done"
@@ -151,8 +191,28 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
           )}
         </div>
 
+        {parsed && link && (
+          // What a pasted link will add as, so the box can stay showing the link.
+          <div className="flex min-w-0 items-center gap-2 border-t border-line px-3.5 pt-2 text-[13px]">
+            {page.status === "loading" ? (
+              <LoaderCircle size={14} strokeWidth={2.4} className="shrink-0 animate-spin text-ink-3" aria-hidden="true" />
+            ) : (
+              <Link2 size={14} strokeWidth={2.4} className="shrink-0 text-ink-3" aria-hidden="true" />
+            )}
+            <span className="min-w-0 flex-1 truncate font-semibold text-ink">{title}</span>
+            <span aria-live="polite" className="shrink-0 text-ink-3">
+              {page.status === "loading" ? `Reading ${site}…` : page.status === "failed" ? `${site} · couldn’t read it` : site}
+            </span>
+          </div>
+        )}
+
         {parsed && (
-          <div className="flex flex-wrap items-center gap-1.5 border-t border-line px-3 py-2 text-[12.5px]">
+          <div
+            className={clsx(
+              "flex flex-wrap items-center gap-1.5 px-3 py-2 text-[12.5px]",
+              !link && "border-t border-line",
+            )}
+          >
             <button
               type="button"
               onClick={() => setKindOverride(kind === "BUY" ? "TASK" : "BUY")}
@@ -226,7 +286,7 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
             : "sr-only",
         )}
       >
-        Try “{EXAMPLES[new Date().getDate() % EXAMPLES.length]}”. Use £ for cost, ! for a must, @ for who, # for a room. Paste a list to add lots at once.
+        Try “{EXAMPLES[new Date().getDate() % EXAMPLES.length]}”. Use £ for cost, ! for a must, @ for who, # for a room. Paste a list to add lots at once, or a shop link for its name and price.
       </p>
     </form>
   );

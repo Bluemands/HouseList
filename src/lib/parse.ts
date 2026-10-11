@@ -182,6 +182,22 @@ function findRoom(text: string): { room: Room; explicit: RegExpMatchArray | null
   return null;
 }
 
+// Products that say which room they're for when their name doesn't mention
+// one: "Mira Sport electric shower" goes in the bathroom.
+const PRODUCT_ROOMS: [RegExp, Room][] = [
+  [/\b(shower|toilet|basin|bathtub|towel rail|cistern|vanity unit|bath mat)s?\b/i, "BATHROOM_1"],
+  [/\b(oven|hob|cooker|cooker hood|extractor|dishwasher|fridge|freezer|kettle|toaster|microwave|worktop)s?\b/i, "KITCHEN"],
+  [/\b(lawn ?mower|strimmer|hedge trimmer|hosepipe|garden hose|patio|decking|shed|planter|bird feeder)s?\b/i, "BACK_GARDEN"],
+  [/\b(mattress|bed frame|bedside table|wardrobe|duvet)s?\b/i, "MASTER_BEDROOM"],
+  [/\b(sofa|armchair|coffee table|tv stand)s?\b/i, "SITTING_ROOM"],
+  [/\b(doormat|shoe rack|coat rack|coat hooks?)\b/i, "HALLWAY"],
+];
+
+/** The room a product's name points to, if any — for things added from a link. */
+export function guessRoom(text: string): Room | null {
+  return findRoom(text)?.room ?? PRODUCT_ROOMS.find(([re]) => re.test(text))?.[1] ?? null;
+}
+
 // Money: "£40", "£1.2k", "£100-150", "£100 to £150", "40 quid"
 function findPrice(text: string) {
   return (

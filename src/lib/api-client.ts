@@ -1,4 +1,6 @@
 import type { ItemDTO, SettingsDTO } from "@/lib/types";
+import type { Unfurled } from "@/lib/unfurl";
+import type { AiJobDTO, AiJobUpdate } from "@/lib/ai";
 import type { ItemCreateInput, ItemUpdateInput, SettingsUpdateInput } from "@/lib/validation";
 
 export class ApiError extends Error {
@@ -33,7 +35,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export function fetchState() {
-  return request<{ items: ItemDTO[]; settings: SettingsDTO }>("/api/state", { cache: "no-store" });
+  return request<{ items: ItemDTO[]; settings: SettingsDTO; jobs: AiJobDTO[] }>("/api/state", { cache: "no-store" });
 }
 
 export async function createItem(input: ItemCreateInput): Promise<ItemDTO> {
@@ -69,6 +71,28 @@ export const deleteQuote = (quoteId: string) => itemCall(`/api/quotes/${quoteId}
 export const addComment = (itemId: string, text: string, author: string) =>
   itemCall(`/api/items/${itemId}/comments`, "POST", { text, author });
 export const deleteComment = (commentId: string) => itemCall(`/api/comments/${commentId}`, "DELETE");
+
+/** A product page's name and price, or null when it can't be read (often: shops block servers). */
+export async function unfurl(url: string): Promise<Unfurled | null> {
+  try {
+    const data = await request<{ ok: boolean } & Unfurled>("/api/unfurl", { method: "POST", body: JSON.stringify({ url }) });
+    const { ok, ...page } = data;
+    return ok ? page : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Queue a question for Claude about an item; a worker answers it later. */
+export async function askClaude(itemId: string, input: { question?: string | null; requestedBy: string }): Promise<AiJobDTO> {
+  const data = await request<{ job: AiJobDTO }>(`/api/items/${itemId}/ai`, { method: "POST", body: JSON.stringify(input) });
+  return data.job;
+}
+
+export async function updateJob(id: string, status: AiJobUpdate): Promise<AiJobDTO> {
+  const data = await request<{ job: AiJobDTO }>(`/api/ai-jobs/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
+  return data.job;
+}
 
 export async function deleteItem(id: string): Promise<void> {
   await request(`/api/items/${id}`, { method: "DELETE" });

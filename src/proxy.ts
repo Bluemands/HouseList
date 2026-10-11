@@ -10,6 +10,10 @@ export async function proxy(request: NextRequest) {
   const isAuthApi = pathname === "/api/auth";
   // Calendar apps subscribe without a cookie; the route checks its own token.
   const isCalendarFeed = pathname.startsWith("/api/calendar/");
+  // Neither can Claude's connector; that route checks its own token too.
+  const isConnector = pathname.startsWith("/api/mcp/");
+  // The AI worker has no cookie either; its routes check a bearer token.
+  const isWorkerApi = pathname.startsWith("/api/worker/");
 
   const token = request.cookies.get(AUTH_COOKIE)?.value;
   const authed = await isValidAuthToken(token);
@@ -21,7 +25,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (isPublicPath || isAuthApi || isCalendarFeed) {
+  if (isPublicPath || isAuthApi || isCalendarFeed || isConnector || isWorkerApi) {
     return NextResponse.next();
   }
 

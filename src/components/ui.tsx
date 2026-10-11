@@ -220,6 +220,19 @@ export function MoneyInput({
   );
 }
 
+/** A one-tap offer to fill a field from somewhere else — never applied without the tap. */
+export function Suggestion({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex min-h-11 max-w-full min-w-0 items-center rounded-full border border-accent/35 bg-accent-soft px-3.5 text-[13px] font-semibold text-accent-text transition-[background-color,transform] duration-150 hover:border-accent active:scale-[0.97]"
+    >
+      <span className="truncate">{children}</span>
+    </button>
+  );
+}
+
 /** A section heading with an optional trailing control. */
 export function SectionHead({ title, children, id }: { title: string; children?: React.ReactNode; id?: string }) {
   return (
