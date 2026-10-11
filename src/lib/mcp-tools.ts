@@ -18,6 +18,7 @@ import {
 } from "@/lib/plan";
 import { KINDS, PRIORITIES, ROOMS, STATUS_LABELS, unsavedItem, type ItemDTO, type SettingsDTO } from "@/lib/types";
 import { ROOM_PAINT } from "@/lib/rooms";
+import { houseForClaude } from "@/lib/house";
 import { addDays, formatGBP, formatMonth, linkLabel, today } from "@/lib/format";
 import { isShoppingStep } from "@/lib/parse";
 import { AmazonUnavailable, SEARCH_RESULTS_MAX, amazonEnabled, lookupAmazon, searchAmazon } from "@/lib/amazon";
@@ -107,6 +108,7 @@ export function overview(items: ItemDTO[], settings: SettingsDTO) {
     today: now,
     household: settings.members,
     movedInOn: settings.movedInOn,
+    house: houseForClaude(),
     money: tracked
       ? compact({
           pot: settings.budgetAvailable,
@@ -440,7 +442,7 @@ export const TOOLS: McpTool[] = [
     name: "get_overview",
     title: "Overview and budget plan",
     description:
-      "Start here. The household's names, today's date, the pot (money available now, GBP) and monthly saving, counts, and the affordability plan: every open costed item in plan order with its running total and when it becomes affordable ('now' = the pot covers it today; otherwise the month the savings reach it). Also the app's Up next list and per-room progress. Use it for 'what can we afford this month?', 'what should we do next?', or to find ids.",
+      "Start here. The household's names, today's date, the pot (money available now, GBP) and monthly saving, counts, and the affordability plan: every open costed item in plan order with its running total and when it becomes affordable ('now' = the pot covers it today; otherwise the month the savings reach it). Also the app's Up next list, per-room progress, and the house's layout with room sizes from its floor plan. Use it for 'what can we afford this month?', 'what should we do next?', or to find ids.",
     input: z.strictObject({}),
     annotations: { readOnlyHint: true, idempotentHint: true },
     async run() {
@@ -663,6 +665,7 @@ The pot is the money they have now; the monthly saving tops it up. The plan spen
 Working well with them:
 - Call get_overview or list_items first. Update existing items rather than adding duplicates.
 - When you research a cost, put the range on the item (estimatedPrice/estimateMax, UK prices including VAT and labour where relevant), the sources in links, and a short summary as an update with add_comment.
+- Room sizes are in get_overview → house: use them for quantities (paint, flooring, tiles, skirting) and say what you based a figure on. They're approximate, so where a mistake would cost them, add a step to measure first.
 - Break big jobs into steps; supplies for a DIY job go in as steps starting "Buy …" with a cost and product link, which puts them on the To buy list under For jobs. Step costs add up to the job's estimate (replacing any range or quote), so for a job priced by a tradesperson, leave step costs off. Standalone purchases are BUY items.
 - For "what if…" money questions (a different priority, pinning something, dropping it, a big new cost), preview_change shows what moves in the plan before anything changes. For "what do we need from the shops?", shopping_list gathers things to buy and the supplies inside jobs.
 - Assignees are household members (get_overview → household), "Both", or a trade like "Electrician". Never assign Claude.

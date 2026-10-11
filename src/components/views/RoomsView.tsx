@@ -12,6 +12,8 @@ import { SwatchCard, PaintStrip } from "@/components/SwatchCard";
 import { QuickAdd } from "@/components/QuickAdd";
 import { ItemList, ItemRow } from "@/components/ItemRow";
 import { SectionHead } from "@/components/ui";
+import { FloorPlan } from "@/components/FloorPlan";
+import { FLOOR_LABELS, ROOM_LAYOUT, roomAreas, roomSizeLabel } from "@/lib/house";
 
 export function RoomsView({ go }: { go: (r: Route) => void }) {
   const { items } = useStore();
@@ -29,6 +31,7 @@ export function RoomsView({ go }: { go: (r: Route) => void }) {
             : `${active.length} of ${stats.length} rooms on the go${finished ? ` · ${finished} all done` : ""}`}
         </p>
       </header>
+      <FloorPlan stats={stats} onOpen={(room) => go({ view: "rooms", room })} />
       {/* Rooms with something in them get the full card; the rest wait in a
           compact fan below, still in deck order, so the busy rooms aren't
           buried in a long scroll of "Nothing yet". A fresh house shows the
@@ -73,6 +76,8 @@ export function RoomView({ room, go }: { room: Room; go: (r: Route) => void }) {
   const { items, listing, listingSettings } = useStore();
   const [showDone, setShowDone] = useState(false);
   const paint = ROOM_PAINT[room];
+  const layout = ROOM_LAYOUT[room];
+  const areas = roomAreas(room);
   const stats = useMemo(() => roomStats(items).find((s) => s.room === room)!, [items, room]);
   const plan = useMemo(() => buildPlan(listing, listingSettings), [listing, listingSettings]);
   const afford = useMemo(() => affordabilityIndex(plan), [plan]);
@@ -96,7 +101,21 @@ export function RoomView({ room, go }: { room: Room; go: (r: Route) => void }) {
         className="-mx-4 grid gap-4 px-5 pt-6 pb-5 sm:mx-0 sm:rounded-[20px]"
         style={{ background: paint.hex, color: paint.ink }}
       >
-        <h1 className="text-[32px] leading-none font-bold tracking-[-0.03em]">{paint.label}</h1>
+        <div className="grid gap-1.5">
+          <h1 className="text-[32px] leading-none font-bold tracking-[-0.03em]">{paint.label}</h1>
+          {layout && (
+            <p className="text-[13px] font-medium tabular">
+              {[
+                FLOOR_LABELS[layout.floor],
+                roomSizeLabel(room),
+                areas && `${areas.floorM2} m² floor`,
+                layout.planName && `“${layout.planName}” on the plan`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          )}
+        </div>
         <dl className="flex flex-wrap gap-x-6 gap-y-2 text-[14px]">
           <Stat label="To do" value={String(stats.open)} />
           <Stat label="Done" value={String(stats.done)} />

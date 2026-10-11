@@ -4,6 +4,7 @@ import { isWorkerRequest } from "@/lib/auth";
 import { STALE_CLAIM_MS, staleOutcome } from "@/lib/ai";
 import { amazonEnabled } from "@/lib/amazon";
 import { ROOM_PAINT } from "@/lib/rooms";
+import { houseForClaude } from "@/lib/house";
 import { KIND_LABELS, PRIORITY_LABELS, STATUS_LABELS } from "@/lib/types";
 
 // The worker (scripts/ai-worker.mjs) asks here for the oldest waiting
@@ -96,6 +97,8 @@ export async function POST(request: NextRequest) {
     },
     // No address is kept, so the worker assumes somewhere in the UK.
     location: null,
+    // The layout and room sizes from their floor plan, for quantities.
+    house: houseForClaude(item.room),
     today: ukToday(),
     // Whether /api/worker/mcp can look up Amazon prices.
     amazon: amazonEnabled(),
