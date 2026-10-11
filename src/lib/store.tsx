@@ -253,9 +253,12 @@ export function StoreProvider({
   const refresh = useCallback(async () => {
     if (inFlight.current > 0 || pendingDeletes.current.size > 0) return;
     if (Date.now() - lastMutation.current < 1500) return;
+    const seen = lastMutation.current;
     try {
       const state = await api.fetchState();
-      if (inFlight.current > 0 || pendingDeletes.current.size > 0) return;
+      // A change made (and maybe already saved) while this was on its way
+      // isn't in it: showing it would undo that change on screen.
+      if (inFlight.current > 0 || pendingDeletes.current.size > 0 || lastMutation.current !== seen) return;
       setItems(state.items);
       setSettings(state.settings);
       setJobs(state.jobs);
