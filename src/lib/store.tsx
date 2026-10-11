@@ -29,6 +29,8 @@ export type Toast = {
   secondary?: { label: string; run: () => void };
   /** A "what did it cost?" box under the message, for a finish that had to assume a price. */
   price?: { guess: string; placeholder: string; save: (amount: number) => void };
+  /** On its way out (animating), and no longer tappable. */
+  leaving?: boolean;
 };
 
 type Store = {
@@ -230,7 +232,11 @@ export function StoreProvider({
   }, [items, settings]);
 
   const toastSeq = useRef(0);
-  const dismissToast = useCallback((id: number) => setToasts((t) => t.filter((x) => x.id !== id)), []);
+  // A toast slides away rather than vanishing, then leaves the list.
+  const dismissToast = useCallback((id: number) => {
+    setToasts((t) => t.map((x) => (x.id === id ? { ...x, leaving: true } : x)));
+    window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 160);
+  }, []);
   const heldToasts = useRef(new Set<number>());
   const dismissLater = useCallback(
     (id: number, ms: number) => window.setTimeout(() => !heldToasts.current.has(id) && dismissToast(id), ms),

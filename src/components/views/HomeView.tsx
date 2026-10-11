@@ -14,7 +14,7 @@ import { QuickAdd } from "@/components/QuickAdd";
 import { SinceLastTime } from "@/components/SinceLastTime";
 import { ItemList, ItemRow } from "@/components/ItemRow";
 import { SwatchCard } from "@/components/SwatchCard";
-import { PaintChip, SectionHead } from "@/components/ui";
+import { CountingMoney, PaintChip, SectionHead } from "@/components/ui";
 
 export function HomeView({ go, onSettings }: { go: (r: Route) => void; onSettings: () => void }) {
   const { items, listing, listingSettings, settings, me, openBulk } = useStore();
@@ -202,7 +202,7 @@ function MoneyStrip({ plan, onOpen }: { plan: ReturnType<typeof buildPlan>; onOp
     >
       <span className="flex items-baseline gap-x-3 gap-y-0.5 flex-wrap">
         <span className="text-[17px] font-bold text-ink tabular">
-          {formatGBP(plan.pot)} <span className="font-medium text-ink-2">in the pot</span>
+          <CountingMoney value={plan.pot} /> <span className="font-medium text-ink-2">in the pot</span>
         </span>
         <span className={clsx("text-[14px] font-semibold tabular", short ? "text-danger" : "text-accent-text")}>
           {status}

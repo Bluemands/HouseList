@@ -3,6 +3,7 @@
 import { useState } from "react";
 import clsx from "clsx";
 import { Check, ExternalLink, Send, Sparkles, TriangleAlert, X } from "lucide-react";
+import { Chappie } from "@/components/Chappie";
 import type { ItemDTO } from "@/lib/types";
 import { workerState, type AiJobDTO, type AiResult } from "@/lib/ai";
 import { useStore } from "@/lib/store";
@@ -187,12 +188,12 @@ export function AskClaude({
             : "No worker has checked in yet. Settings has how to set one up.";
     return (
       <Field label="Ask Claude">
-        <div className="grid gap-1.5 rounded-xl border border-line py-3 pr-1.5 pl-3.5">
+        <div className="rise-in grid gap-1.5 rounded-xl border border-line py-3 pr-1.5 pl-3.5">
           {asked}
           <div className="flex items-start gap-2">
             <div role="status" className="grid min-w-0 flex-1 gap-1 pt-1">
               <p className="flex items-center gap-2 text-[15px] font-semibold text-ink">
-                <span aria-hidden="true" className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent" />
+                <Chappie working={job.status === "RUNNING"} size={22} className={job.status === "RUNNING" ? "text-accent-text" : "text-ink-2"} />
                 {job.status === "RUNNING" ? "Claude's on it…" : "Waiting for Claude…"}
               </p>
               <p className="text-[13px] text-ink-2">{line}</p>
@@ -210,7 +211,7 @@ export function AskClaude({
   if (job.status === "FAILED") {
     return (
       <Field label="Ask Claude">
-        <div className="grid gap-1.5 rounded-xl border border-line px-3.5 py-3">
+        <div className="rise-in grid gap-1.5 rounded-xl border border-line px-3.5 py-3">
           {asked}
           <p className="text-[15px] font-semibold text-ink">Claude couldn&apos;t answer this time.</p>
           {job.error && <p className="text-[13px] text-ink-2">{job.error}</p>}
@@ -246,7 +247,7 @@ export function AskClaude({
 
   return (
     <Field label="Ask Claude">
-      <article aria-label="Claude's suggestion" className="overflow-hidden rounded-xl border border-line">
+      <article aria-label="Claude's suggestion" className="rise-in overflow-hidden rounded-xl border border-line">
         <div className="grid gap-2 px-3.5 pt-3 pb-3.5">
           <p className="flex items-center gap-1.5 text-[12.5px] text-ink-3">
             <Sparkles size={13} className="text-accent-text" aria-hidden="true" />

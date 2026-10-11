@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import {
   Calendar,
@@ -23,6 +23,7 @@ import { useStore } from "@/lib/store";
 import { haptic } from "@/lib/haptics";
 import { doneStepsCost } from "@/lib/pot";
 import { PriorityTag, RoomTag, TickButton } from "@/components/ui";
+import { Chappie } from "@/components/Chappie";
 
 type Props = {
   item: ItemDTO;
@@ -126,6 +127,32 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
     : formatCost(item.estimatedPrice, item.estimateMax);
   const openQuotes = !done && !item.isQuote ? item.quotes.length : 0;
 
+  // An answer that lands while the row is on screen gets a moment: noticed
+  // as the job moves on from waiting, not on every visit.
+  const job = jobByItem.get(item.id);
+  const [jobSeen, setJobSeen] = useState(job?.status);
+  const [answered, setAnswered] = useState(false);
+  if (jobSeen !== job?.status) {
+    setJobSeen(job?.status);
+    if ((jobSeen === "QUEUED" || jobSeen === "RUNNING") && job?.status === "DONE") setAnswered(true);
+  }
+
+  // A change that lands on a row already showing (saved from the sheet, or
+  // made on the other phone) washes it briefly, so it's seen to happen.
+  const rowRef = useRef<HTMLLIElement>(null);
+  const updated = useRef(item.updatedAt);
+  useEffect(() => {
+    if (updated.current === item.updatedAt) return;
+    updated.current = item.updatedAt;
+    const row = rowRef.current;
+    if (!row || leaving || justAdded === item.id) return;
+    const wash = getComputedStyle(row).getPropertyValue("--accent-soft").trim();
+    row.animate([{ backgroundColor: wash }, { backgroundColor: "transparent" }], {
+      duration: 1400,
+      easing: "cubic-bezier(0.33, 1, 0.68, 1)",
+    });
+  }, [item.updatedAt, item.id, leaving, justAdded]);
+
   const meta: React.ReactNode[] = [];
   if (!hideRoom) meta.push(<RoomTag key="room" room={item.room} />);
   if (item.status === "DOING") {
@@ -205,21 +232,24 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
     );
   }
   // Claude has answered and nobody's looked yet: a nudge to open it.
-  const job = jobByItem.get(item.id);
   if (job?.status === "DONE") {
     meta.push(
-      <span key="claude" className="inline-flex items-center gap-1 font-medium text-accent-text">
+      <span
+        key="claude-done"
+        className={clsx("inline-flex items-center gap-1 font-medium text-accent-text", answered && "claude-arrive")}
+      >
         <Sparkles size={12} strokeWidth={2.2} aria-hidden="true" />
         Suggestion
         <span className="sr-only">from Claude ready</span>
       </span>,
     );
-  } else if (job?.autofill && (job.status === "QUEUED" || job.status === "RUNNING")) {
-    // Added with "Ask Claude": the details are on their way.
+  } else if (job?.status === "QUEUED" || job?.status === "RUNNING") {
+    // Out with Claude: Chappie looks about until a worker takes it, then gets to work.
+    const working = job.status === "RUNNING";
     meta.push(
-      <span key="claude" className="inline-flex items-center gap-1 font-medium text-ink-3">
-        <Sparkles size={12} strokeWidth={2.2} aria-hidden="true" />
-        {job.status === "RUNNING" ? "Claude's filling this in" : "Waiting for Claude"}
+      <span key="claude" className={clsx("inline-flex items-center gap-1 font-medium", working ? "text-accent-text" : "text-ink-3")}>
+        <Chappie working={working} size={16} className="-my-1" />
+        {working ? (job.autofill ? "Claude's filling this in" : "Claude's on it") : "Waiting for Claude"}
       </span>,
     );
   }
@@ -238,6 +268,7 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
 
   return (
     <li
+      ref={rowRef}
       className={clsx(
         "relative grid touch-pan-y grid-rows-[1fr] overflow-hidden border-b border-line",
         justAdded === item.id && "row-arrive",

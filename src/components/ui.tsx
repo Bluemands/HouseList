@@ -1,9 +1,39 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import type { Priority, Room } from "@/lib/types";
 import { ROOM_PAINT } from "@/lib/rooms";
+import { formatGBP } from "@/lib/format";
+
+/**
+ * A pound figure that counts to its new value when it changes (payday, a
+ * spend, the other phone's change), so the change is seen to happen. Whole
+ * pounds count in whole pounds. Under reduced motion it just changes.
+ */
+export function CountingMoney({ value }: { value: number }) {
+  const [shown, setShown] = useState(value);
+  const from = useRef(value);
+  useEffect(() => {
+    const start = from.current;
+    if (start === value) return;
+    const whole = Number.isInteger(start) && Number.isInteger(value);
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const began = performance.now();
+    let frame = 0;
+    const step = (now: number) => {
+      const t = still ? 1 : Math.min(1, (now - began) / 600);
+      const eased = t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
+      const v = start + (value - start) * eased;
+      from.current = t >= 1 ? value : v;
+      setShown(t >= 1 ? value : whole ? Math.round(v) : Math.round(v * 100) / 100);
+      if (t < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [value]);
+  return <>{formatGBP(shown)}</>;
+}
 
 export function PaintChip({ room, className }: { room: Room; className?: string }) {
   return (

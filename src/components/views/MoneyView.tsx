@@ -8,7 +8,7 @@ import { buildPlan, roomStats, spending, type PlanEntry } from "@/lib/plan";
 import { dayDiff, describeDay, formatGBP, formatGBPShort, formatMonth, formatMonthYear, today } from "@/lib/format";
 import { ROOM_PAINT } from "@/lib/rooms";
 import { ItemList, ItemRow } from "@/components/ItemRow";
-import { Button, MoneyInput, PaintChip, SectionHead } from "@/components/ui";
+import { Button, CountingMoney, MoneyInput, PaintChip, SectionHead } from "@/components/ui";
 
 export function MoneyView() {
   const { items, settings } = useStore();
@@ -217,7 +217,7 @@ function PotPanel() {
                 settings.budgetAvailable < 0 && "text-danger",
               )}
             >
-              {formatGBP(settings.budgetAvailable)}
+              <CountingMoney value={settings.budgetAvailable} />
             </span>
             <Pencil size={16} className="text-ink-3 group-hover:text-ink" aria-label="Edit" />
           </button>

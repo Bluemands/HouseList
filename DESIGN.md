@@ -342,7 +342,11 @@ A native dialog that rises as a bottom sheet on phones (92dvh max, 22px top corn
 Ink pills (limestone text) that rise 8px into view above the tab bar, carrying the message and an "Undo" action in green-soft bold. Errors use a danger fill. They replace every confirmation dialog. While a sheet is open the toasts render inside it (a modal sheet makes everything outside it inert), so an undo or an error raised from a sheet is always visible and tappable.
 
 ### Motion
-One easing (`cubic-bezier(0.16, 1, 0.3, 1)`) for tick flood and draw, row arrive (420ms, from 6px above with a green-soft flash), row leave (320ms fold after a 620ms pause), sheet up and panel in, toast in and paint-in. Under reduced motion every animation and transition collapses to 1ms.
+One easing (`cubic-bezier(0.16, 1, 0.3, 1)`) for tick flood and draw, row arrive (420ms, from 6px above with a green-soft flash), row leave (320ms fold after a 620ms pause), sheet up and panel in, toast in (240ms) and out (160ms, 6px down), and paint-in. Under reduced motion every animation and transition collapses to 1ms and loops run once, so state still changes without movement.
+
+**Chappie (signature).** Whenever a question is out with Claude, a small visor-faced robot with antenna ears (after the film's Chappie) stands beside the words, drawn in currentColor: 16px in a row's meta line, 22px in the sheet's Ask Claude panel. Waiting for a worker to pick it up, in ink-3, he looks about, blinks and twitches an ear on a 3.6s loop. Once Claude is working, in green text, his ears bob and the visor scans (0.55s). When the answer lands while the row is on screen, the "Suggestion" tag pops in on a green-soft wash (900ms), once.
+
+**Change feedback.** A row whose item changes while it's showing (saved from the sheet, or arriving from the other phone) washes green-soft and fades over 1.4s. The pot figure on Home and Money counts to its new value over 600ms (whole pounds stay whole). Quick add's parsed chips pop in (200ms, from 0.88 scale) as each is understood, and an Ask Claude panel rises 4px into view when it changes state.
 
 ## Do's and Don'ts
 

@@ -250,7 +250,7 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
         {parsed && (
           <div
             className={clsx(
-              "flex flex-wrap items-center gap-1.5 px-3 py-2 text-[12.5px]",
+              "chips-pop flex flex-wrap items-center gap-1.5 px-3 py-2 text-[12.5px]",
               !link && "border-t border-line",
             )}
           >
