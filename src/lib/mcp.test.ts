@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { handlePost, type McpServer } from "@/lib/mcp";
 import { TOOLS, affordLabel, filterItems, overview } from "@/lib/mcp-tools";
 import type { ItemDTO, SettingsDTO } from "@/lib/types";
@@ -257,5 +257,22 @@ describe("the tools", () => {
     const untracked = overview(items, { ...settings, potTracked: false });
     expect(untracked.plan.entries![0].affordable).toBeUndefined();
     expect(untracked.money).toHaveProperty("note");
+  });
+
+  it("give Claude the UK's date and month, even on a UTC server", () => {
+    // 00:30 on 1 October in London (BST) is still 30 September in UTC.
+    const tz = process.env.TZ;
+    process.env.TZ = "UTC";
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-30T23:30:00Z"));
+    try {
+      const o = overview([item({ title: "Rewire", estimatedPrice: 800 })], settings);
+      expect(o.today).toBe("2026-10-01");
+      expect(o.plan.entries![0].affordable).toBe("November 2026 (after 1 more month of saving)");
+    } finally {
+      vi.useRealTimers();
+      if (tz === undefined) delete process.env.TZ;
+      else process.env.TZ = tz;
+    }
   });
 });

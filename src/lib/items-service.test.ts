@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { nextActualPrice, nextRound, nextSteps } from "@/lib/items-service";
 import type { Item, Step } from "@/generated/prisma/client";
 
@@ -79,5 +79,18 @@ describe("nextRound", () => {
     expect(next).toMatchObject({ title: "Boiler service", spawnedFromId: "boiler", repeat: "YEARLY" });
     expect(next.dueDate?.toISOString().slice(0, 10)).toBe("2027-10-11");
     expect(next.steps?.create).toEqual([{ text: "Step s1", done: false, position: 0, cost: 20, link: null, notes: null }]);
+  });
+
+  it("counts from the day it was done in the UK, not on the server's clock", () => {
+    // Ticked off at 00:30 on Tuesday 13 October, British Summer Time: still
+    // Monday on a UTC server.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-12T23:30:00Z"));
+    try {
+      const bins = { id: "bins", title: "Bins", repeat: "WEEKLY", steps: [] } as unknown as Item & { steps: Step[] };
+      expect(nextRound(bins).dueDate?.toISOString().slice(0, 10)).toBe("2026-10-20");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

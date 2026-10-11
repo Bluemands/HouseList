@@ -12,6 +12,7 @@ import type {
 import { ITEM_INCLUDE, estimateFromSteps, fromDay, getSettings, isMember, stepRows, toItemDTO } from "@/lib/data";
 import { nextOccurrence, type ItemDTO } from "@/lib/types";
 import { settlePot } from "@/lib/pot";
+import { today as ukToday } from "@/lib/format";
 
 // The rules every write follows, whoever makes it: the app's own API routes
 // and the Claude connector (src/lib/mcp) both come through here, so the pot,
@@ -180,7 +181,7 @@ export function nextActualPrice(
 }
 
 /** The next round of a repeating job, counted from the day this one was done. */
-export function nextRound(done: Item & { steps: Step[] }, today = new Date().toISOString().slice(0, 10)) {
+export function nextRound(done: Item & { steps: Step[] }, today = ukToday()) {
   return {
     title: done.title,
     kind: done.kind,

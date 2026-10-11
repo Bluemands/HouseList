@@ -33,8 +33,19 @@ export function toDayString(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+// The household's calendar, wherever this runs: the server is on UTC, where
+// the first hour of a British summer day is still yesterday.
+const ukDay = new Intl.DateTimeFormat("en-GB", {
+  timeZone: "Europe/London",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
 export function today(): string {
-  return toDayString(new Date());
+  // From the parts, not the formatted string, whose layout varies by browser.
+  const part = Object.fromEntries(ukDay.formatToParts(new Date()).map((p) => [p.type, p.value]));
+  return `${part.year}-${part.month}-${part.day}`;
 }
 
 export function addDays(day: string, n: number): string {
@@ -97,8 +108,8 @@ export function formatDay(day: string): string {
 }
 
 export function formatMonth(monthsFromNow: number, long = true): string {
-  const now = new Date();
-  const d = new Date(now.getFullYear(), now.getMonth() + monthsFromNow, 1);
+  const [y, m] = today().split("-").map(Number);
+  const d = new Date(y, m - 1 + monthsFromNow, 1);
   return (long ? monthYear : monthShort).format(d);
 }
 
