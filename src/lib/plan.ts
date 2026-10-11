@@ -1,5 +1,5 @@
 import { PRIORITY_ORDER, ROOMS, type ItemDTO, type Room, type SettingsDTO } from "@/lib/types";
-import { dayDiff, today } from "@/lib/format";
+import { dayDiff, formatMonth, today } from "@/lib/format";
 import { doneStepsCost } from "@/lib/pot";
 import { ROOM_PAINT } from "@/lib/rooms";
 
@@ -148,23 +148,45 @@ function placeIn(plan: Plan, id: string): PlanPlace | null {
 }
 
 /**
- * The plan's answer for `changed` (an item as edited, or a new one) against
- * the list as it is, and whose dates it moves. Other items keep their own
- * details; only their place in the queue can change.
+ * The plan before and after some items change (edited, or new), and whose
+ * dates that moves among the rest. Other items keep their own details; only
+ * their place in the queue can change.
  */
-export function planImpact(items: ItemDTO[], settings: SettingsDTO, changed: ItemDTO): PlanImpact {
+export function planShifts(items: ItemDTO[], settings: SettingsDTO, changed: ItemDTO[]) {
+  const ids = new Set(changed.map((i) => i.id));
   const before = buildPlan(items, settings);
-  const after = buildPlan([...items.filter((i) => i.id !== changed.id), changed], settings);
+  const after = buildPlan([...items.filter((i) => !ids.has(i.id)), ...changed], settings);
   const was = new Map(before.entries.map((e) => [e.item.id, e.monthsAway]));
   const later: PlanMove[] = [];
   const sooner: PlanMove[] = [];
   for (const e of after.entries) {
-    if (e.item.id === changed.id || !was.has(e.item.id)) continue;
+    if (ids.has(e.item.id) || !was.has(e.item.id)) continue;
     const from = was.get(e.item.id)!;
     if (monthsRank(e.monthsAway) > monthsRank(from)) later.push({ item: e.item, from, to: e.monthsAway });
     else if (monthsRank(e.monthsAway) < monthsRank(from)) sooner.push({ item: e.item, from, to: e.monthsAway });
   }
+  return { before, after, later, sooner };
+}
+
+/** The plan's answer for `changed` (an item as edited, or a new one) against the list as it is. */
+export function planImpact(items: ItemDTO[], settings: SettingsDTO, changed: ItemDTO): PlanImpact {
+  const { before, after, later, sooner } = planShifts(items, settings, [changed]);
   return { before: placeIn(before, changed.id), after: placeIn(after, changed.id), later, sooner };
+}
+
+/** "now", "Apr 2027", or "not at current savings". */
+export function describeWhen(months: number | null, long = false): string {
+  if (months === 0) return "now";
+  if (months === null) return "not at current savings";
+  return formatMonth(months, long);
+}
+
+/** “Sofa” (to Apr 2027), or “Sofa” (to Apr 2027) and 2 more. Quoted, as titles can have commas. */
+export function describeMoves(moves: PlanMove[]): string {
+  const [first, ...rest] = moves;
+  const title = first.item.title.length > 40 ? `${first.item.title.slice(0, 38).trimEnd()}…` : first.item.title;
+  const lead = `“${title}” (to ${describeWhen(first.to)})`;
+  return rest.length ? `${lead} and ${rest.length} more` : lead;
 }
 
 // ---------------------------------------------------------------------------

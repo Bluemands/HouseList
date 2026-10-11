@@ -1,5 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { buildPlan, compareItems, planCost, planImpact, spending, upNext, affordabilityIndex } from "@/lib/plan";
+import {
+  affordabilityIndex,
+  buildPlan,
+  compareItems,
+  describeMoves,
+  describeWhen,
+  planCost,
+  planImpact,
+  planShifts,
+  spending,
+  upNext,
+} from "@/lib/plan";
 import type { ItemDTO, SettingsDTO } from "@/lib/types";
 
 beforeAll(() => {
@@ -155,6 +166,34 @@ describe("planImpact", () => {
     expect(added.later.map((m) => m.item.title)).toEqual(["Blind"]);
 
     expect(planImpact(all, settings(0), { ...boiler, estimatedPrice: null }).after).toBeNull();
+  });
+});
+
+describe("planShifts", () => {
+  it("moves the rest of the plan when several things change at once", () => {
+    const sofa = item({ title: "Sofa", estimatedPrice: 600 });
+    const rug = item({ title: "Rug", estimatedPrice: 200 });
+    const lamp = item({ title: "Lamp", estimatedPrice: 50 });
+    const shed = item({ title: "Shed", priority: "SOMEDAY", estimatedPrice: 100 });
+    const all = [sofa, rug, lamp, shed];
+    const { later, sooner } = planShifts(all, settings(300, 100), [sofa, rug].map((i) => ({ ...i, priority: "SOMEDAY" as const })));
+    // Sofa and Rug were the ones changed, so only the others are reported.
+    expect(sooner.map((m) => [m.item.title, m.from, m.to])).toEqual([
+      ["Lamp", 6, 0],
+      ["Shed", 7, 0],
+    ]);
+    expect(later).toEqual([]);
+  });
+
+  it("names what moved, briefly", () => {
+    const long = item({ title: "Install fire alarms, 1 office, 1 master bedroom, 1 hallway" });
+    const rug = item({ title: "Rug" });
+    expect(describeMoves([{ item: rug, from: 2, to: 0 }])).toBe("“Rug” (to now)");
+    expect(describeMoves([{ item: long, from: 0, to: 2 }, { item: rug, from: 0, to: null }])).toBe(
+      "“Install fire alarms, 1 office, 1 maste…” (to Dec 2026) and 1 more",
+    );
+    expect(describeWhen(null)).toBe("not at current savings");
+    expect(describeWhen(3, true)).toBe("January 2027");
   });
 });
 

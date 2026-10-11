@@ -4,9 +4,10 @@ import { useState } from "react";
 import clsx from "clsx";
 import { Check, Flag, LayoutGrid, Trash2, User, X } from "lucide-react";
 import { useStore } from "@/lib/store";
-import { PRIORITIES, PRIORITY_LABELS, ROOMS, type ItemDTO } from "@/lib/types";
+import { PRIORITIES, PRIORITY_LABELS, ROOMS, type ItemDTO, type Priority } from "@/lib/types";
 import { ROOM_PAINT } from "@/lib/rooms";
 import { formatGBP } from "@/lib/format";
+import { describeMoves, planCost, planShifts } from "@/lib/plan";
 import { Chip, PaintChip } from "@/components/ui";
 
 type Menu = "room" | "priority" | "who";
@@ -26,17 +27,34 @@ export function SelectionBar({
   onToggleAll: () => void;
   onExit: () => void;
 }) {
-  const { bulkEdit, removeItems, settings, me } = useStore();
+  const { bulkEdit, removeItems, settings, me, items } = useStore();
   const [menu, setMenu] = useState<Menu | null>(null);
   const n = selected.length;
   const things = (count: number) => `${count} ${count === 1 ? "thing" : "things"}`;
   const people = [...new Set([...settings.members, me]), "Both"];
   // A chip shows as on when everything selected already has that value.
   const all = (has: (i: ItemDTO) => boolean) => n > 0 && selected.every(has);
+  const selectedCost = selected.reduce((sum, i) => sum + planCost(i), 0);
 
   function apply(patch: Parameters<typeof bulkEdit>[1], message: string) {
     bulkEdit(selected, patch, message);
     onExit();
+  }
+
+  // Moving several things up or down the order moves the rest of the plan:
+  // the toast says what that did, so "push these to Someday" shows what it
+  // freed up (and Undo is right there if it wasn't worth it).
+  function setPriority(priority: Priority) {
+    let message = `Set ${things(n)} to “${PRIORITY_LABELS[priority]}”`;
+    if (settings.potTracked) {
+      const { later, sooner } = planShifts(items, settings, selected.map((i) => ({ ...i, priority })));
+      const effects = [
+        sooner.length ? `brings forward ${describeMoves(sooner)}` : null,
+        later.length ? `pushes back ${describeMoves(later)}` : null,
+      ].filter(Boolean);
+      if (effects.length) message += `: ${effects.join(", ")}`;
+    }
+    apply({ priority }, message);
   }
 
   function finish() {
@@ -84,7 +102,7 @@ export function SelectionBar({
                 <Chip
                   key={priority}
                   selected={all((i) => i.priority === priority)}
-                  onClick={() => apply({ priority }, `Set ${things(n)} to “${PRIORITY_LABELS[priority]}”`)}
+                  onClick={() => setPriority(priority)}
                 >
                   {PRIORITY_LABELS[priority]}
                 </Chip>
@@ -112,6 +130,8 @@ export function SelectionBar({
           </button>
           <span className="min-w-0 truncate text-[14px] font-semibold tabular" aria-live="polite">
             {n} selected
+            {/* What they'd cost between them: "if we put these off, what's that worth?" */}
+            {selectedCost > 0 && <span className="font-medium text-ink-2"> · {formatGBP(selectedCost)}</span>}
           </span>
           <button
             type="button"
