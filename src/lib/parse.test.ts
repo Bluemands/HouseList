@@ -136,6 +136,14 @@ describe("dates", () => {
   it("doesn't read fractions or sizes as dates", () => {
     expect(p("Buy 1/2 inch drill bit").dueDate).toBeNull();
   });
+  it("doesn't read words that start like a month as dates", () => {
+    expect(p("Buy 2 decking boards")).toMatchObject({ title: "Buy 2 decking boards", dueDate: null });
+    expect(p("Order 20 marble tiles")).toMatchObject({ title: "Order 20 marble tiles", dueDate: null });
+    expect(p("Buy 10 junction boxes")).toMatchObject({ title: "Buy 10 junction boxes", dueDate: null });
+    expect(p("Fix decking 2 boards loose").dueDate).toBeNull();
+    expect(p("Gutters 3rd sept").dueDate).toBe("2027-09-03");
+    expect(p("Gutters june 4").dueDate).toBe("2027-06-04");
+  });
 });
 
 describe("rooms", () => {

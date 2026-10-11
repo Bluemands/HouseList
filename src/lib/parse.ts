@@ -57,6 +57,10 @@ export function startsWithJobWord(title: string): boolean {
 
 const WEEKDAYS =["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+// A month's name or its usual short form, and nothing longer: "2 decking
+// boards" and "20 marble tiles" aren't dates.
+const MONTH_NAME = String.raw`(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)`;
+const monthIndex = (name: string) => MONTHS.indexOf(name.toLowerCase().slice(0, 3));
 
 function money(raw: string, k?: string): number {
   const n = parseFloat(raw.replace(/,/g, ""));
@@ -123,12 +127,10 @@ function parseDue(text: string): { day: string; match: RegExpMatchArray } | null
   if (m) return { day: nextWeekday(WEEKDAYS.indexOf(m[1].toLowerCase())), match: m };
 
   // "12 oct", "oct 12", "12/10"
-  m = text.match(
-    new RegExp(pre + String.raw`(\d{1,2})(?:st|nd|rd|th)?\s+(${MONTHS.join("|")})[a-z]*\b`, "i"),
-  );
-  if (m) return { day: futureDate(Number(m[1]), MONTHS.indexOf(m[2].toLowerCase())), match: m };
-  m = text.match(new RegExp(pre + String.raw`(${MONTHS.join("|")})[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?\b`, "i"));
-  if (m) return { day: futureDate(Number(m[2]), MONTHS.indexOf(m[1].toLowerCase())), match: m };
+  m = text.match(new RegExp(pre + String.raw`(\d{1,2})(?:st|nd|rd|th)?\s+` + MONTH_NAME + String.raw`\b`, "i"));
+  if (m) return { day: futureDate(Number(m[1]), monthIndex(m[2])), match: m };
+  m = text.match(new RegExp(pre + MONTH_NAME + String.raw`\s+(\d{1,2})(?:st|nd|rd|th)?\b`, "i"));
+  if (m) return { day: futureDate(Number(m[2]), monthIndex(m[1])), match: m };
   // "12/11" — but not "1/2 inch" or "3/4 in".
   m = text.match(
     new RegExp(pre + String.raw`(\d{1,2})/(\d{1,2})\b(?!/)(?!\s*(?:inch|in\b|"|mm|cm|m\b|ft|metre|meter))`, "i"),
