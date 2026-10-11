@@ -10,6 +10,22 @@ type Status = "TODO" | "DOING" | "DONE";
 type StepBefore = { id: string; done: boolean; cost: number | null; potCharge: number | null };
 type StepAfter = { id?: string; done?: boolean; cost?: number | null };
 
+/**
+ * The range to ask about when something's ticked off without a known price:
+ * a guess with a top higher than its bottom ("£100–150"), or only a top
+ * ("up to £150", min null). Finishing assumes the bottom (nothing, for "up
+ * to"), so this is when asking what it really cost is worth a question.
+ */
+export function costToConfirm(item: {
+  estimatedPrice: number | null;
+  estimateMax: number | null;
+  actualPrice: number | null;
+}): { min: number | null; max: number } | null {
+  const { estimatedPrice: min, estimateMax: max, actualPrice } = item;
+  if (actualPrice != null || max == null || (min != null && max <= min)) return null;
+  return { min, max };
+}
+
 /** What the done steps cost, paid or not. */
 export function doneStepsCost(steps: { done?: boolean; cost?: number | null }[]): number {
   return steps.reduce((sum, s) => sum + (s.done ? (s.cost ?? 0) : 0), 0);

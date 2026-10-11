@@ -6,7 +6,7 @@ import { ApiError } from "@/lib/api-client";
 import type { ItemDTO, SettingsDTO, StepDTO } from "@/lib/types";
 import { formatDay, formatGBP, today } from "@/lib/format";
 import { nextOccurrence } from "@/lib/types";
-import { settlePot } from "@/lib/pot";
+import { costToConfirm, settlePot } from "@/lib/pot";
 import { ROOM_PAINT } from "@/lib/rooms";
 import { haptic } from "@/lib/haptics";
 import type { ItemCreateInput, ItemUpdateInput, SettingsUpdateInput } from "@/lib/validation";
@@ -27,6 +27,8 @@ export type Toast = {
   tone?: "default" | "error";
   action?: { label: string; run: () => void };
   secondary?: { label: string; run: () => void };
+  /** A "what did it cost?" box under the message, for a finish that had to assume a price. */
+  price?: { guess: string; placeholder: string; save: (amount: number) => void };
 };
 
 type Store = {
@@ -83,6 +85,8 @@ type Store = {
   saveSettings: (patch: SettingsUpdateInput) => Promise<boolean>;
   toast: (t: Omit<Toast, "id">) => void;
   dismissToast: (id: number) => void;
+  /** Keeps a toast up while someone's typing in it; letting go starts its clock again. */
+  holdToast: (id: number, hold: boolean) => void;
   toasts: Toast[];
   /** `restore` reopens a sheet whose save failed, with what was typed. */
   openItem: (id: string | "new", defaults?: Partial<ItemDTO>, restore?: SheetRestore) => void;
@@ -104,6 +108,8 @@ export function useStore(): Store {
 
 const POLL_MS = 15_000;
 const UNDO_MS = 6_000;
+/** Long enough to find the receipt; it doesn't go while the box is in use. */
+const ASK_MS = 12_000;
 /** How long a ticked row lingers in an open list (matches .row-leave). */
 const SETTLE_MS = 1_000;
 
@@ -225,13 +231,26 @@ export function StoreProvider({
 
   const toastSeq = useRef(0);
   const dismissToast = useCallback((id: number) => setToasts((t) => t.filter((x) => x.id !== id)), []);
+  const heldToasts = useRef(new Set<number>());
+  const dismissLater = useCallback(
+    (id: number, ms: number) => window.setTimeout(() => !heldToasts.current.has(id) && dismissToast(id), ms),
+    [dismissToast],
+  );
   const toast = useCallback(
     (t: Omit<Toast, "id">) => {
       const id = ++toastSeq.current;
       setToasts((list) => [...list.slice(-2), { ...t, id }]);
-      window.setTimeout(() => dismissToast(id), UNDO_MS);
+      dismissLater(id, t.price ? ASK_MS : UNDO_MS);
     },
-    [dismissToast],
+    [dismissLater],
+  );
+  const holdToast = useCallback<Store["holdToast"]>(
+    (id, hold) => {
+      if (hold) return void heldToasts.current.add(id);
+      heldToasts.current.delete(id);
+      dismissLater(id, UNDO_MS);
+    },
+    [dismissLater],
   );
 
   const fail = useCallback(
@@ -394,6 +413,9 @@ export function StoreProvider({
       patchItem(item.id, { status: completing ? "DONE" : "TODO" });
       if (!completing) return unsettle(item.id);
       const cost = item.actualPrice ?? item.estimatedPrice;
+      // A range was only a guess: it's charged at the bottom figure for now,
+      // and the toast asks what it really came to. Ignoring it keeps the guess.
+      const ask = costToConfirm(item);
       let message =
         cost && settingsRef.current.potTracked ? `${item.title} — ${formatGBP(cost)} out of the pot` : `Done: ${item.title}`;
       if (item.repeat) message += `. Next one due ${formatDay(nextOccurrence(today(), item.repeat))}`;
@@ -412,7 +434,23 @@ export function StoreProvider({
             patchItem(item.id, previous);
           },
         },
-        secondary: cost ? { label: "Edit price", run: () => setEditing({ id: item.id }) } : undefined,
+        secondary: cost && !ask ? { label: "Edit price", run: () => setEditing({ id: item.id }) } : undefined,
+        price: ask
+          ? {
+              guess: ask.min != null ? `${formatGBP(ask.min)}–${formatGBP(ask.max)}` : `up to ${formatGBP(ask.max)}`,
+              placeholder: String(ask.min ?? ask.max),
+              save: (amount) => {
+                patchItem(item.id, { actualPrice: amount });
+                toast({
+                  message: settingsRef.current.potTracked
+                    ? `${item.title} — ${formatGBP(amount)} out of the pot`
+                    : `${item.title} cost ${formatGBP(amount)}`,
+                  // Back to the guess finishing assumed.
+                  action: { label: "Undo", run: () => patchItem(item.id, { actualPrice: item.estimatedPrice }) },
+                });
+              },
+            }
+          : undefined,
       });
     },
     [patchItem, toast, unsettle],
@@ -641,6 +679,7 @@ export function StoreProvider({
       saveSettings,
       toast,
       dismissToast,
+      holdToast,
       toasts,
       editing,
       openItem: (id, defaults, restore) => setEditing({ id, defaults, restore }),
@@ -650,7 +689,7 @@ export function StoreProvider({
       openBulk: setBulk,
       closeBulk: () => setBulk(null),
     }),
-    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, calendarPath, connectorPath, workerToken, jobs, jobByItem, askClaude, updateJob, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, toasts, editing, justAdded, bulk],
+    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, calendarPath, connectorPath, workerToken, jobs, jobByItem, askClaude, updateJob, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, holdToast, toasts, editing, justAdded, bulk],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

@@ -322,7 +322,8 @@ const FIELD_DOCS: Record<string, string> = {
   estimatedPrice: "Estimated cost in GBP pounds (450 means £450). With estimateMax, the bottom of a range.",
   estimateMax: "Top of a cost range in GBP. The plan budgets at this figure. Null for a single figure.",
   isQuote: "True when the cost is a firm quote rather than a guess.",
-  actualPrice: "What it actually cost in GBP, once done.",
+  actualPrice:
+    "What it actually cost in GBP, once done. Finishing without one assumes estimatedPrice (the bottom of a range, or nothing for an 'up to' figure), so when they finish something with a range, ask what it came to and set this.",
   assignee: "Who's on it: a household member's name (get_overview → household), 'Both', or a trade such as 'Electrician'.",
   dueDate: "YYYY-MM-DD. Lands in their phone calendars with a 9am reminder.",
   warrantyUntil: "YYYY-MM-DD its guarantee runs out; the calendar reminds them a month before.",

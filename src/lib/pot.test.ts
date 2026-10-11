@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { settlePot } from "@/lib/pot";
+import { costToConfirm, settlePot } from "@/lib/pot";
+
+describe("costToConfirm", () => {
+  const item = (estimatedPrice: number | null, estimateMax: number | null, actualPrice: number | null = null) => ({
+    estimatedPrice,
+    estimateMax,
+    actualPrice,
+  });
+
+  it("asks about a range, or a top with no bottom", () => {
+    expect(costToConfirm(item(100, 150))).toEqual({ min: 100, max: 150 });
+    expect(costToConfirm(item(null, 150))).toEqual({ min: null, max: 150 });
+  });
+
+  it("doesn't ask about a single figure, no figure, or a price already known", () => {
+    expect(costToConfirm(item(100, null))).toBeNull();
+    expect(costToConfirm(item(100, 100))).toBeNull();
+    expect(costToConfirm(item(null, null))).toBeNull();
+    expect(costToConfirm(item(100, 150, 120))).toBeNull();
+  });
+});
 
 const step = (id: string, cost: number | null, done = false, potCharge: number | null = null) => ({
   id,
@@ -30,6 +50,13 @@ describe("settlePot", () => {
     expect(ticked).toMatchObject({ itemCharge: 0, delta: 0 });
     const priced = settlePot({ status: "DONE", potCharge: 0, steps: [] }, { status: "DONE", actualPrice: 60 }, true);
     expect(priced.delta).toBe(-60);
+  });
+
+  it("takes the rest when a range turns out dearer than its bottom figure", () => {
+    // Finished at the £100 guess; it came to £130.
+    const done = { status: "DONE" as const, potCharge: 100, steps: [] };
+    expect(settlePot(done, { status: "DONE", actualPrice: 130 }, true)).toMatchObject({ itemCharge: 130, delta: -30 });
+    expect(settlePot(done, { status: "DONE", actualPrice: 90 }, true)).toMatchObject({ itemCharge: 90, delta: 10 });
   });
 
   it("never touches the pot for things ticked before it was in use", () => {
