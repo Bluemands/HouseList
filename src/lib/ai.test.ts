@@ -11,12 +11,15 @@ import {
   workerSubmitSchema,
 } from "@/lib/ai";
 import {
+  PRICE_SERVER,
+  PRICE_TOOLS,
   RESULT_JSON_SCHEMA,
   buildPrompt,
   claudeArgs,
   idleDelay,
   parseClaudeOutput,
   parseEnvFile,
+  priceServerConfig,
 } from "../../scripts/ai-worker-lib.mjs";
 
 describe("aiResultSchema", () => {
@@ -148,6 +151,11 @@ describe("buildPrompt", () => {
   it("forbids made-up links", () => {
     expect(buildPrompt(claim)).toMatch(/Never guess/);
   });
+
+  it("mentions the Amazon price tools only when the app has them", () => {
+    expect(buildPrompt(claim)).not.toContain("get_amazon_product");
+    expect(buildPrompt({ ...claim, amazon: true })).toContain("get_amazon_product");
+  });
 });
 
 describe("claudeArgs", () => {
@@ -169,6 +177,37 @@ describe("claudeArgs", () => {
     expect(value("--permission-mode")).toBe("dontAsk");
     expect(args).toContain("--strict-mcp-config");
     expect(args).not.toContain("--dangerously-skip-permissions");
+  });
+
+  it("adds the app's price tools, and only those, from a config file", () => {
+    const withPrices = claudeArgs({ mcpConfig: "/tmp/x/mcp.json" });
+    const of = (flag: string) => withPrices[withPrices.indexOf(flag) + 1];
+    expect(of("--mcp-config")).toBe("/tmp/x/mcp.json");
+    expect(of("--tools")).toBe("WebSearch,WebFetch");
+    expect(of("--allowedTools")).toBe(["WebSearch", "WebFetch", ...PRICE_TOOLS].join(","));
+    expect(withPrices).toContain("--strict-mcp-config");
+    expect(withPrices).not.toContain("--disallowedTools");
+    // --safe-mode would drop the price server, so the same isolation is spelled out.
+    expect(withPrices).not.toContain("--safe-mode");
+    expect(of("--setting-sources")).toBe("project");
+    expect(withPrices).toContain("--disable-slash-commands");
+  });
+
+  it("keeps safe mode when there's no price server", () => {
+    expect(args).toContain("--safe-mode");
+    expect(args).not.toContain("--setting-sources");
+  });
+});
+
+describe("priceServerConfig", () => {
+  it("points at the worker's MCP route with the worker token", () => {
+    const config = priceServerConfig("https://house.example", "t0k");
+    expect(config.mcpServers[PRICE_SERVER]).toEqual({
+      type: "http",
+      url: "https://house.example/api/worker/mcp",
+      headers: { Authorization: "Bearer t0k" },
+    });
+    expect(PRICE_TOOLS).toEqual(["mcp__prices__get_amazon_product", "mcp__prices__search_amazon"]);
   });
 });
 
@@ -235,7 +274,7 @@ describe("autofillChanges", () => {
       { text: "Fit it", cost: null, link: null, notes: null },
     ]);
     expect(changes.notes).toBe(
-      "From Claude:\n\nSwap the fan for a humidistat model.\n\nDIY? Yes, with care.\n\nWatch out for:\n• Bathroom zones: Part P applies",
+      "From Claude: Swap the fan for a humidistat model. DIY with care.\n\nWatch out for:\n• Bathroom zones: Part P applies",
     );
   });
 
@@ -267,7 +306,7 @@ describe("autofillChanges", () => {
       estimateMax: 89.5,
       links: ["https://example.com/a", "https://example.com/b"],
     });
-    expect(changes.notes).toContain("• Fan A — £25 (Screwfix)\n• Fan B — £89.50");
+    expect(changes.notes).toContain("Options:\n• Fan A — £25 (Screwfix)\n• Fan B — £89.50");
   });
 });
 

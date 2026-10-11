@@ -16,6 +16,7 @@ import {
 import { KINDS, PRIORITIES, ROOMS, STATUS_LABELS, type ItemDTO, type SettingsDTO } from "@/lib/types";
 import { ROOM_PAINT } from "@/lib/rooms";
 import { addDays, formatGBP, formatMonth, today } from "@/lib/format";
+import { AmazonUnavailable, SEARCH_RESULTS_MAX, amazonEnabled, lookupAmazon, searchAmazon } from "@/lib/amazon";
 
 // The tools Claude gets through the connector. Everything it writes goes
 // through lib/items-service, the same code the app's own routes use, so the
@@ -453,6 +454,65 @@ export const TOOLS: McpTool[] = [
   }),
 ];
 
+// ---------------------------------------------------------------------------
+// Amazon prices (lib/amazon), when the app has a price service key: for the
+// connector, and on their own for the Ask Claude worker, whose web fetch
+// Amazon turns away.
+
+async function fromAmazon<T>(load: () => Promise<T>): Promise<T> {
+  try {
+    return await load();
+  } catch (err) {
+    if (err instanceof AmazonUnavailable) throw new ToolError(err.message);
+    throw err;
+  }
+}
+
+export const AMAZON_TOOLS: McpTool[] = [
+  tool({
+    name: "get_amazon_product",
+    title: "Amazon price",
+    description:
+      "The current price, stock and seller of one Amazon product, from its link (amazon.co.uk/dp/…, or an amzn.eu/d/… share link) or ASIN. Amazon's own pages can't be opened, so use this for any Amazon price rather than guessing. The price is for the listing as sold: check the title for pack sizes. url is a clean link to the product.",
+    input: z.strictObject({
+      link: z.string().trim().min(1).max(2000).describe("An Amazon product link, or its 10-character ASIN."),
+    }),
+    annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
+    async run({ link }) {
+      const product = await fromAmazon(() => lookupAmazon(link));
+      if (!product) throw new ToolError("That isn't an Amazon product link, or Amazon no longer lists it.");
+      return product;
+    },
+  }),
+  tool({
+    name: "search_amazon",
+    title: "Search Amazon UK",
+    description: `Search Amazon UK: the top ${SEARCH_RESULTS_MAX} products with a price, in Amazon's order, sponsored last. For finding Amazon options to compare with other shops; prices are each listing's as sold (check titles for pack sizes). Each search costs the household money, so search for exactly what's needed and don't repeat a search.`,
+    input: z.strictObject({
+      query: z.string().trim().min(2).max(200).describe("What to search for, as you'd type it into Amazon: 'interlinked smoke alarm 10 year'."),
+      maxPrice: z.number().positive().optional().describe("Leave out anything dearer than this, in pounds."),
+    }),
+    annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
+    async run({ query, maxPrice }) {
+      const results = await fromAmazon(() => searchAmazon(query, maxPrice));
+      return results.length ? { results } : { results, note: "Nothing priced came back for that search." };
+    },
+  }),
+];
+
+/** What the Ask Claude worker gets: Amazon prices, and nothing that can touch the list. */
+export const PRICE_SERVER: McpServer = {
+  name: "house-list-prices",
+  title: "The House List: Amazon prices",
+  version: "1.0.0",
+  instructions:
+    "Current Amazon UK prices, for researching what to buy. Use these for any Amazon price: Amazon's pages can't be opened with web fetch.",
+  tools: AMAZON_TOOLS,
+};
+
+const AMAZON_INSTRUCTIONS = `
+- Amazon's pages can't be opened directly: get_amazon_product reads an Amazon link's current price, and search_amazon finds Amazon UK options. Each call costs them a little, so don't repeat one.`;
+
 export const SERVER: McpServer = {
   name: "house-list",
   title: "The House List",
@@ -468,6 +528,6 @@ Working well with them:
 - When you research a cost, put the range on the item (estimatedPrice/estimateMax, UK prices including VAT and labour where relevant), the sources in links, and a short summary as an update with add_comment.
 - Break big jobs into steps; supplies for a DIY job go in as steps starting "Buy …" with a cost and product link, which puts them on the To buy list under For jobs. Step costs add up to the job's estimate (replacing any range or quote), so for a job priced by a tradesperson, leave step costs off. Standalone purchases are BUY items.
 - Assignees are household members (get_overview → household), "Both", or a trade like "Electrician". Never assign Claude.
-- Dates are YYYY-MM-DD; get_overview tells you today's date.`,
-  tools: TOOLS,
+- Dates are YYYY-MM-DD; get_overview tells you today's date.${amazonEnabled() ? AMAZON_INSTRUCTIONS : ""}`,
+  tools: amazonEnabled() ? [...TOOLS, ...AMAZON_TOOLS] : TOOLS,
 };

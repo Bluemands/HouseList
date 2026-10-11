@@ -5,7 +5,7 @@ A shared to-do list and budget planner for a new house, for two people. Log ever
 ## Features
 
 - **One-line quick add** — type `Fix bathroom tap £40 tomorrow !must @Sam` and it's filed: cost, due date, priority, who and room are pulled out of the sentence. `#kitchen` names a room explicitly; `£100-150` is a range.
-- **Paste a product link** — paste a shop link into quick add (on its own, or with `!must #kitchen` and the rest) and it's filed as something to buy, with the product's name, price and the link filled in from the page, and a room guessed from the name ("shower" → bathroom). No AI: it reads the page's own product data. Works with Screwfix, B&Q, IKEA, Wickes, Toolstation and usually Amazon; shops that turn servers away (Argos) still get added straight away, named from the link. Adding a link in the detail sheet, or as a step, offers "Use £X from Screwfix" with one tap.
+- **Paste a product link** — paste a shop link into quick add (on its own, or with `!must #kitchen` and the rest) and it's filed as something to buy, with the product's name, price and the link filled in from the page, and a room guessed from the name ("shower" → bathroom). No AI: it reads the page's own product data. Works with Screwfix, B&Q, IKEA, Wickes, Toolstation, and Amazon with [Amazon prices](#amazon-prices) on; shops that turn servers away (Argos) still get added straight away, named from the link. Adding a link in the detail sheet, or as a step, offers "Use £X from Screwfix" with one tap.
 - **Paste a list** — paste several lines (from Notes, a chat, a spreadsheet) and each becomes its own item, reviewed before adding.
 - **New-home essentials** — a one-tap starter checklist of the jobs most UK households do in the first months (locks, stopcock, meter readings, boiler service…).
 - **Repeating jobs** — weekly to yearly. Ticking one off schedules the next, counted from the day it was done (`Boiler service every year` works in quick add).
@@ -58,6 +58,7 @@ cp .env.example .env
 | `HOUSE_PIN` | Yes | The shared PIN the two of you type in to unlock the app. The example ships with `changeme`; pick your own before sharing the app with anyone. |
 | `AUTH_SECRET` | Yes | A long random string used to sign the login cookie. Generate one with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` and paste the output in — the shipped placeholder is fine for local dev only. |
 | `DATABASE_POOL_MAX` | No (local dev only) | Leave at `1` locally — see the note below. Omit this variable entirely in production. |
+| `RAINFOREST_API_KEY` | No | Turns on [Amazon prices](#amazon-prices): a key from [rainforestapi.com](https://www.rainforestapi.com). Without it, Amazon links work as before. |
 | `HOUSE_LIST_URL` | Worker only | Where the [Ask Claude worker](#ask-claude-the-worker) finds the app. Defaults to `http://localhost:3000`. |
 | `HOUSE_LIST_WORKER_TOKEN` | Worker only | The worker's key, from Settings → Ask Claude. Locally it can be left out (it's derived from `AUTH_SECRET`). |
 | `HOUSE_LIST_CLAUDE_MODEL` | No | Model alias the worker asks `claude` for. Defaults to `sonnet`. |
@@ -123,8 +124,9 @@ Still on the import screen (or afterwards under **Project Settings → Environme
 | `DATABASE_URL_UNPOOLED` | The **direct** (non-pooled) Neon connection string — used only to apply database migrations |
 | `HOUSE_PIN` | Whatever PIN you and your partner want to use |
 | `AUTH_SECRET` | A long random string — generate one locally with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
+| `RAINFOREST_API_KEY` | Optional: turns on [Amazon prices](#amazon-prices). |
 
-Do **not** add `DATABASE_POOL_MAX` — leave it unset in production. Nothing for Ask Claude goes on Vercel either: the worker variables live on the computer that runs the worker.
+Do **not** add `DATABASE_POOL_MAX` — leave it unset in production. The worker's own variables don't go on Vercel either: they live on the computer that runs the worker. (`RAINFOREST_API_KEY` is the exception that belongs here: the worker borrows the app's Amazon lookups rather than holding the key.)
 
 ### Step 5: Deploy
 
@@ -171,11 +173,21 @@ Against your local copy (`npm run dev`), step 2's variables aren't needed: the w
 
 **Or don't keep a computer on.** A scheduled [Claude Code cloud routine](https://code.claude.com/docs/en/scheduled-tasks) on this repository, with `HOUSE_LIST_URL` and `HOUSE_LIST_WORKER_TOKEN` set, can run `node scripts/ai-worker.mjs --once` every so often: `--once` answers whatever is waiting and exits. Answers then arrive on the routine's schedule rather than within a minute.
 
-**What Claude can do from the worker:** web search and web fetch, nothing else. It runs in an empty temporary folder with no shell, no file editing and none of your MCP servers, hooks or plugins (`--tools WebSearch,WebFetch`, `--permission-mode dontAsk`, `--safe-mode`, `--strict-mcp-config`). The household's text is passed in as data, not instructions, the prompt goes in on stdin rather than the command line, and each job is stopped after five minutes. Answers are checked against a schema when they arrive, and links that aren't plain web addresses are refused.
+**What Claude can do from the worker:** web search and web fetch, plus the app's two Amazon price tools when [Amazon prices](#amazon-prices) are on, nothing else. It runs in an empty temporary folder with no shell, no file editing and none of your MCP servers, hooks, plugins, skills or CLAUDE.md files (`--tools WebSearch,WebFetch`, `--permission-mode dontAsk`, `--strict-mcp-config`, and `--safe-mode`; with the price tools, whose server `--safe-mode` would drop, `--setting-sources project --disable-slash-commands` and `CLAUDE_CODE_DISABLE_CLAUDE_MDS` instead). The price tools come from the app's `/api/worker/mcp`, signed in with the worker token, and can only read Amazon prices: nothing there can change the list. The household's text is passed in as data, not instructions, the prompt goes in on stdin rather than the command line, and each job is stopped after five minutes. Answers are checked against a schema when they arrive, and links that aren't plain web addresses are refused.
 
 > **Neon note:** every check is a tiny database query, so while the worker runs, a Neon free-tier database doesn't get to sleep. That's fine for a computer that's on during the day; for round-the-clock use, raise `HOUSE_LIST_WORKER_MAX_IDLE` or use the scheduled `--once` option.
 
 Rotating `AUTH_SECRET` revokes the worker token along with the calendar link; copy the new one from Settings.
+
+## Amazon prices
+
+Amazon turns servers away, so neither a pasted link nor Claude's web fetch can read its prices. With `RAINFOREST_API_KEY` set (on Vercel, and in `.env` locally), [Rainforest API](https://www.rainforestapi.com) reads them instead:
+
+- **Pasting an Amazon link** (including `amzn.eu/d/…` share links) fills in the real name and current price, and tidies the link to `amazon.co.uk/dp/…`.
+- **Ask Claude** gets two tools: one prices an Amazon link or ASIN, the other searches Amazon UK. It's told to price any Amazon link already on the item and compare it with other shops.
+- **The Claude connector** gets the same two tools.
+
+Every lookup spends one Rainforest credit. Answers are kept for six hours, and Claude is asked to keep to a few lookups per question. If a lookup fails (no credits left, say), a pasted link falls back to reading the page as before.
 
 ## Project structure
 

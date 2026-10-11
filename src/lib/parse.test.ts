@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { guessRoom, isShoppingStep, parseQuickAdd, parseStep, pastedLines } from "@/lib/parse";
+import { guessRoom, isShoppingStep, parseQuickAdd, parseStep, pastedLines, sameThing, startsWithJobWord } from "@/lib/parse";
 
 // Friday 9 October 2026, mid-afternoon.
 beforeAll(() => {
@@ -147,6 +147,19 @@ describe("rooms", () => {
   it("prefers the longest match", () => {
     expect(p("Spare room 2 blinds").room).toBe("SPARE_ROOM_2");
     expect(p("Bathroom 2 extractor").room).toBe("BATHROOM_2");
+    expect(p("Master bedroom blinds").room).toBe("MASTER_BEDROOM");
+    expect(p("Front garden gate").room).toBe("FRONT_GARDEN");
+  });
+  it("calls a job across several rooms the whole house", () => {
+    expect(
+      p("Install fire alarms, 1 office, 1 master bedroom, 1 hallway, 1 landing, heat alarm in kitchen").room,
+    ).toBe("WHOLE_HOUSE");
+    expect(p("Move the desk from the spare room to the loft").room).toBe("WHOLE_HOUSE");
+    // Naming the same room twice is still one room.
+    expect(p("Hall light and hallway rug").room).toBe("HALLWAY");
+  });
+  it("an explicit #tag beats rooms named in passing", () => {
+    expect(p("Fire alarms in hallway and kitchen #landing").room).toBe("LANDING");
   });
   it("#tags are removed from the title", () => {
     expect(p("New lamp #sitting-room")).toMatchObject({ title: "New lamp", room: "SITTING_ROOM" });
@@ -238,5 +251,31 @@ describe("guessing a room from a product", () => {
   it("leaves the rest alone", () => {
     expect(guessRoom("Dewalt DCD796 18V XR Brushless Combi Drill")).toBeNull();
     expect(guessRoom("Screwdriver set")).toBeNull();
+  });
+});
+
+describe("the same thing worded differently", () => {
+  it("matches a retyped title", () => {
+    expect(
+      sameThing(
+        "Install fire alarms, 1 in office, 1 in hallway, 1 on landing, 1 in master bedroom, and a heat detector in kitchen",
+        "Install fire alarms, 1 office, 1 master bedroom, 1 hallway, 1 landing, heat alarm in kitchen",
+      ),
+    ).toBe(true);
+    expect(sameThing("Paint the hallway", "paint hallway")).toBe(true);
+    expect(sameThing("Fix tap", "fix tap")).toBe(true);
+  });
+  it("keeps different jobs apart", () => {
+    expect(sameThing("Paint hallway", "Paint hallway ceiling")).toBe(false);
+    expect(sameThing("Paint hallway", "Paint landing")).toBe(false);
+    expect(sameThing("Fix tap", "Fix bathroom tap")).toBe(false);
+  });
+});
+
+describe("a job typed with a link", () => {
+  it("reads job words at the start only", () => {
+    expect(startsWithJobWord("Install fire alarms")).toBe(true);
+    expect(startsWithJobWord("Fire alarm bundle")).toBe(false);
+    expect(startsWithJobWord("")).toBe(false);
   });
 });

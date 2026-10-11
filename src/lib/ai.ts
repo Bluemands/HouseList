@@ -158,7 +158,7 @@ export function workerState(seenAt: string | null, now = Date.now()): "never" | 
 
 const NOTES_MAX = 4000;
 const LINKS_MAX = 20;
-const DIY_LABELS = { yes: "Yes", "with-care": "Yes, with care", no: "No, get a tradesperson" } as const;
+const DIY_LABELS = { yes: "Fine to DIY.", "with-care": "DIY with care.", no: "One for a tradesperson." } as const;
 
 /**
  * What an answer fills in on an item added with "Ask Claude": only what's
@@ -190,16 +190,16 @@ export function autofillChanges(
   const found = [...(result.links ?? []).map((l) => l.url), ...(result.options ?? []).flatMap((o) => (o.url ? [o.url] : []))];
   const links = [...new Set([...item.links, ...found])].slice(0, LINKS_MAX);
 
+  // Short enough to read on a phone: the answer, the options, then at most
+  // three things to watch, whatever came back.
   const block = [
-    "From Claude:",
-    result.summary,
-    result.diy ? `DIY? ${DIY_LABELS[result.diy]}.` : null,
+    ["From Claude:", result.summary, result.diy ? DIY_LABELS[result.diy] : null].filter(Boolean).join(" "),
     result.options?.length
-      ? result.options
+      ? `Options:\n${result.options
           .map((o) => `• ${o.title}${o.price != null ? ` — ${formatGBP(o.price)}` : ""}${o.retailer ? ` (${o.retailer})` : ""}`)
-          .join("\n")
+          .join("\n")}`
       : null,
-    result.cautions?.length ? `Watch out for:\n${result.cautions.map((c) => `• ${c}`).join("\n")}` : null,
+    result.cautions?.length ? `Watch out for:\n${result.cautions.slice(0, 3).map((c) => `• ${c}`).join("\n")}` : null,
   ]
     .filter(Boolean)
     .join("\n\n");

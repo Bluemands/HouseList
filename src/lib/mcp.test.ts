@@ -106,6 +106,17 @@ describe("modern (per-request metadata) clients", () => {
     expect(result._meta["io.modelcontextprotocol/serverInfo"].name).toBe("test");
   });
 
+  it("lists tools with the caching terms modern clients require", async () => {
+    const res = await post(
+      { jsonrpc: "2.0", id: 6, method: "tools/list", params: { _meta: meta } },
+      { "MCP-Protocol-Version": MODERN, "Mcp-Method": "tools/list" },
+    );
+    const { result } = await res.json();
+    expect(result.tools.map((t: { name: string }) => t.name)).toEqual(["echo"]);
+    expect(typeof result.ttlMs).toBe("number");
+    expect(result.cacheScope).toBe("private");
+  });
+
   it("calls tools when the headers agree with the body", async () => {
     const res = await post({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "echo", arguments: {}, _meta: meta } }, headers);
     expect(res.status).toBe(200);

@@ -15,6 +15,9 @@ const SUPPORTED: readonly string[] = [...MODERN_VERSIONS, ...LEGACY_VERSIONS];
 
 const META_VERSION = "io.modelcontextprotocol/protocolVersion";
 
+/** How long a modern client may keep the tool list. */
+const TOOLS_TTL_MS = 10 * 60_000;
+
 // JSON-RPC and MCP error codes.
 const PARSE_ERROR = -32700;
 const INVALID_REQUEST = -32600;
@@ -148,6 +151,9 @@ export async function handleMessage(server: McpServer, msg: unknown, headers: He
           inputSchema,
           annotations,
         })),
+        // Modern clients refuse a list without caching terms. It's per token,
+        // so private, and it only changes on a deploy.
+        ...(modern ? { ttlMs: TOOLS_TTL_MS, cacheScope: "private" } : {}),
       });
     case "tools/call": {
       const name = params?.name;

@@ -6,7 +6,7 @@ import { ArrowUp, Calendar, Hammer, Link2, LoaderCircle, Plus, Repeat, ShoppingB
 import type { Kind, Room } from "@/lib/types";
 import { PRIORITY_LABELS, REPEAT_SHORT, TITLE_MAX } from "@/lib/types";
 import { ROOM_PAINT } from "@/lib/rooms";
-import { guessRoom, parseQuickAdd, pastedLines } from "@/lib/parse";
+import { guessRoom, parseQuickAdd, pastedLines, sameThing, startsWithJobWord } from "@/lib/parse";
 import { readableLink, siteOf, splitLink, titleFromUrl } from "@/lib/unfurl";
 import { unfurlLink, useUnfurl } from "@/lib/useUnfurl";
 import { describeDue, formatCost } from "@/lib/format";
@@ -46,9 +46,15 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
   const page = useUnfurl(link);
   // Only offered once a worker has ever checked in, so nobody queues into nothing.
   const worker = workerState(settings.workerSeenAt);
+  // A link makes it something to buy, unless it's typed as a job that
+  // happens to come with one: "Install fire alarms <link to the alarms>".
   const kind =
     kindOverride ??
-    (link ? "BUY" : parsed && (parsed.kind === "BUY" || !defaultKind) ? parsed.kind : defaultKind) ??
+    (link && !startsWithJobWord(parsed?.title ?? "")
+      ? "BUY"
+      : parsed && (parsed.kind === "BUY" || !defaultKind)
+        ? parsed.kind
+        : defaultKind) ??
     "TASK";
   // What the user typed wins; the page fills the gaps, then the link itself.
   const title = parsed ? (parsed.title || page.data?.title || (link ? titleFromUrl(link) : "")).slice(0, TITLE_MAX) : "";
@@ -91,7 +97,7 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
         const p = parseQuickAdd(rest, settings.members);
         return {
           title: (p.title || (url ? titleFromUrl(url) : line)).slice(0, TITLE_MAX),
-          kind: url ? "BUY" : p.kind,
+          kind: url && !startsWithJobWord(p.title) ? "BUY" : p.kind,
           room: p.room ?? defaultRoom,
           priority: p.priority ?? undefined,
           estimatedPrice: p.estimatedPrice,
@@ -132,20 +138,24 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
   }
 
   // Hands the line to Claude: it's added now as typed, and the worker fills in
-  // the cost, steps, links and notes when it answers.
+  // the cost, steps, links and notes when it answers. If it's already on the
+  // list, Claude fills in that one instead of adding it twice.
   async function addWithClaude() {
     const d = draft();
     if (!d || !d.title) return;
     reset();
     inputRef.current?.focus();
-    const created = await addItem(d);
-    if (!created) return;
-    if (await askClaude(created.id, undefined, { autofill: true })) {
+    const target =
+      duplicate ??
+      // A job's cost is Claude's to work out: a linked product's price is
+      // one thing it needs, not the whole job.
+      (await addItem(kind === "TASK" && parsed?.estimatedPrice == null ? { ...d, estimatedPrice: null } : d));
+    if (!target) return;
+    if (await askClaude(target.id, undefined, { autofill: true })) {
+      const later = worker === "active" ? "Claude's filling in the details." : "Claude will fill in the details when the worker's next on.";
       toast({
-        message:
-          worker === "active"
-            ? "Added. Claude's filling in the details."
-            : "Added. Claude will fill in the details when the worker's next on.",
+        message: duplicate ? `Already on the list. ${later}` : `Added. ${later}`,
+        ...(duplicate ? { action: { label: "Open", run: () => openItem(duplicate.id) } } : {}),
       });
     }
   }
@@ -157,9 +167,7 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
   }
 
   const cost = parsed ? formatCost(price, parsed.estimateMax) : null;
-  const duplicate = title
-    ? items.find((i) => i.status !== "DONE" && i.title.trim().toLowerCase() === title.toLowerCase())
-    : undefined;
+  const duplicate = title ? items.find((i) => i.status !== "DONE" && sameThing(i.title, title)) : undefined;
   const site = link ? (page.data?.siteName ?? siteOf(link)) : null;
   const due = parsed?.dueDate ? describeDue(parsed.dueDate) : null;
   const showHint = focused && !text;

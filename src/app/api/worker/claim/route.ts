@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isWorkerRequest } from "@/lib/auth";
 import { STALE_CLAIM_MS, staleOutcome } from "@/lib/ai";
+import { amazonEnabled } from "@/lib/amazon";
 import { ROOM_PAINT } from "@/lib/rooms";
 import { KIND_LABELS, PRIORITY_LABELS, STATUS_LABELS } from "@/lib/types";
 
@@ -96,5 +97,7 @@ export async function POST(request: NextRequest) {
     // No address is kept, so the worker assumes somewhere in the UK.
     location: null,
     today: ukToday(),
+    // Whether /api/worker/mcp can look up Amazon prices.
+    amazon: amazonEnabled(),
   });
 }

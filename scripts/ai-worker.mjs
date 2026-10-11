@@ -17,11 +17,19 @@
 
 import { spawn } from "node:child_process";
 import { createHmac } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildPrompt, claudeArgs, idleDelay, parseClaudeOutput, parseEnvFile } from "./ai-worker-lib.mjs";
+import {
+  CLAUDE_ENV,
+  buildPrompt,
+  claudeArgs,
+  idleDelay,
+  parseClaudeOutput,
+  parseEnvFile,
+  priceServerConfig,
+} from "./ai-worker-lib.mjs";
 
 const JOB_TIMEOUT_MS = 5 * 60_000;
 const OUTPUT_CAP = 5_000_000;
@@ -97,16 +105,30 @@ async function api(path, body) {
 
 let current = null;
 
-/** Run claude on one prompt in an empty folder; resolves to its stdout. */
-function runClaude(prompt) {
+/**
+ * Run claude on one prompt in an empty folder; resolves to its stdout. With
+ * `amazon`, it also gets the app's Amazon price tools.
+ */
+function runClaude(prompt, { amazon = false } = {}) {
   return new Promise((resolve, reject) => {
     // An empty working folder, so there's nothing of this computer's for it to see.
     const cwd = mkdtempSync(join(tmpdir(), "house-list-ai-"));
+    // The price server's config carries the worker token, so it goes in a file
+    // of its own (not on the command line, and not in that folder).
+    const configDir = amazon ? mkdtempSync(join(tmpdir(), "house-list-mcp-")) : null;
+    const mcpConfig = configDir ? join(configDir, "mcp.json") : null;
+    if (mcpConfig) writeFileSync(mcpConfig, JSON.stringify(priceServerConfig(baseUrl, token)), { mode: 0o600 });
+    const argv = claudeArgs({ model, mcpConfig });
     // A stub script (for testing) runs under this Node; anything else directly.
     const [command, args] = /\.(mjs|cjs|js)$/i.test(claudeBin)
-      ? [process.execPath, [claudeBin, ...claudeArgs({ model })]]
-      : [claudeBin, claudeArgs({ model })];
-    const child = spawn(command, args, { cwd, stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
+      ? [process.execPath, [claudeBin, ...argv]]
+      : [claudeBin, argv];
+    const child = spawn(command, args, {
+      cwd,
+      env: { ...process.env, ...CLAUDE_ENV },
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+    });
     current = child;
     let stdout = "";
     let stderr = "";
@@ -125,6 +147,7 @@ function runClaude(prompt) {
       clearTimeout(timer);
       current = null;
       rmSync(cwd, { recursive: true, force: true });
+      if (configDir) rmSync(configDir, { recursive: true, force: true });
     };
     child.on("error", (err) => {
       finish();
@@ -160,7 +183,7 @@ async function handle(claim) {
   const started = Date.now();
   let outcome;
   try {
-    outcome = parseClaudeOutput(await runClaude(buildPrompt(claim)));
+    outcome = parseClaudeOutput(await runClaude(buildPrompt(claim), { amazon: !!claim.amazon }));
   } catch (err) {
     outcome = { ok: false, error: err.message };
   }

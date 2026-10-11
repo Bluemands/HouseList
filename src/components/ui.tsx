@@ -1,5 +1,6 @@
 "use client";
 
+import { useLayoutEffect, useRef } from "react";
 import clsx from "clsx";
 import type { Priority, Room } from "@/lib/types";
 import { ROOM_PAINT } from "@/lib/rooms";
@@ -189,6 +190,25 @@ export function Field({ label, children, hint }: { label: string; children: Reac
       {hint && <span className="text-[12px] text-ink-3">{hint}</span>}
     </div>
   );
+}
+
+/**
+ * A textarea that grows with what's in it, so a long note reads without
+ * dragging the corner, up to most of the screen, then scrolls.
+ */
+export function GrowingTextarea({
+  className,
+  minRows = 5,
+  ...props
+}: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { minRows?: number }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
+  }, [props.value]);
+  return <textarea ref={ref} rows={minRows} {...props} className={clsx(className, "max-h-[60vh] resize-none overflow-y-auto")} />;
 }
 
 export const inputClass =

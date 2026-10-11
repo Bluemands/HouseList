@@ -50,6 +50,11 @@ const TASK_WORDS =
 const JOB_NOUNS =
   /\b(service|servicing|repairs?|installation|fitting|survey|inspection|cleaning|sweep|quote|visit|check-?up|callout|call-out)\b/i;
 
+/** Typed as a job ("Install fire alarms"), even if a product link comes with it. */
+export function startsWithJobWord(title: string): boolean {
+  return TASK_WORDS.test(title.trim());
+}
+
 const WEEKDAYS =["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
@@ -175,11 +180,19 @@ function findRoom(text: string): { room: Room; explicit: RegExpMatchArray | null
       }
     }
   }
-  const lower = text.toLowerCase();
+  // Rooms named in passing. Longest names first, each blanked out once found,
+  // so "bathroom 2" isn't also read as "bathroom". A job that names more than
+  // one ("alarms in the hallway, landing and kitchen") is for the whole house.
+  let lower = text.toLowerCase();
+  const named = new Set<Room>();
   for (const { room, alias } of ROOM_MATCHERS) {
-    if (new RegExp(String.raw`(^|[^a-z])${alias}([^a-z0-9]|$)`).test(lower)) return { room, explicit: null };
+    const re = new RegExp(String.raw`(^|[^a-z])${alias}(?=[^a-z0-9]|$)`, "g");
+    if (!re.test(lower)) continue;
+    named.add(room);
+    lower = lower.replace(re, (_, before: string) => before + " ".repeat(alias.length));
   }
-  return null;
+  if (named.size > 1) return { room: "WHOLE_HOUSE", explicit: null };
+  return named.size ? { room: [...named][0], explicit: null } : null;
 }
 
 // Products that say which room they're for when their name doesn't mention
@@ -307,4 +320,31 @@ export function parseQuickAdd(input: string, members: string[] = []): Parsed {
     assignee,
     repeat: every?.repeat ?? null,
   };
+}
+
+const FILLER = new Set(["the", "and", "for", "with", "from", "into", "our", "new", "some"]);
+
+function titleWords(title: string): Set<string> {
+  return new Set(
+    title
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length > 2 && !FILLER.has(w))
+      .map((w) => (w.length > 3 && w.endsWith("s") && !w.endsWith("ss") ? w.slice(0, -1) : w)),
+  );
+}
+
+/**
+ * Whether two titles are the same thing worded differently: "Install fire
+ * alarms, 1 in office, 1 in hallway" and "Install fire alarms, 1 office,
+ * 1 hallway". Most of their words must be shared, so "Paint hallway" and
+ * "Paint hallway ceiling" stay two jobs.
+ */
+export function sameThing(a: string, b: string): boolean {
+  if (a.trim().toLowerCase() === b.trim().toLowerCase()) return true;
+  const x = titleWords(a);
+  const y = titleWords(b);
+  if (x.size < 2 || y.size < 2) return false;
+  const shared = [...x].filter((w) => y.has(w)).length;
+  return shared / (x.size + y.size - shared) >= 0.75;
 }

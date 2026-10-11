@@ -29,7 +29,7 @@ import { readableLink, siteOf, splitLink, titleFromUrl } from "@/lib/unfurl";
 import { useUnfurl } from "@/lib/useUnfurl";
 import { useSheetDrag } from "@/lib/useSheetDrag";
 import type { ItemUpdateInput } from "@/lib/validation";
-import { Button, Chip, Field, MoneyInput, PaintChip, Segmented, Suggestion, inputClass } from "@/components/ui";
+import { Button, Chip, Field, GrowingTextarea, MoneyInput, PaintChip, Segmented, Suggestion, inputClass } from "@/components/ui";
 import { QuotesField, UpdatesField } from "@/components/ItemExtras";
 import { AskClaude } from "@/components/AskClaude";
 import { LinksField, StepsField, parseMoney, type DraftStep } from "@/components/StepsField";
@@ -737,14 +737,13 @@ function SheetBody({
           </LinksField>
 
           <Field label="Notes">
-            <textarea
+            <GrowingTextarea
               value={draft.notes}
               onChange={(e) => set("notes", e.target.value)}
-              rows={3}
               placeholder="Measurements, colours, who quoted what…"
               aria-label="Notes"
               maxLength={4000}
-              className={clsx(inputClass, "resize-y")}
+              className={inputClass}
             />
           </Field>
 

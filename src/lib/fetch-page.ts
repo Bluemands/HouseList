@@ -198,3 +198,26 @@ export async function fetchPage(raw: string): Promise<{ html: string; url: strin
   }
   throw new UnreadablePage("Too many redirects");
 }
+
+/**
+ * Where a share link (amzn.eu/d/…) leads: its redirects followed, with the
+ * same checks, until `arrived` says this is the place. That last address is
+ * never requested, so a shop that turns servers away doesn't matter.
+ */
+export async function followRedirects(raw: string, arrived: (url: URL) => boolean): Promise<string> {
+  let url = checkUrl(raw);
+  const signal = AbortSignal.timeout(TIMEOUT_MS);
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    if (arrived(url)) return url.href;
+    let res: Hop;
+    try {
+      res = await request(url, signal);
+    } catch (err) {
+      const refused = (err as { code?: string }).code === "EPRIVATE";
+      throw new UnreadablePage(refused ? "That address is private" : "Couldn't reach that page", refused);
+    }
+    if (res.status < 300 || res.status >= 400 || !res.location) return url.href;
+    url = checkUrl(new URL(res.location, url).href);
+  }
+  throw new UnreadablePage("Too many redirects");
+}
