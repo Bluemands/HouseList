@@ -3,7 +3,8 @@ import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isWorkerRequest } from "@/lib/auth";
 import { readBody } from "@/lib/api-route";
-import { aiResultSchema, workerSubmitSchema } from "@/lib/ai";
+import { aiResultSchema, autofillChanges, type AiResult, workerSubmitSchema } from "@/lib/ai";
+import { getItem, updateItem } from "@/lib/items-service";
 
 // The worker hands back Claude's answer (or why there isn't one).
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/worker/jobs/[id]">) {
@@ -44,5 +45,23 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/worker/
     where,
     data: { status: "DONE", result: parsed.data as Prisma.InputJsonValue, error: null, finishedAt },
   });
+  if (count) await fillIn(id, parsed.data);
   return NextResponse.json({ ok: true, ignored: count === 0 });
+}
+
+// Added from quick add with "Ask Claude": the answer goes straight into the
+// item, through the same rules as any other edit. If that fails, the answer
+// stays a suggestion to use by hand.
+async function fillIn(jobId: string, result: AiResult) {
+  const job = await prisma.aiJob.findUnique({ where: { id: jobId }, select: { autofill: true, itemId: true } });
+  if (!job?.autofill || !job.itemId) return;
+  try {
+    const item = await getItem(job.itemId);
+    if (!item) return;
+    const { changes, appendSteps } = autofillChanges(item, result);
+    const updated = await updateItem(job.itemId, { ...changes, actor: "Claude" }, { appendSteps });
+    if (updated) await prisma.aiJob.updateMany({ where: { id: jobId, status: "DONE" }, data: { status: "ACCEPTED" } });
+  } catch (err) {
+    console.error("Couldn't fill in the item from Claude's answer", err);
+  }
 }

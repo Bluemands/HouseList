@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Kind } from "@/lib/types";
+import { formatGBP } from "@/lib/format";
 
 // "Ask Claude": the app queues a question about an item, a worker on someone's
 // own computer runs Claude Code with their subscription (scripts/ai-worker.mjs),
@@ -98,6 +99,7 @@ export const aiJobCreateSchema = z.object({
     .optional()
     .transform((q) => q || null),
   requestedBy: z.string().trim().min(1).max(60),
+  autofill: z.boolean().optional().default(false),
 });
 
 /** Used (accepted), dismissed, sent round again, or (undoing a dismiss) back. */
@@ -120,6 +122,7 @@ export type AiJobDTO = {
   itemId: string | null;
   kind: AiJobKind;
   question: string | null;
+  autofill: boolean;
   status: AiJobStatus;
   result: AiResult | null;
   error: string | null;
@@ -150,4 +153,59 @@ export function staleOutcome(
 export function workerState(seenAt: string | null, now = Date.now()): "never" | "active" | "away" {
   if (!seenAt) return "never";
   return now - new Date(seenAt).getTime() < 5 * 60_000 ? "active" : "away";
+}
+
+const NOTES_MAX = 4000;
+const LINKS_MAX = 20;
+const DIY_LABELS = { yes: "Yes", "with-care": "Yes, with care", no: "No, get a tradesperson" } as const;
+
+/**
+ * What an answer fills in on an item added with "Ask Claude": only what's
+ * empty, so nothing typed is overwritten. Costs, steps and links go where
+ * they belong; the rest (summary, options, cautions) is added to the notes.
+ */
+export function autofillChanges(
+  item: { estimatedPrice: number | null; steps: unknown[]; links: string[]; notes: string | null },
+  result: AiResult,
+) {
+  const priced = (result.options ?? []).flatMap((o) => (o.price == null ? [] : [o.price]));
+  const range = result.estimate ?? (priced.length ? { min: Math.min(...priced), max: Math.max(...priced) } : null);
+  const estimate =
+    item.estimatedPrice == null && range
+      ? { estimatedPrice: range.min, estimateMax: range.max > range.min ? range.max : null }
+      : {};
+
+  // Costed steps set the item's estimate to their total (an app rule), so
+  // they keep their costs only when there's no figure of the user's to lose.
+  const appendSteps = item.steps.length
+    ? []
+    : (result.steps ?? []).map((s) => ({
+        text: s.text,
+        cost: item.estimatedPrice == null ? (s.cost ?? null) : null,
+        link: s.link ?? null,
+        notes: s.notes ?? null,
+      }));
+
+  const found = [...(result.links ?? []).map((l) => l.url), ...(result.options ?? []).flatMap((o) => (o.url ? [o.url] : []))];
+  const links = [...new Set([...item.links, ...found])].slice(0, LINKS_MAX);
+
+  const block = [
+    "From Claude:",
+    result.summary,
+    result.diy ? `DIY? ${DIY_LABELS[result.diy]}.` : null,
+    result.options?.length
+      ? result.options
+          .map((o) => `• ${o.title}${o.price != null ? ` — ${formatGBP(o.price)}` : ""}${o.retailer ? ` (${o.retailer})` : ""}`)
+          .join("\n")
+      : null,
+    result.cautions?.length ? `Watch out for:\n${result.cautions.map((c) => `• ${c}`).join("\n")}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  const notes = (item.notes?.trim() ? `${item.notes.trim()}\n\n${block}` : block).slice(0, NOTES_MAX);
+
+  return {
+    changes: { ...estimate, notes, ...(links.length !== item.links.length ? { links } : {}) },
+    appendSteps,
+  };
 }

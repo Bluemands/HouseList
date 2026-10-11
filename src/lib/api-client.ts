@@ -84,7 +84,7 @@ export async function unfurl(url: string): Promise<Unfurled | null> {
 }
 
 /** Queue a question for Claude about an item; a worker answers it later. */
-export async function askClaude(itemId: string, input: { question?: string | null; requestedBy: string }): Promise<AiJobDTO> {
+export async function askClaude(itemId: string, input: { question?: string | null; requestedBy: string; autofill?: boolean }): Promise<AiJobDTO> {
   const data = await request<{ job: AiJobDTO }>(`/api/items/${itemId}/ai`, { method: "POST", body: JSON.stringify(input) });
   return data.job;
 }

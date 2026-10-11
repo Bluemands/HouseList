@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import clsx from "clsx";
-import { ArrowUp, Calendar, Hammer, Link2, LoaderCircle, Plus, Repeat, ShoppingBag, SlidersHorizontal, User } from "lucide-react";
+import { ArrowUp, Calendar, Hammer, Link2, LoaderCircle, Plus, Repeat, ShoppingBag, SlidersHorizontal, Sparkles, User } from "lucide-react";
 import type { Kind, Room } from "@/lib/types";
 import { PRIORITY_LABELS, REPEAT_SHORT, TITLE_MAX } from "@/lib/types";
 import { ROOM_PAINT } from "@/lib/rooms";
@@ -11,6 +11,7 @@ import { readableLink, siteOf, splitLink, titleFromUrl } from "@/lib/unfurl";
 import { unfurlLink, useUnfurl } from "@/lib/useUnfurl";
 import { describeDue, formatCost } from "@/lib/format";
 import { useStore } from "@/lib/store";
+import { workerState } from "@/lib/ai";
 import { PaintChip } from "@/components/ui";
 
 type Props = {
@@ -29,7 +30,7 @@ const EXAMPLES = [
 ];
 
 export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
-  const { addItem, patchItem, openItem, settings, openBulk, items } = useStore();
+  const { addItem, patchItem, openItem, settings, openBulk, items, askClaude, toast } = useStore();
   const [text, setText] = useState("");
   const [kindOverride, setKindOverride] = useState<Kind | null>(null);
   const [focused, setFocused] = useState(false);
@@ -43,6 +44,8 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
     [text, rest, settings.members],
   );
   const page = useUnfurl(link);
+  // Only offered once a worker has ever checked in, so nobody queues into nothing.
+  const worker = workerState(settings.workerSeenAt);
   const kind =
     kindOverride ??
     (link ? "BUY" : parsed && (parsed.kind === "BUY" || !defaultKind) ? parsed.kind : defaultKind) ??
@@ -128,6 +131,25 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
     if (Object.values(upgrade).some((v) => v !== undefined)) await patchItem(created.id, upgrade);
   }
 
+  // Hands the line to Claude: it's added now as typed, and the worker fills in
+  // the cost, steps, links and notes when it answers.
+  async function addWithClaude() {
+    const d = draft();
+    if (!d || !d.title) return;
+    reset();
+    inputRef.current?.focus();
+    const created = await addItem(d);
+    if (!created) return;
+    if (await askClaude(created.id, undefined, { autofill: true })) {
+      toast({
+        message:
+          worker === "active"
+            ? "Added. Claude's filling in the details."
+            : "Added. Claude will fill in the details when the worker's next on.",
+      });
+    }
+  }
+
   function moreDetails() {
     const d = draft();
     reset();
@@ -170,6 +192,17 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
             enterKeyHint="done"
             className="min-w-0 flex-1 bg-transparent py-2 text-[16px] text-ink outline-none"
           />
+          {text && worker !== "never" && (
+            <button
+              type="button"
+              onClick={addWithClaude}
+              aria-label="Add it and ask Claude to fill in the details"
+              title="Add it and ask Claude to fill in the details"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-accent-text transition-colors hover:bg-accent-soft active:scale-90"
+            >
+              <Sparkles size={17} strokeWidth={2.2} />
+            </button>
+          )}
           {text ? (
             <button
               type="submit"

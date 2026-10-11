@@ -211,6 +211,9 @@ model AiJob {
   itemId      String?
   kind        AiJobKind
   question    String?
+  // Added from quick add with "Ask Claude": the answer fills the item in
+  // directly instead of waiting as a suggestion.
+  autofill    Boolean     @default(false)
   status      AiJobStatus @default(QUEUED)
   // The validated suggestion (see lib/ai.ts for its shape).
   result      Json?

@@ -205,12 +205,21 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
     );
   }
   // Claude has answered and nobody's looked yet: a nudge to open it.
-  if (jobByItem.get(item.id)?.status === "DONE") {
+  const job = jobByItem.get(item.id);
+  if (job?.status === "DONE") {
     meta.push(
       <span key="claude" className="inline-flex items-center gap-1 font-medium text-accent-text">
         <Sparkles size={12} strokeWidth={2.2} aria-hidden="true" />
         Suggestion
         <span className="sr-only">from Claude ready</span>
+      </span>,
+    );
+  } else if (job?.autofill && (job.status === "QUEUED" || job.status === "RUNNING")) {
+    // Added with "Ask Claude": the details are on their way.
+    meta.push(
+      <span key="claude" className="inline-flex items-center gap-1 font-medium text-ink-3">
+        <Sparkles size={12} strokeWidth={2.2} aria-hidden="true" />
+        {job.status === "RUNNING" ? "Claude's filling this in" : "Waiting for Claude"}
       </span>,
     );
   }

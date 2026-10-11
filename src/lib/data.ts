@@ -100,6 +100,7 @@ export function toAiJobDTO(job: AiJob): AiJobDTO {
     itemId: job.itemId,
     kind: job.kind,
     question: job.question,
+    autofill: job.autofill,
     status: job.status,
     result: result?.success ? result.data : null,
     error: job.error,

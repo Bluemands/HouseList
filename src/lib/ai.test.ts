@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { MAX_ATTEMPTS, STALE_CLAIM_MS, aiResultSchema, jobKindFor, staleOutcome, workerState, workerSubmitSchema } from "@/lib/ai";
+import {
+  MAX_ATTEMPTS,
+  STALE_CLAIM_MS,
+  aiResultSchema,
+  autofillChanges,
+  jobKindFor,
+  staleOutcome,
+  workerState,
+  workerSubmitSchema,
+} from "@/lib/ai";
 import {
   RESULT_JSON_SCHEMA,
   buildPrompt,
@@ -203,5 +212,60 @@ describe("parseEnvFile", () => {
   it("reads quoted, bare and exported values", () => {
     const env = parseEnvFile('# comment\nA="one two"\nexport B=three # note\r\nC=\'four\'\nnot a line');
     expect(env).toEqual({ A: "one two", B: "three", C: "four" });
+  });
+});
+
+describe("autofillChanges", () => {
+  const blank = { estimatedPrice: null, steps: [], links: [], notes: null };
+  const answer = aiResultSchema.parse({
+    summary: "Swap the fan for a humidistat model.",
+    estimate: { min: 150, max: 450 },
+    diy: "with-care",
+    steps: [{ text: "Buy fan", cost: 60, link: "https://example.com/fan" }, { text: "Fit it" }],
+    links: [{ title: "Guide", url: "https://example.com/guide" }],
+    cautions: ["Bathroom zones: Part P applies"],
+  });
+
+  it("fills an empty item: range, costed steps, links and notes", () => {
+    const { changes, appendSteps } = autofillChanges(blank, answer);
+    expect(changes).toMatchObject({ estimatedPrice: 150, estimateMax: 450, links: ["https://example.com/guide"] });
+    expect(appendSteps).toEqual([
+      { text: "Buy fan", cost: 60, link: "https://example.com/fan", notes: null },
+      { text: "Fit it", cost: null, link: null, notes: null },
+    ]);
+    expect(changes.notes).toBe(
+      "From Claude:\n\nSwap the fan for a humidistat model.\n\nDIY? Yes, with care.\n\nWatch out for:\n• Bathroom zones: Part P applies",
+    );
+  });
+
+  it("never overwrites what was typed", () => {
+    const item = { estimatedPrice: 40, steps: [{}], links: ["https://example.com/guide"], notes: "Ask Dad first" };
+    const { changes, appendSteps } = autofillChanges(item, answer);
+    expect(changes).not.toHaveProperty("estimatedPrice");
+    expect(changes).not.toHaveProperty("links");
+    expect(appendSteps).toEqual([]);
+    expect(changes.notes.startsWith("Ask Dad first\n\nFrom Claude:")).toBe(true);
+  });
+
+  it("drops step costs when the item has its own figure, so its estimate stands", () => {
+    const { appendSteps } = autofillChanges({ ...blank, estimatedPrice: 40 }, answer);
+    expect(appendSteps.every((s) => s.cost === null)).toBe(true);
+  });
+
+  it("prices a thing to buy from its options", () => {
+    const options = aiResultSchema.parse({
+      summary: "Three good ones.",
+      options: [
+        { title: "Fan A", price: 25, url: "https://example.com/a", retailer: "Screwfix" },
+        { title: "Fan B", price: 89.5, url: "https://example.com/b" },
+      ],
+    });
+    const { changes } = autofillChanges(blank, options);
+    expect(changes).toMatchObject({
+      estimatedPrice: 25,
+      estimateMax: 89.5,
+      links: ["https://example.com/a", "https://example.com/b"],
+    });
+    expect(changes.notes).toContain("• Fan A — £25 (Screwfix)\n• Fan B — £89.50");
   });
 });

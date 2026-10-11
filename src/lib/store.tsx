@@ -63,8 +63,12 @@ type Store = {
   jobs: AiJobDTO[];
   /** The newest of those for each item. */
   jobByItem: ReadonlyMap<string, AiJobDTO>;
-  /** Queue a question for Claude about an item; resolves to whether it was queued. */
-  askClaude: (itemId: string, question?: string) => Promise<boolean>;
+  /**
+   * Queue a question for Claude about an item; resolves to whether it was
+   * queued. With `autofill`, the answer fills the item in instead of waiting
+   * as a suggestion.
+   */
+  askClaude: (itemId: string, question?: string, options?: { autofill?: boolean }) => Promise<boolean>;
   /** Used, dismissed, sent round again (a failed one), or back (an undone dismiss). */
   updateJob: (job: AiJobDTO, status: AiJobUpdate) => Promise<boolean>;
   patchItem: (id: string, patch: ItemUpdateInput) => Promise<ItemDTO | null>;
@@ -549,9 +553,11 @@ export function StoreProvider({
   // Asking only queues the question; the answer arrives with a later poll,
   // once a worker has run it past Claude.
   const askClaude = useCallback<Store["askClaude"]>(
-    async (itemId, question) => {
+    async (itemId, question, options) => {
       try {
-        const job = await track(() => api.askClaude(itemId, { question: question || null, requestedBy: me }));
+        const job = await track(() =>
+          api.askClaude(itemId, { question: question || null, requestedBy: me, autofill: options?.autofill }),
+        );
         // It replaces the item's last answer, as it does on the server.
         setJobs((list) => [job, ...list.filter((j) => j.itemId !== itemId)]);
         return true;
