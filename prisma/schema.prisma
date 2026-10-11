@@ -86,9 +86,10 @@ model Item {
   spawnedFromId String?
   // Pinned by hand: "we've decided this is next", ahead of the automatic order.
   pinned        Boolean @default(false)
-  // What finishing this took out of the pot, so reopening puts back exactly
-  // that — and nothing, if the pot wasn't in use when it was ticked off.
-  potCharge     Float   @default(0)
+  // What finishing this took out of the pot (its price less any stages
+  // already paid), so reopening puts back exactly that. Null: not charged,
+  // because it isn't done or the pot wasn't in use when it was ticked off.
+  potCharge     Float?
 
   addedBy     String
   completedAt DateTime?
@@ -117,6 +118,10 @@ model Step {
   cost      Float?
   link      String?
   notes     String?
+  // Stage payments: ticking a costed step spends it from the pot. Null: not
+  // charged (not done, or ticked before the pot was in use).
+  potCharge Float?
+  doneAt    DateTime?
   createdAt DateTime @default(now())
 
   item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)

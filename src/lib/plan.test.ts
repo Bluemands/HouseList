@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { buildPlan, compareItems, spending, upNext, affordabilityIndex } from "@/lib/plan";
+import { buildPlan, compareItems, planCost, spending, upNext, affordabilityIndex } from "@/lib/plan";
 import type { ItemDTO, SettingsDTO } from "@/lib/types";
 
 beforeAll(() => {
@@ -131,5 +131,45 @@ describe("spending", () => {
     expect(s.spent).toBe(210);
     expect(s.estimateDelta).toBeCloseTo(0.05);
     expect(s.months.at(-1)).toEqual({ key: "2026-10", total: 90 });
+  });
+});
+
+describe("stage payments", () => {
+  const stage = (text: string, cost: number, done: boolean, doneAt: string | null = null) => ({
+    id: text,
+    text,
+    done,
+    cost,
+    link: null,
+    notes: null,
+    potCharge: done ? cost : null,
+    doneAt,
+  });
+
+  it("plans only what's still to pay on a job", () => {
+    const reno = item({
+      estimatedPrice: 1000,
+      steps: [stage("Deposit", 200, true), stage("Balance", 800, false)],
+    });
+    expect(planCost(reno)).toBe(800);
+  });
+
+  it("counts stages as spent when they're ticked, and the rest when the job is done", () => {
+    const going = item({
+      estimatedPrice: 1000,
+      steps: [stage("Deposit", 200, true, "2026-10-02T10:00:00.000Z"), stage("Balance", 800, false)],
+    });
+    const finished = item({
+      status: "DONE",
+      estimatedPrice: 300,
+      actualPrice: 300,
+      completedAt: "2026-10-05T10:00:00.000Z",
+      steps: [stage("Tiles", 100, true, "2026-09-20T10:00:00.000Z"), stage("Fitting", 200, true, "2026-10-05T10:00:00.000Z")],
+    });
+    const s = spending([going, finished]);
+    expect(s.spent).toBe(500);
+    expect(s.stagesPaid).toBe(200);
+    expect(s.months.at(-2)).toEqual({ key: "2026-09", total: 100 });
+    expect(s.months.at(-1)).toEqual({ key: "2026-10", total: 400 });
   });
 });

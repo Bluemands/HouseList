@@ -19,6 +19,7 @@ import { REPEAT_SHORT, STATUS_LABELS } from "@/lib/types";
 import { describeDue, formatCost, formatGBP, formatMonth } from "@/lib/format";
 import { useStore } from "@/lib/store";
 import { haptic } from "@/lib/haptics";
+import { doneStepsCost } from "@/lib/pot";
 import { PriorityTag, RoomTag, TickButton } from "@/components/ui";
 
 type Props = {
@@ -101,7 +102,7 @@ function useSwipe(onRight: () => void, onLeft: () => void) {
 }
 
 export function ItemRow({ item: listed, monthsAway, hideRoom, lead }: Props) {
-  const { toggleDone, openItem, removeItem, justAdded, settling, itemById } = useStore();
+  const { toggleDone, toggleStep, openItem, removeItem, justAdded, settling, itemById } = useStore();
   // Just ticked: the list still holds its place, but the row shows it done.
   const leaving = settling.has(listed.id);
   const item = leaving ? (itemById.get(listed.id) ?? listed) : listed;
@@ -112,6 +113,8 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead }: Props) {
   );
   const due = item.dueDate && !done ? describeDue(item.dueDate) : null;
   const stepsDone = item.steps.filter((s) => s.done).length;
+  const nextStep = done ? undefined : item.steps.find((s) => !s.done);
+  const stagesPaid = done ? 0 : doneStepsCost(item.steps);
   const cost = done
     ? item.actualPrice != null
       ? formatGBP(item.actualPrice)
@@ -170,6 +173,13 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead }: Props) {
         <ListChecks size={13} strokeWidth={2} aria-hidden="true" />
         {stepsDone}/{item.steps.length}
         <span className="sr-only">steps done</span>
+      </span>,
+    );
+  }
+  if (stagesPaid > 0) {
+    meta.push(
+      <span key="paid" className="tabular">
+        {formatGBP(stagesPaid)} paid
       </span>,
     );
   }
@@ -256,53 +266,77 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead }: Props) {
             />
           </div>
 
-          <button
-            type="button"
-            onClick={() => openItem(item.id)}
-            className="min-w-0 flex-1 text-left outline-none after:absolute after:inset-0 after:rounded-[inherit] after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent"
-          >
-            <span className="flex items-start gap-2">
-              <span
-                className={clsx(
-                  "min-w-0 flex-1 leading-snug",
-                  lead ? "text-[18px] font-semibold tracking-[-0.01em]" : "text-[15px] font-medium",
-                  done ? "text-ink-3 line-through decoration-ink-3/50" : "text-ink",
-                )}
-              >
-                {item.pinned && !done && (
-                  <Pin
-                    size={lead ? 15 : 13}
-                    strokeWidth={2.4}
-                    className="mr-1.5 inline-block -translate-y-px fill-current align-baseline text-accent-text"
-                    aria-label="Pinned"
-                  />
-                )}
-                {item.title}
-              </span>
-              {cost && (
+          <div className="min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={() => openItem(item.id)}
+              className="block w-full text-left outline-none after:absolute after:inset-0 after:rounded-[inherit] after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent"
+            >
+              <span className="flex items-start gap-2">
                 <span
-                  className={clsx("shrink-0 pt-px text-[14px] tabular", done ? "text-ink-3" : "font-medium text-ink")}
+                  className={clsx(
+                    "min-w-0 flex-1 leading-snug",
+                    lead ? "text-[18px] font-semibold tracking-[-0.01em]" : "text-[15px] font-medium",
+                    done ? "text-ink-3 line-through decoration-ink-3/50" : "text-ink",
+                  )}
                 >
-                  {item.isQuote && !done && <span className="mr-1 text-[11px] font-semibold text-ink-3">QUOTE</span>}
-                  {cost}
+                  {item.pinned && !done && (
+                    <Pin
+                      size={lead ? 15 : 13}
+                      strokeWidth={2.4}
+                      className="mr-1.5 inline-block -translate-y-px fill-current align-baseline text-accent-text"
+                      aria-label="Pinned"
+                    />
+                  )}
+                  {item.title}
                 </span>
-              )}
-            </span>
-
-            <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink-2">
-              {!done && <PriorityTag priority={item.priority} />}
-              {item.kind === "BUY" && (
-                <ShoppingBag size={13} strokeWidth={2} className="text-ink-3" aria-label="To buy" />
-              )}
-              {meta}
-              {!done && monthsAway !== undefined && monthsAway !== 0 && (
-                <span className="ml-auto text-[12px] text-ink-3">
-                  {/* null: the pot can't cover it and there's no monthly saving to wait for. */}
-                  {monthsAway !== null ? `Affordable ${formatMonth(monthsAway, false)}` : "Not affordable yet"}
+                {cost && (
+                  <span
+                    className={clsx("shrink-0 pt-px text-[14px] tabular", done ? "text-ink-3" : "font-medium text-ink")}
+                  >
+                    {item.isQuote && !done && <span className="mr-1 text-[11px] font-semibold text-ink-3">QUOTE</span>}
+                    {cost}
+                  </span>
+                )}
+              </span>
+  
+              <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink-2">
+                {!done && <PriorityTag priority={item.priority} />}
+                {item.kind === "BUY" && (
+                  <ShoppingBag size={13} strokeWidth={2} className="text-ink-3" aria-label="To buy" />
+                )}
+                {meta}
+                {!done && monthsAway !== undefined && monthsAway !== 0 && (
+                  <span className="ml-auto text-[12px] text-ink-3">
+                    {/* null: the pot can't cover it and there's no monthly saving to wait for. */}
+                    {monthsAway !== null ? `Affordable ${formatMonth(monthsAway, false)}` : "Not affordable yet"}
+                  </span>
+                )}
+              </span>
+            </button>
+            {/* The next step, tickable without opening the item. */}
+            {nextStep && (
+              <span className="relative z-10 mt-1.5 flex max-w-full items-center gap-2 text-[13px] text-ink-2">
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={false}
+                  aria-label={`Mark step “${nextStep.text}” as done`}
+                  onClick={() => toggleStep(item, nextStep.id)}
+                  className="-m-2 grid shrink-0 place-items-center p-2"
+                >
+                  <span className="h-[15px] w-[15px] rounded-[4px] border-[1.5px] border-line-strong transition-colors hover:border-accent" />
+                </button>
+                <span className="min-w-0 truncate">
+                  <span className="text-ink-3">Next: </span>
+                  {nextStep.text}
                 </span>
-              )}
-            </span>
-          </button>
+                {nextStep.cost != null && nextStep.cost > 0 && (
+                  <span className="shrink-0 text-ink-3 tabular">{formatGBP(nextStep.cost)}</span>
+                )}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </li>

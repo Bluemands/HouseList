@@ -109,6 +109,9 @@ export type StepDTO = {
   cost: number | null;
   link: string | null;
   notes: string | null;
+  /** What ticking it took from the pot; null if nothing was charged. */
+  potCharge: number | null;
+  doneAt: string | null;
 };
 
 /** The steps' total, or null when none of them has a cost. */
@@ -135,8 +138,8 @@ export type ItemDTO = {
   repeat: Repeat | null;
   spawnedFromId: string | null;
   pinned: boolean;
-  /** What finishing it took out of the pot (0 if the pot wasn't in use). */
-  potCharge: number;
+  /** What finishing it took from the pot; null if nothing was charged. */
+  potCharge: number | null;
   links: string[];
   notes: string | null;
   addedBy: string;

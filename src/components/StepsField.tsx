@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { ArrowDown, ArrowUp, ChevronDown, ExternalLink, GripVertical, Link2, Plus, Trash2 } from "lucide-react";
 import { formatGBP, linkLabel, normaliseLink } from "@/lib/format";
+import { pastedLines } from "@/lib/parse";
 import { Button, Field, MoneyInput, inputClass } from "@/components/ui";
 
 export type DraftStep = {
@@ -39,7 +40,8 @@ export function StepsField({
   onChange: (steps: DraftStep[]) => void;
   newStep: string;
   onNewStep: (text: string) => void;
-  onAdd: () => void;
+  /** Adds what's in the box, or each of several pasted lines. */
+  onAdd: (lines?: string[]) => void;
 }) {
   const [open, setOpen] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -259,11 +261,18 @@ export function StepsField({
               onAdd();
             }
           }}
-          placeholder={steps.length ? "Add another step" : "Break it down — e.g. buy paint, fill cracks…"}
+          onPaste={(e) => {
+            // A pasted list becomes one step per line.
+            const lines = pastedLines(e.clipboardData.getData("text"));
+            if (lines.length < 2) return;
+            e.preventDefault();
+            onAdd(lines);
+          }}
+          placeholder={steps.length ? "Add another step" : "Break it down — e.g. Deposit £200, Fit tiles…"}
           aria-label="New step"
           className={inputClass}
         />
-        <Button variant="secondary" onClick={onAdd} aria-label="Add step" className="shrink-0 px-3">
+        <Button variant="secondary" onClick={() => onAdd()} aria-label="Add step" className="shrink-0 px-3">
           <Plus size={17} />
         </Button>
       </div>

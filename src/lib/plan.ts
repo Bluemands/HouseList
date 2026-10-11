@@ -1,11 +1,12 @@
 import { PRIORITY_ORDER, ROOMS, type ItemDTO, type Room, type SettingsDTO } from "@/lib/types";
 import { dayDiff, today } from "@/lib/format";
+import { doneStepsCost } from "@/lib/pot";
 
 export const isOpen = (item: ItemDTO) => item.status !== "DONE";
 
-/** What planning assumes an open item will cost: the top of its range. */
+/** What planning assumes an open item still costs: the top of its range, less stages already done. */
 export function planCost(item: ItemDTO): number {
-  return item.estimateMax ?? item.estimatedPrice ?? 0;
+  return Math.max(0, (item.estimateMax ?? item.estimatedPrice ?? 0) - doneStepsCost(item.steps));
 }
 
 /** What a finished item actually cost. */
@@ -171,7 +172,6 @@ export function roomStats(items: ItemDTO[]): RoomStats[] {
 
 export function spending(items: ItemDTO[]) {
   const done = items.filter((i) => !isOpen(i));
-  const spent = done.reduce((s, i) => s + spentCost(i), 0);
   const compared = done.filter((i) => i.actualPrice != null && i.estimatedPrice != null);
   const estimated = compared.reduce((s, i) => s + (i.estimateMax ?? i.estimatedPrice!), 0);
   const actual = compared.reduce((s, i) => s + i.actualPrice!, 0);
@@ -182,16 +182,33 @@ export function spending(items: ItemDTO[]) {
     const d = new Date(now.getFullYear(), now.getMonth() - k, 1);
     months.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, total: 0 });
   }
-  for (const i of done) {
-    if (!i.completedAt) continue;
-    const d = new Date(i.completedAt);
+  // Money goes out when it's paid: stages as they're ticked, the rest when
+  // the item is finished.
+  let spent = 0;
+  let stagesPaid = 0;
+  const pay = (when: string | null, amount: number) => {
+    if (amount <= 0) return;
+    spent += amount;
+    if (!when) return;
+    const d = new Date(when);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     const bucket = months.find((m) => m.key === key);
-    if (bucket) bucket.total += spentCost(i);
+    if (bucket) bucket.total += amount;
+  };
+  for (const i of items) {
+    for (const s of i.steps) {
+      if (s.done && s.cost) {
+        pay(s.doneAt ?? i.completedAt, s.cost);
+        if (isOpen(i)) stagesPaid += s.cost;
+      }
+    }
+    if (!isOpen(i)) pay(i.completedAt, spentCost(i) - doneStepsCost(i.steps));
   }
 
   return {
     spent,
+    /** Paid towards things not finished yet. */
+    stagesPaid,
     doneCount: done.length,
     comparedCount: compared.length,
     estimateDelta: estimated > 0 ? (actual - estimated) / estimated : null,

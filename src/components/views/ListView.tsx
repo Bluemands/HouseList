@@ -100,7 +100,8 @@ export function ListView() {
             i.assignee,
             i.project,
             ROOM_PAINT[i.room].label,
-            ...i.steps.map((s) => s.text),
+            ...i.links,
+            ...i.steps.map((s) => `${s.text} ${s.notes ?? ""} ${s.link ?? ""}`),
             ...i.comments.map((c) => c.text),
             ...i.quotes.map((q) => `${q.from} ${q.note ?? ""}`),
           ]

@@ -6,6 +6,7 @@ import { ApiError } from "@/lib/api-client";
 import type { ItemDTO, SettingsDTO, StepDTO } from "@/lib/types";
 import { formatDay, formatGBP, today } from "@/lib/format";
 import { nextOccurrence } from "@/lib/types";
+import { settlePot } from "@/lib/pot";
 import { ROOM_PAINT } from "@/lib/rooms";
 import { haptic } from "@/lib/haptics";
 import type { ItemCreateInput, ItemUpdateInput, SettingsUpdateInput } from "@/lib/validation";
@@ -53,6 +54,8 @@ type Store = {
   calendarPath: string;
   patchItem: (id: string, patch: ItemUpdateInput) => Promise<ItemDTO | null>;
   toggleDone: (item: ItemDTO) => void;
+  /** Tick (or untick) one step, straight from a list row. */
+  toggleStep: (item: ItemDTO, stepId: string) => void;
   removeItem: (item: ItemDTO) => void;
   saveSettings: (patch: SettingsUpdateInput) => Promise<boolean>;
   toast: (t: Omit<Toast, "id">) => void;
@@ -80,14 +83,12 @@ const UNDO_MS = 6_000;
 /** How long a ticked row lingers in an open list (matches .row-leave). */
 const SETTLE_MS = 1_000;
 
-function applyPatch(item: ItemDTO, patch: ItemUpdateInput, me: string, potTracked: boolean): ItemDTO {
+/** The item as it will be after the patch, and how far the pot moves. */
+function applyPatch(item: ItemDTO, patch: ItemUpdateInput, me: string, potTracked: boolean) {
   const next: ItemDTO = { ...item };
   for (const [key, value] of Object.entries(patch)) {
     if (key === "steps" || key === "actor" || value === undefined) continue;
     (next as Record<string, unknown>)[key] = value;
-  }
-  if (patch.steps) {
-    next.steps = patch.steps.map(toStep);
   }
   if (next.status === "DONE" && item.status !== "DONE") {
     next.completedAt = new Date().toISOString();
@@ -99,10 +100,19 @@ function applyPatch(item: ItemDTO, patch: ItemUpdateInput, me: string, potTracke
     next.completedBy = null;
   }
   // Mirror the server's pot arithmetic so the money figures move instantly.
-  const completing = next.status === "DONE" && item.status !== "DONE";
-  const charged = completing ? potTracked : item.potCharge > 0;
-  next.potCharge = next.status === "DONE" && charged ? (next.actualPrice ?? 0) : 0;
-  return next;
+  const pot = settlePot(item, { status: next.status, actualPrice: next.actualPrice, steps: patch.steps }, potTracked);
+  next.potCharge = pot.itemCharge;
+  if (patch.steps) {
+    next.steps = patch.steps.map((s, i) => {
+      const before = item.steps.find((b) => b.id === s.id);
+      return {
+        ...toStep(s, i),
+        potCharge: pot.stepCharges![i],
+        doneAt: s.done ? (before?.done ? before.doneAt : new Date().toISOString()) : null,
+      };
+    });
+  }
+  return { next, delta: pot.delta };
 }
 
 function toStep(s: NonNullable<ItemUpdateInput["steps"]>[number], i: number): StepDTO {
@@ -113,8 +123,13 @@ function toStep(s: NonNullable<ItemUpdateInput["steps"]>[number], i: number): St
     cost: s.cost ?? null,
     link: (s.link as string | null | undefined) ?? null,
     notes: (s.notes as string | null | undefined) ?? null,
+    potCharge: null,
+    doneAt: null,
   };
 }
+
+/** A step as the API takes it back. */
+const stepInput = ({ id, text, done, cost, link, notes }: StepDTO) => ({ id, text, done, cost, link, notes });
 
 export function StoreProvider({
   initialItems,
@@ -246,7 +261,7 @@ export function StoreProvider({
         quotes: [],
         comments: [],
         links: input.links ?? [],
-        potCharge: 0,
+        potCharge: null,
         notes: (input.notes as string | null | undefined) ?? null,
         addedBy: me,
         completedAt: null,
@@ -261,7 +276,8 @@ export function StoreProvider({
         const created = await track(() => api.createItem({ ...input, addedBy: me }));
         setItems((list) => list.map((i) => (i.id === tempId ? created : i)));
         setJustAdded(created.id);
-        adjustPot(-created.potCharge);
+        // What logging it took from the pot (it may have arrived already ticked).
+        adjustPot(-((created.potCharge ?? 0) + created.steps.reduce((sum, s) => sum + (s.potCharge ?? 0), 0)));
         if (!settings.members.includes(me)) setSettings((s) => ({ ...s, members: [...s.members, me] }));
         return created;
       } catch (err) {
@@ -277,8 +293,7 @@ export function StoreProvider({
     async (id, patch) => {
       const before = itemsRef.current.find((i) => i.id === id);
       if (!before || id.startsWith("tmp-")) return null;
-      const optimistic = applyPatch(before, patch, me, settingsRef.current.potTracked);
-      const localDelta = before.potCharge - optimistic.potCharge;
+      const { next: optimistic, delta: localDelta } = applyPatch(before, patch, me, settingsRef.current.potTracked);
       setItems((list) => list.map((i) => (i.id === id ? optimistic : i)));
       adjustPot(localDelta);
       try {
@@ -339,6 +354,31 @@ export function StoreProvider({
       });
     },
     [patchItem, toast, unsettle],
+  );
+
+  const toggleStep = useCallback<Store["toggleStep"]>(
+    (item, stepId) => {
+      const step = item.steps.find((s) => s.id === stepId);
+      if (!step) return;
+      const withStep = (done: boolean) => item.steps.map((s) => stepInput(s.id === stepId ? { ...s, done } : s));
+      patchItem(item.id, { steps: withStep(!step.done) });
+      if (step.done) return;
+      haptic(8);
+      const paid = step.cost != null && step.cost > 0 && settingsRef.current.potTracked;
+      // The last step done: offer to finish the whole thing in the same breath.
+      const last = item.status !== "DONE" && item.steps.every((s) => s.id === stepId || s.done);
+      toast({
+        message: paid ? `${step.text} — ${formatGBP(step.cost!)} out of the pot` : `Done: ${step.text}`,
+        action: { label: "Undo", run: () => patchItem(item.id, { steps: withStep(false) }) },
+        secondary: last
+          ? {
+              label: item.kind === "BUY" ? "Mark bought" : "Finish job",
+              run: () => toggleDone(itemsRef.current.find((i) => i.id === item.id) ?? item),
+            }
+          : undefined,
+      });
+    },
+    [patchItem, toast, toggleDone],
   );
 
   // Quotes and updates have their own endpoints (so two people adding at
@@ -455,6 +495,7 @@ export function StoreProvider({
       calendarPath,
       patchItem,
       toggleDone,
+      toggleStep,
       removeItem,
       saveSettings,
       toast,
@@ -468,7 +509,7 @@ export function StoreProvider({
       openBulk: setBulk,
       closeBulk: () => setBulk(null),
     }),
-    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, calendarPath, patchItem, toggleDone, removeItem, saveSettings, toast, dismissToast, toasts, editing, justAdded, bulk],
+    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, calendarPath, patchItem, toggleDone, toggleStep, removeItem, saveSettings, toast, dismissToast, toasts, editing, justAdded, bulk],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

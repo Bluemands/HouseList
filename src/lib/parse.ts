@@ -177,6 +177,34 @@ function findRoom(text: string): { room: Room; explicit: RegExpMatchArray | null
   return null;
 }
 
+// Money: "£40", "£1.2k", "£100-150", "£100 to £150", "40 quid"
+function findPrice(text: string) {
+  return (
+    text.match(/(?:^|\s)£\s?(\d[\d,]*(?:\.\d{1,2})?)(k)?(?:\s?(?:-|–|to)\s?£?(\d[\d,]*(?:\.\d{1,2})?)(k)?)?(?=\s|$)/i) ??
+    text.match(/(?:^|\s)(\d[\d,]*(?:\.\d{1,2})?)(k)?\s?(?:quid|pounds|gbp)\b()()/i)
+  );
+}
+
+/** Pasted text as one line per entry, without bullets, numbers or checkboxes. */
+export function pastedLines(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^\s*(?:[-*•–]|\d+[.)]|\[[ xX]?\])\s*/, "").trim())
+    .filter(Boolean);
+}
+
+/** A step as typed: "Deposit £200" is the step "Deposit" costing £200 (a range counts at its top). */
+export function parseStep(line: string): { text: string; cost: number | null } {
+  const text = ` ${line} `;
+  const price = findPrice(text);
+  if (!price) return { text: line.trim(), cost: null };
+  const low = money(price[1], price[2]);
+  const high = price[3] ? money(price[3], price[4] ?? price[2]) : low;
+  const rest = text.replace(price[0], " ").replace(/\s+/g, " ").trim();
+  // A step that's only a price keeps its words as typed.
+  return rest ? { text: rest, cost: Math.max(low, high) } : { text: line.trim(), cost: null };
+}
+
 export function parseQuickAdd(input: string, members: string[] = []): Parsed {
   let text = ` ${input} `;
   const strip = (m: RegExpMatchArray | null) => {
@@ -186,9 +214,7 @@ export function parseQuickAdd(input: string, members: string[] = []): Parsed {
   // Money: "£40", "£1.2k", "£100-150", "£100 to £150", "40 quid"
   let estimatedPrice: number | null = null;
   let estimateMax: number | null = null;
-  const price =
-    text.match(/(?:^|\s)£\s?(\d[\d,]*(?:\.\d{1,2})?)(k)?(?:\s?(?:-|–|to)\s?£?(\d[\d,]*(?:\.\d{1,2})?)(k)?)?(?=\s|$)/i) ??
-    text.match(/(?:^|\s)(\d[\d,]*(?:\.\d{1,2})?)(k)?\s?(?:quid|pounds|gbp)\b()()/i);
+  const price = findPrice(text);
   if (price) {
     estimatedPrice = money(price[1], price[2]);
     if (price[3]) estimateMax = money(price[3], price[4] ?? price[2]);

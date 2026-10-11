@@ -44,7 +44,16 @@ export function toItemDTO(item: FullItem): ItemDTO {
     updatedAt: item.updatedAt.toISOString(),
     steps: [...item.steps]
       .sort((a, b) => a.position - b.position)
-      .map(({ id, text, done, cost, link, notes }) => ({ id, text, done, cost, link, notes })),
+      .map(({ id, text, done, cost, link, notes, potCharge, doneAt }) => ({
+        id,
+        text,
+        done,
+        cost,
+        link,
+        notes,
+        potCharge,
+        doneAt: doneAt?.toISOString() ?? null,
+      })),
     quotes: [...quotes]
       .sort((a, b) => a.amount - b.amount)
       .map(({ id, from, amount, note, chosen, addedBy, createdAt }) => ({

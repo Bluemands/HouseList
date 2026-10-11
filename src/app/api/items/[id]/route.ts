@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { itemUpdateSchema } from "@/lib/validation";
 import { ITEM_INCLUDE, estimateFromSteps, fromDay, getSettings, stepRows, toItemDTO } from "@/lib/data";
 import { nextOccurrence } from "@/lib/types";
+import { settlePot } from "@/lib/pot";
 
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/items/[id]">) {
   const { id } = await ctx.params;
@@ -22,7 +23,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/items/
     );
   }
 
-  const existing = await prisma.item.findUnique({ where: { id } });
+  const existing = await prisma.item.findUnique({ where: { id }, include: { steps: true } });
   if (!existing) {
     return NextResponse.json({ error: "Someone else deleted this" }, { status: 404 });
   }
@@ -40,16 +41,12 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/items/
     actualPrice = changes.estimatedPrice !== undefined ? changes.estimatedPrice : existing.estimatedPrice;
   }
 
-  // The pot is real money: once it's in use, whatever an item costs leaves it
-  // when the item is done, and comes back if it's reopened or its price is
-  // corrected. Anything finished before the pot was set up never touches it.
+  // The pot is real money: stages and finished items leave it, and come back
+  // if they're reopened or their price is corrected (see lib/pot).
   const settings = await getSettings();
-  let potCharge = 0;
-  if (status === "DONE") {
-    const charged = completing ? settings.potTracked : existing.potCharge > 0;
-    potCharge = charged ? (actualPrice ?? 0) : 0;
-  }
-  const potDelta = existing.potCharge - potCharge;
+  const pot = settlePot(existing, { status, actualPrice: actualPrice ?? null, steps }, settings.potTracked);
+  const potDelta = pot.delta;
+  const now = new Date();
 
   const result = await prisma.$transaction(async (tx) => {
     if (steps) {
@@ -57,10 +54,16 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/items/
       await tx.step.deleteMany({ where: { itemId: id, id: { notIn: keep } } });
       for (const [position, row] of stepRows(steps).entries()) {
         const stepId = steps[position].id;
+        const before = existing.steps.find((s) => s.id === stepId);
+        const data = {
+          ...row,
+          potCharge: pot.stepCharges![position],
+          doneAt: row.done ? (before?.done ? before.doneAt : now) : null,
+        };
         if (stepId) {
-          await tx.step.updateMany({ where: { id: stepId, itemId: id }, data: row });
+          await tx.step.updateMany({ where: { id: stepId, itemId: id }, data });
         } else {
-          await tx.step.create({ data: { ...row, itemId: id } });
+          await tx.step.create({ data: { ...data, itemId: id } });
         }
       }
     }
@@ -70,7 +73,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/items/
       data: {
         ...changes,
         actualPrice,
-        potCharge,
+        potCharge: pot.itemCharge,
         dueDate: fromDay(dueDate),
         ...(completing ? { completedAt: new Date(), completedBy: actor || null } : {}),
         ...(reopening ? { completedAt: null, completedBy: null } : {}),

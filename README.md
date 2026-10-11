@@ -10,13 +10,14 @@ A shared to-do list and budget planner for a new house, for two people. Log ever
 - **Repeating jobs** — weekly to yearly. Ticking one off schedules the next, counted from the day it was done (`Boiler service every year` works in quick add).
 - **Jobs and purchases** — cost is optional, so "call the electrician" works as well as "buy a sofa". Statuses read To do / Doing / Done (or To buy / Ordered / Bought).
 - **Everything editable** in one sheet: room, priority, who's on it (either of you, both, or a tradesperson), due date, cost range, firm-quote flag, actual price paid, links (as many as you like), notes, project tag.
-- **Steps** — break a job into stages. Each step can have its own cost, link and details; when steps have costs, the item's estimate is their total. Drag the grip (or use the arrow keys) to reorder.
+- **Steps** — break a job into stages. Each step can have its own cost, link and details; when steps have costs, the item's estimate is their total. Type a price into a step ("Deposit £200") or paste a list to add several at once. Drag the grip (or use the arrow keys) to reorder. Each row shows its next step with a tick of its own, so you can work through a job without opening it.
 - **Home** — the one thing to do next, then four more; the money in one line; rooms filling in; what the other person finished recently.
 - **Rooms** — every room has its own paint colour; its swatch strip paints in as jobs get done.
-- **Money** — the pot (money you have now) and a monthly saving. The plan spends the pot on the list in priority order, marks where it runs out, and dates the rest month by month. Once you've set the pot, ticking off something with a cost takes it out automatically (and undo puts it back). Spending so far, accuracy vs. estimates, and a CSV export of everything.
+- **Money** — the pot (money you have now) and a monthly saving. The plan spends the pot on the list in priority order, marks where it runs out, and dates the rest month by month. Once you've set the pot, ticking off something with a cost takes it out automatically (and undo puts it back). Jobs paid in stages work too: ticking a costed step pays that stage, and finishing the job pays only what's left. Spending so far, accuracy vs. estimates, and a CSV export of everything.
 - **Shopping trip** — under *To buy*, show only what the pot covers right now and tick things off in the shop.
 - **Compare quotes** — log quotes from tradespeople against a job; the cheapest is flagged, and choosing one sets the job's cost.
 - **Updates** — a short thread on any item ("rang them, waiting for a callback"), with who said it and when.
+- **Duplicate** anything — the same job in another room, or again next year.
 - **Pin to the top** — anything you've decided is next leads Up next and its list group.
 - **Swipe on your phone** — right to finish, left to delete.
 - **Undo instead of "are you sure?"** for ticks, swipes and deletes.

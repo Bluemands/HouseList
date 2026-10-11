@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
-import { Hammer, Pin, ShoppingBag, Trash2, X } from "lucide-react";
+import { Copy, Hammer, Pin, ShoppingBag, Trash2, X } from "lucide-react";
 import {
   PRIORITIES,
   PRIORITY_LABELS,
@@ -22,6 +22,7 @@ import {
 import { ROOM_PAINT } from "@/lib/rooms";
 import { addDays, formatDay, formatGBP, normaliseLink, timeAgo, today, toDayString } from "@/lib/format";
 import { useStore } from "@/lib/store";
+import { parseStep } from "@/lib/parse";
 import { useSheetDrag } from "@/lib/useSheetDrag";
 import type { ItemUpdateInput } from "@/lib/validation";
 import { Button, Chip, Field, MoneyInput, PaintChip, Segmented, inputClass } from "@/components/ui";
@@ -66,9 +67,10 @@ function toDraft(item: Partial<ItemDTO>): Draft {
     repeat: item.repeat ?? null,
     links: (item.links ?? []).map((url, i) => ({ key: `link-${i}`, url })),
     notes: item.notes ?? "",
-    steps: (item.steps ?? []).map((s) => ({
-      id: s.id,
-      key: s.id,
+    steps: (item.steps ?? []).map((s, i) => ({
+      // Duplicated steps have no id yet; they still need a key of their own.
+      id: s.id || undefined,
+      key: s.id || `copy-${i}`,
       text: s.text,
       done: s.done,
       cost: num(s.cost),
@@ -98,7 +100,7 @@ export function ItemSheet() {
 }
 
 function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<ItemDTO> }) {
-  const { closeItem, addItem, patchItem, removeItem, settings, items, me } = useStore();
+  const { closeItem, openItem, addItem, patchItem, removeItem, settings, items, me } = useStore();
   const isNew = !item;
   // What the sheet opened with. Edits are diffed against this snapshot rather
   // than the live item, so a change the other person makes while this is
@@ -153,6 +155,7 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
   // When steps carry costs, the estimate is their total rather than typed in.
   const stepCosts = draft.steps.map((s) => parseMoney(s.cost));
   const fromSteps = stepsTotal(stepCosts.map((cost) => ({ cost: Number.isNaN(cost) ? null : cost })));
+  const paidSoFar = draft.steps.reduce((sum, st, i) => sum + (st.done && stepCosts[i] ? stepCosts[i]! : 0), 0);
 
   const people = useMemo(() => {
     const names = new Set([...settings.members, me]);
@@ -245,12 +248,41 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
     };
   }
 
-  function addStep() {
-    const text = newStep.trim();
-    if (!text) return;
-    const step: DraftStep = { key: `new-${Date.now()}`, text, done: false, cost: "", link: "", notes: "" };
-    setDraft((d) => ({ ...d, steps: [...d.steps, step] }));
+  function addStep(lines = [newStep]) {
+    const added: DraftStep[] = lines
+      .filter((l) => l.trim())
+      .map((line, i) => {
+        const { text, cost } = parseStep(line);
+        return { key: `new-${Date.now()}-${i}`, text, done: false, cost: num(cost), link: "", notes: "" };
+      });
+    if (!added.length) return;
+    setDraft((d) => ({ ...d, steps: [...d.steps, ...added] }));
     setNewStep("");
+  }
+
+  // The same thing again — for another room, or next time — as a new item.
+  function duplicate() {
+    const payload = buildPayload();
+    if (typeof payload === "string") return setError(payload);
+    save();
+    openItem("new", {
+      ...payload,
+      title: payload.title,
+      status: "TODO",
+      actualPrice: null,
+      pinned: false,
+      links: payload.links ?? [],
+      steps: (payload.steps ?? []).map((st) => ({
+        id: "",
+        text: st.text,
+        done: false,
+        cost: st.cost ?? null,
+        link: (st.link as string | null) ?? null,
+        notes: (st.notes as string | null) ?? null,
+        potCharge: null,
+        doneAt: null,
+      })),
+    } as Partial<ItemDTO>);
   }
 
   function addLink() {
@@ -465,7 +497,11 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
             {fromSteps != null ? (
               <div className="flex items-baseline justify-between gap-3 rounded-[10px] border border-line bg-sunken px-3 py-2.5">
                 <span className="text-[15px] font-semibold text-ink tabular">{formatGBP(fromSteps)}</span>
-                <span className="text-[13px] text-ink-3">Total of the steps</span>
+                <span className="text-[13px] text-ink-3 tabular">
+                  {paidSoFar > 0 && draft.status !== "DONE"
+                    ? `${formatGBP(paidSoFar)} paid · ${formatGBP(Math.max(0, fromSteps - paidSoFar))} to go`
+                    : "Total of the steps"}
+                </span>
               </div>
             ) : (
               <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
@@ -573,15 +609,20 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
             Cancel
           </Button>
         ) : (
-          <Button
-            variant="danger"
-            onClick={() => {
-              closeItem();
-              removeItem(item!);
-            }}
-          >
-            <Trash2 size={16} /> Delete
-          </Button>
+          <>
+            <Button
+              variant="danger"
+              onClick={() => {
+                closeItem();
+                removeItem(item!);
+              }}
+            >
+              <Trash2 size={16} /> Delete
+            </Button>
+            <Button variant="ghost" onClick={duplicate}>
+              <Copy size={16} /> Duplicate
+            </Button>
+          </>
         )}
         <Button onClick={save} className="ml-auto min-w-28">
           {isNew ? "Add" : dirty ? "Save" : "Close"}

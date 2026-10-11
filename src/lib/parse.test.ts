@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { parseQuickAdd } from "@/lib/parse";
+import { parseQuickAdd, parseStep, pastedLines } from "@/lib/parse";
 
 // Friday 9 October 2026, mid-afternoon.
 beforeAll(() => {
@@ -197,5 +197,22 @@ describe("repeats", () => {
   it("doesn't confuse repeats with due dates", () => {
     expect(p("Bins every week").dueDate).toBeNull();
     expect(p("Water plants weekly tomorrow")).toMatchObject({ repeat: "WEEKLY", dueDate: "2026-10-10" });
+  });
+});
+
+describe("steps and pasted lists", () => {
+  it("reads a price out of a step", () => {
+    expect(parseStep("Deposit £200")).toEqual({ text: "Deposit", cost: 200 });
+    expect(parseStep("Tiles £80-120")).toEqual({ text: "Tiles", cost: 120 });
+    expect(parseStep("Measure the wall")).toEqual({ text: "Measure the wall", cost: null });
+    expect(parseStep("£50")).toEqual({ text: "£50", cost: null });
+  });
+  it("cleans bullets, numbers and checkboxes from pasted lines", () => {
+    expect(pastedLines("- Buy paint\n2. Fill cracks\n[ ] Sand\n\n• First coat")).toEqual([
+      "Buy paint",
+      "Fill cracks",
+      "Sand",
+      "First coat",
+    ]);
   });
 });

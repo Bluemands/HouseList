@@ -6,7 +6,7 @@ import { ArrowUp, Calendar, Hammer, Plus, Repeat, ShoppingBag, SlidersHorizontal
 import type { Kind, Room } from "@/lib/types";
 import { PRIORITY_LABELS, REPEAT_SHORT } from "@/lib/types";
 import { ROOM_PAINT } from "@/lib/rooms";
-import { parseQuickAdd } from "@/lib/parse";
+import { parseQuickAdd, pastedLines } from "@/lib/parse";
 import { describeDue, formatCost } from "@/lib/format";
 import { useStore } from "@/lib/store";
 import { PaintChip } from "@/components/ui";
@@ -53,11 +53,7 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
   // Pasting several lines (a list from Notes, a chat, a spreadsheet column)
   // turns each line into its own item, reviewed before adding.
   function onPaste(e: React.ClipboardEvent<HTMLInputElement>) {
-    const lines = e.clipboardData
-      .getData("text")
-      .split(/\r?\n/)
-      .map((l) => l.replace(/^\s*(?:[-*•–]|\d+[.)]|\[[ xX]?\])\s*/, "").trim())
-      .filter(Boolean);
+    const lines = pastedLines(e.clipboardData.getData("text"));
     if (lines.length < 2) return;
     e.preventDefault();
     openBulk({

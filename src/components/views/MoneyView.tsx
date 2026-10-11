@@ -100,14 +100,17 @@ export function MoneyView() {
         <SectionHead id="spent-head" title="Spent so far" />
         <div className="grid gap-4 rounded-2xl border border-line bg-surface p-4">
           {/* Nothing finished yet: a big £0 says nothing, the hint below says what to do. */}
-          {spend.doneCount > 0 && (
+          {spend.spent > 0 && (
             <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
               <div>
                 <div className="text-[28px] leading-tight font-bold tracking-[-0.02em] tabular">
                   {formatGBP(spend.spent)}
                 </div>
                 <div className="text-[13px] text-ink-2">
-                  across {spend.doneCount} finished {spend.doneCount === 1 ? "thing" : "things"}
+                  {spend.doneCount > 0 &&
+                    `across ${spend.doneCount} finished ${spend.doneCount === 1 ? "thing" : "things"}`}
+                  {spend.doneCount > 0 && spend.stagesPaid > 0 && ", "}
+                  {spend.stagesPaid > 0 && `${formatGBP(spend.stagesPaid)} on stages of jobs still going`}
                 </div>
               </div>
               {spend.estimateDelta !== null && spend.comparedCount >= 1 && (
