@@ -84,7 +84,10 @@ export async function unfurl(url: string): Promise<Unfurled | null> {
 }
 
 /** Queue a question for Claude about an item; a worker answers it later. */
-export async function askClaude(itemId: string, input: { question?: string | null; requestedBy: string; autofill?: boolean }): Promise<AiJobDTO> {
+export async function askClaude(
+  itemId: string,
+  input: { question?: string | null; requestedBy: string; autofill?: boolean; improve?: boolean },
+): Promise<AiJobDTO> {
   const data = await request<{ job: AiJobDTO }>(`/api/items/${itemId}/ai`, { method: "POST", body: JSON.stringify(input) });
   return data.job;
 }
@@ -92,6 +95,14 @@ export async function askClaude(itemId: string, input: { question?: string | nul
 export async function updateJob(id: string, status: AiJobUpdate): Promise<AiJobDTO> {
   const data = await request<{ job: AiJobDTO }>(`/api/ai-jobs/${id}`, { method: "PATCH", body: JSON.stringify({ status }) });
   return data.job;
+}
+
+/** Takes back what "Improve with Claude" changed; answers with the item as it is now. */
+export async function undoImprove(id: string, actor: string) {
+  return request<{ job: AiJobDTO; item: ItemDTO; potDelta: number }>(`/api/ai-jobs/${id}/undo`, {
+    method: "POST",
+    body: JSON.stringify({ actor }),
+  });
 }
 
 export async function deleteItem(id: string): Promise<void> {

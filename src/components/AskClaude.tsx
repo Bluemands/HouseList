@@ -53,6 +53,7 @@ export function AskClaude({
   onEstimate,
   onAddSteps,
   onAddLink,
+  onUndoImprove,
 }: {
   item: ItemDTO;
   /** False while the steps' costs set the estimate, or there's a firm quote. */
@@ -60,6 +61,8 @@ export function AskClaude({
   onEstimate: (min: number, max: number) => Undo;
   onAddSteps: (steps: Step[]) => Undo;
   onAddLink: (url: string) => Undo;
+  /** Take back an improvement Claude has already made to the item. */
+  onUndoImprove: (job: AiJobDTO) => void;
 }) {
   const { jobByItem, askClaude, updateJob, addQuote, deleteQuote, settings, toast } = useStore();
   const live = jobByItem.get(item.id);
@@ -169,9 +172,10 @@ export function AskClaude({
     );
   }
 
+  const improve = job.kind === "IMPROVE";
   const asked = job.question ? (
     <p className="text-[13px] text-ink-2">
-      {job.requestedBy} asked: <span className="text-ink">“{job.question}”</span>
+      {job.requestedBy} {improve ? "asked for" : "asked"}: <span className="text-ink">“{job.question}”</span>
     </p>
   ) : null;
 
@@ -180,7 +184,9 @@ export function AskClaude({
     const worker = workerState(settings.workerSeenAt);
     const line =
       job.status === "RUNNING"
-        ? "Claude's looking into it. This usually takes a minute or two."
+        ? improve
+          ? "Claude's looking into it, then updates this item. This usually takes a minute or two."
+          : "Claude's looking into it. This usually takes a minute or two."
         : worker === "active"
           ? "The worker picks it up within a minute or so."
           : worker === "away"
@@ -228,9 +234,41 @@ export function AskClaude({
     );
   }
 
-  // ---- The suggestion ----
   const result = job.result;
   if (!result) return null;
+
+  // ---- Improved: already on the item, to keep or undo ----
+  if (improve && job.applied && job.status === "DONE") {
+    return (
+      <Field label="Ask Claude">
+        <article aria-label="Claude's changes" className="rise-in overflow-hidden rounded-xl border border-accent/35">
+          <div className="grid gap-2 px-3.5 pt-3 pb-3.5">
+            <p className="flex items-center gap-1.5 text-[12.5px] text-ink-3">
+              <Sparkles size={13} className="text-accent-text" aria-hidden="true" />
+              Improved for {job.requestedBy}
+              {job.finishedAt && <> · {timeAgo(job.finishedAt)}</>}
+            </p>
+            {asked}
+            <p className="text-[15px] leading-snug text-ink">{result.summary}</p>
+            <p className="text-[13px] text-ink-2">
+              Claude has updated this item&apos;s cost, steps and links. Its notes are under Updates.
+            </p>
+          </div>
+          <div className="flex items-center gap-1 border-t border-line bg-sunken/50 px-2 py-1">
+            <p className="min-w-0 flex-1 px-1.5 text-[12px] text-ink-3">Check prices before you buy.</p>
+            <Button variant="ghost" onClick={() => onUndoImprove(job)} className="min-h-11 shrink-0 px-3">
+              Undo
+            </Button>
+            <Button variant="secondary" onClick={() => updateJob(job, "ACCEPTED")} className="min-h-11 shrink-0 px-3">
+              <Check size={15} aria-hidden="true" /> Keep
+            </Button>
+          </div>
+        </article>
+      </Field>
+    );
+  }
+
+  // ---- The suggestion ----
   const haveSteps = new Set(item.steps.map((s) => s.text.trim().toLowerCase()));
   const newSteps = (result.steps ?? []).filter((s) => !haveSteps.has(s.text.trim().toLowerCase()));
   const used = Object.keys(applied).length > 0;
@@ -251,7 +289,8 @@ export function AskClaude({
         <div className="grid gap-2 px-3.5 pt-3 pb-3.5">
           <p className="flex items-center gap-1.5 text-[12.5px] text-ink-3">
             <Sparkles size={13} className="text-accent-text" aria-hidden="true" />
-            {job.kind === "FIND_PRODUCT" ? "Options" : job.kind === "ASK" ? "Answer" : "Research"} for {job.requestedBy}
+            {job.kind === "FIND_PRODUCT" ? "Options" : job.kind === "ASK" ? "Answer" : improve ? "Ideas" : "Research"} for{" "}
+            {job.requestedBy}
             {job.finishedAt && <> · {timeAgo(job.finishedAt)}</>}
           </p>
           {asked}

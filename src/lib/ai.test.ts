@@ -5,6 +5,8 @@ import {
   aiJobCreateSchema,
   aiResultSchema,
   autofillChanges,
+  improveChanges,
+  undoImproveChanges,
   jobKindFor,
   staleOutcome,
   workerState,
@@ -84,6 +86,7 @@ describe("jobKindFor", () => {
     expect(jobKindFor("BUY")).toBe("FIND_PRODUCT");
     expect(jobKindFor("BUY", "Is it worth it?")).toBe("ASK");
     expect(jobKindFor("TASK", "   ")).toBe("RESEARCH_ITEM");
+    expect(jobKindFor("BUY", "Cheaper one", true)).toBe("IMPROVE");
   });
 });
 
@@ -143,6 +146,9 @@ describe("buildPrompt", () => {
 
   it("asks for products for things to buy, and passes a question along", () => {
     expect(buildPrompt({ ...claim, job: { ...claim.job, kind: "FIND_PRODUCT" } })).toContain("UK retailers");
+    const improve = buildPrompt({ ...claim, job: { ...claim.job, kind: "IMPROVE", question: "Plan it as DIY" } });
+    expect(improve).toContain("replaces their unfinished steps");
+    expect(improve).toContain('"Plan it as DIY"');
     const asked = buildPrompt({ ...claim, job: { ...claim.job, kind: "ASK", question: "Repair or replace?" } });
     expect(asked).toContain("<question>");
     expect(asked).toContain('"Repair or replace?"');
@@ -317,6 +323,7 @@ describe("aiJobCreateSchema", () => {
         question: null,
         requestedBy: "Sam",
         autofill: false,
+        improve: false,
       });
     }
   });
@@ -326,6 +333,97 @@ describe("aiJobCreateSchema", () => {
       question: "Repair or replace?",
       requestedBy: "Sam",
       autofill: true,
+      improve: false,
     });
+  });
+
+  it("needs to be told what to improve", () => {
+    expect(aiJobCreateSchema.safeParse({ question: "  ", requestedBy: "Sam", improve: true }).success).toBe(false);
+    expect(aiJobCreateSchema.parse({ question: "Cheaper", requestedBy: "Sam", improve: true }).improve).toBe(true);
+  });
+});
+
+
+describe("improveChanges / undoImproveChanges", () => {
+  const step = (id: string, text: string, done = false, cost: number | null = null) => ({
+    id,
+    text,
+    done,
+    cost,
+    link: null,
+    notes: null,
+  });
+  const item = {
+    estimatedPrice: 300,
+    estimateMax: 500,
+    isQuote: false,
+    links: ["https://example.com/mine"],
+    steps: [step("s1", "Strip wallpaper", true, 20), step("s2", "Hire a decorator"), step("s3", "Pick colours")],
+  };
+  const answer = aiResultSchema.parse({
+    summary: "Do it yourself: about £120 in paint and kit.",
+    estimate: { min: 110, max: 140 },
+    steps: [{ text: "Buy 2 tins of paint", cost: 60 }, { text: "Pick colours" }, { text: "Paint two coats", cost: 40 }],
+    links: [{ title: "Guide", url: "https://example.com/guide" }, { title: "Mine", url: "https://example.com/mine" }],
+  });
+
+  it("replaces the unfinished steps and the estimate, keeping ticked steps and adding links", () => {
+    const { changes, addedLinks } = improveChanges(item, answer);
+    expect(changes.steps).toEqual([
+      { id: "s1", text: "Strip wallpaper", done: true, cost: 20, link: null, notes: null },
+      { text: "Buy 2 tins of paint", done: false, cost: 60, link: null, notes: null },
+      { text: "Pick colours", done: false, cost: null, link: null, notes: null },
+      { text: "Paint two coats", done: false, cost: 40, link: null, notes: null },
+    ]);
+    expect(changes).toMatchObject({ estimatedPrice: 110, estimateMax: 140 });
+    expect(addedLinks).toEqual(["https://example.com/guide"]);
+    expect(changes.links).toEqual(["https://example.com/mine", "https://example.com/guide"]);
+  });
+
+  it("leaves a firm quote alone, and its steps come without costs", () => {
+    const { changes } = improveChanges({ ...item, isQuote: true }, answer);
+    expect(changes).not.toHaveProperty("estimatedPrice");
+    expect(changes.steps!.filter((s) => !s.done).every((s) => s.cost === null)).toBe(true);
+  });
+
+  it("keeps the steps when the answer has none", () => {
+    const { changes } = improveChanges(item, aiResultSchema.parse({ summary: "Fine.", estimate: { min: 400, max: 400 } }));
+    expect(changes).toEqual({ estimatedPrice: 400, estimateMax: null });
+  });
+
+  it("undoes it, keeping what's been done since", () => {
+    const undo = {
+      before: { estimatedPrice: 300, estimateMax: 500, steps: item.steps },
+      after: { estimatedPrice: 120, estimateMax: null },
+      addedLinks: ["https://example.com/guide"],
+      commentId: "c1",
+    };
+    // Since Claude: one of its steps was ticked, and a link added by hand.
+    const now = {
+      ...item,
+      estimatedPrice: 120,
+      estimateMax: null,
+      links: ["https://example.com/mine", "https://example.com/guide", "https://example.com/new"],
+      steps: [step("s1", "Strip wallpaper", true, 20), step("c1", "Buy 2 tins of paint", true, 60), step("c2", "Paint two coats", false, 40)],
+    };
+    const changes = undoImproveChanges(now, undo);
+    expect(changes.steps).toEqual([
+      { id: "s1", text: "Strip wallpaper", done: true, cost: 20, link: null, notes: null },
+      { text: "Hire a decorator", done: false, cost: null, link: null, notes: null },
+      { text: "Pick colours", done: false, cost: null, link: null, notes: null },
+      { id: "c1", text: "Buy 2 tins of paint", done: true, cost: 60, link: null, notes: null },
+    ]);
+    expect(changes).toMatchObject({ estimatedPrice: 300, estimateMax: 500 });
+    expect(changes.links).toEqual(["https://example.com/mine", "https://example.com/new"]);
+  });
+
+  it("doesn't put the old estimate back over one set since", () => {
+    const undo = {
+      before: { estimatedPrice: 300, estimateMax: 500, steps: null },
+      after: { estimatedPrice: 120, estimateMax: null },
+      addedLinks: [],
+      commentId: null,
+    };
+    expect(undoImproveChanges({ ...item, estimatedPrice: 150, estimateMax: null }, undo)).toEqual({});
   });
 });

@@ -27,7 +27,7 @@ import {
 import { ROOM_PAINT } from "@/lib/rooms";
 import { addDays, addYears, formatDay, formatGBP, isWebLink, normaliseLink, timeAgo, today, toDayString } from "@/lib/format";
 import { useStore, type SheetRestore } from "@/lib/store";
-import { workerState } from "@/lib/ai";
+import { workerState, type AiJobDTO } from "@/lib/ai";
 import { parseStep } from "@/lib/parse";
 import { readableLink, siteOf, splitLink, titleFromUrl } from "@/lib/unfurl";
 import { useUnfurl } from "@/lib/useUnfurl";
@@ -124,10 +124,18 @@ function SheetBody({
   defaults?: Partial<ItemDTO>;
   restore?: SheetRestore;
 }) {
-  const { closeItem, openItem, addItem, patchItem, removeItem, askClaude, toast, settings, items, me } = useStore();
+  const { closeItem, openItem, addItem, patchItem, removeItem, askClaude, undoImprove, toast, settings, items, me, jobByItem } =
+    useStore();
   const isNew = !item;
   // Only offered once a worker has ever checked in, so nobody queues into nothing.
   const worker = workerState(settings.workerSeenAt);
+  // Improve with Claude (an existing item): what they want changed, typed in
+  // a panel over the footer. Not while Claude's already on this one.
+  const canImprove = !isNew && worker !== "never";
+  const [improving, setImproving] = useState(false);
+  const [improveText, setImproveText] = useState("");
+  const openJob = item ? jobByItem.get(item.id) : undefined;
+  const claudeBusy = openJob?.status === "QUEUED" || openJob?.status === "RUNNING";
   // What the sheet opened with. Edits are diffed against this snapshot rather
   // than the live item, so a change the other person makes while this is
   // open is never overwritten by our stale copy of that field.
@@ -289,9 +297,16 @@ function SheetBody({
    * With Claude (a new item only): it's added as typed, and the worker fills
    * in what was left blank (cost, steps, links, notes) when it answers.
    * Whatever was filled in here is what Claude works from.
+   *
+   * Improving (an existing item): any edits save first, so Claude works from
+   * them, then the worker revises the item as asked.
    */
-  async function save({ withClaude = false } = {}) {
-    if (!dirty && !isNew) return closeItem();
+  async function save({ withClaude = false, improve }: { withClaude?: boolean; improve?: string } = {}) {
+    if (!dirty && !isNew) {
+      closeItem();
+      if (improve) await queueImprove(improve);
+      return;
+    }
     const payload = buildPayload();
     if (typeof payload === "string") {
       setError(payload);
@@ -342,8 +357,33 @@ function SheetBody({
           item!.steps.map(({ id, text, done, cost, link, notes }) => ({ id, text, done, cost, link, notes })),
         );
       }
-      if (Object.keys(changes).length && !(await patchItem(item!.id, changes))) reopen();
+      if (Object.keys(changes).length && !(await patchItem(item!.id, changes))) return reopen();
+      if (improve) await queueImprove(improve);
     }
+  }
+
+  /**
+   * Taking back Claude's improvement. What's on screen is from before the
+   * undo, so this saves any edits and closes; the item reopens as it now is.
+   */
+  async function undoClaude(job: AiJobDTO) {
+    const id = item!.id;
+    await save();
+    if (await undoImprove(job)) {
+      toast({ message: "Put back how it was before Claude.", action: { label: "Open", run: () => openItem(id) } });
+    }
+  }
+
+  async function queueImprove(what: string) {
+    const id = item!.id;
+    if (!(await askClaude(id, what, { improve: true }))) return;
+    toast({
+      message:
+        worker === "active"
+          ? "Claude's on it. This item updates when it's done."
+          : "Claude will improve this when the worker's next on.",
+      action: { label: "Open", run: () => openItem(id) },
+    });
   }
 
   function buildFrom(d: Draft): ItemUpdateInput {
@@ -499,7 +539,8 @@ function SheetBody({
       aria-label={isNew ? "New item" : `Edit ${item!.title}`}
       onCancel={(e) => {
         e.preventDefault();
-        if (isNew && !draft.title.trim()) closeItem();
+        if (improving) setImproving(false);
+        else if (isNew && !draft.title.trim()) closeItem();
         else save();
       }}
       onClick={(e) => {
@@ -781,6 +822,7 @@ function SheetBody({
               onEstimate={applyEstimate}
               onAddSteps={addSuggestedSteps}
               onAddLink={addSuggestedLink}
+              onUndoImprove={undoClaude}
             />
           )}
 
@@ -881,8 +923,62 @@ function SheetBody({
         </div>
       </div>
 
+      {improving && (
+        <form
+          id="improve-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const what = improveText.trim();
+            if (what) save({ improve: what });
+          }}
+          className="rise-in grid gap-2 border-t border-line bg-surface px-4 pt-3"
+        >
+          <label htmlFor="improve-text" className="text-[13px] font-semibold text-ink-2">
+            What should Claude improve?
+          </label>
+          <GrowingTextarea
+            id="improve-text"
+            autoFocus
+            minRows={2}
+            value={improveText}
+            onChange={(e) => setImproveText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                e.currentTarget.form?.requestSubmit();
+              }
+            }}
+            maxLength={500}
+            placeholder={
+              draft.kind === "BUY" ? "e.g. Something under £150 that fits a 60cm gap" : "e.g. Plan it as DIY and check the cost"
+            }
+            className={inputClass}
+          />
+          <div className="flex flex-wrap gap-1.5">
+            {IMPROVE_IDEAS[draft.kind].map((idea) => (
+              <Chip key={idea} selected={improveText === idea} onClick={() => setImproveText(idea)}>
+                {idea}
+              </Chip>
+            ))}
+          </div>
+          <p className="text-[12px] text-ink-3">
+            Claude looks it up, then updates the cost, steps and links. Ticked-off steps and chosen quotes stay as they are, and you
+            can undo it.
+          </p>
+        </form>
+      )}
+
       <div className="flex items-center gap-2 border-t border-line bg-surface px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))]">
-        {isNew ? (
+        {improving ? (
+          <>
+            <Button variant="ghost" onClick={() => setImproving(false)} className="px-3">
+              Cancel
+            </Button>
+            <Button type="submit" form="improve-form" disabled={!improveText.trim()} className="ml-auto min-w-28">
+              <Sparkles size={16} aria-hidden="true" /> Improve
+            </Button>
+          </>
+        ) : isNew ? (
           <>
             <Button variant="ghost" onClick={closeItem} className="px-3">
               Cancel
@@ -901,21 +997,45 @@ function SheetBody({
                 closeItem();
                 removeItem(item!);
               }}
+              aria-label="Delete"
+              className={clsx(canImprove && "max-sm:px-3")}
             >
-              <Trash2 size={16} /> Delete
+              <Trash2 size={16} aria-hidden="true" /> <span className={clsx(canImprove && "max-sm:sr-only")}>Delete</span>
             </Button>
-            <Button variant="ghost" onClick={duplicate}>
-              <Copy size={16} /> Duplicate
+            <Button variant="ghost" onClick={duplicate} aria-label="Duplicate" className={clsx(canImprove && "max-sm:px-3")}>
+              <Copy size={16} aria-hidden="true" /> <span className={clsx(canImprove && "max-sm:sr-only")}>Duplicate</span>
             </Button>
+            {canImprove && (
+              <Button
+                variant="secondary"
+                disabled={claudeBusy}
+                onClick={() => setImproving(true)}
+                title={claudeBusy ? "Claude's already working on this one" : "Ask Claude to improve this item"}
+                className="ml-auto px-3"
+              >
+                <Sparkles size={16} aria-hidden="true" /> Improve
+              </Button>
+            )}
           </>
         )}
-        <Button onClick={() => save()} className={clsx(isNew && worker !== "never" ? "min-w-20" : "ml-auto min-w-28")}>
-          {isNew ? "Add" : dirty ? "Save" : "Close"}
-        </Button>
+        {!improving && (
+          <Button
+            onClick={() => save()}
+            className={clsx((isNew && worker !== "never") || canImprove ? "min-w-20" : "ml-auto min-w-28")}
+          >
+            {isNew ? "Add" : dirty ? "Save" : "Close"}
+          </Button>
+        )}
       </div>
     </dialog>
   );
 }
+
+/** Quick starts for "What should Claude improve?": a tap fills the box, to send or edit. */
+const IMPROVE_IDEAS: Record<ItemDTO["kind"], string[]> = {
+  TASK: ["Find a cheaper way", "Break it into steps", "Check the cost", "Plan it as DIY"],
+  BUY: ["Find a cheaper option", "Find a better one", "Check the price"],
+};
 
 function nextSaturday() {
   const d = new Date();

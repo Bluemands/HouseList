@@ -70,9 +70,11 @@ type Store = {
   /**
    * Queue a question for Claude about an item; resolves to whether it was
    * queued. With `autofill`, the answer fills the item in instead of waiting
-   * as a suggestion.
+   * as a suggestion; with `improve`, it revises the item as the question asks.
    */
-  askClaude: (itemId: string, question?: string, options?: { autofill?: boolean }) => Promise<boolean>;
+  askClaude: (itemId: string, question?: string, options?: { autofill?: boolean; improve?: boolean }) => Promise<boolean>;
+  /** Take back what an improvement changed. */
+  undoImprove: (job: AiJobDTO) => Promise<boolean>;
   /** Used, dismissed, sent round again (a failed one), or back (an undone dismiss). */
   updateJob: (job: AiJobDTO, status: AiJobUpdate) => Promise<boolean>;
   patchItem: (id: string, patch: ItemUpdateInput) => Promise<ItemDTO | null>;
@@ -603,7 +605,12 @@ export function StoreProvider({
     async (itemId, question, options) => {
       try {
         const job = await track(() =>
-          api.askClaude(itemId, { question: question || null, requestedBy: me, autofill: options?.autofill }),
+          api.askClaude(itemId, {
+            question: question || null,
+            requestedBy: me,
+            autofill: options?.autofill,
+            improve: options?.improve,
+          }),
         );
         // It replaces the item's last answer, as it does on the server.
         setJobs((list) => [job, ...list.filter((j) => j.itemId !== itemId)]);
@@ -635,6 +642,22 @@ export function StoreProvider({
       }
     },
     [jobs, fail],
+  );
+
+  const undoImprove = useCallback<Store["undoImprove"]>(
+    async (job) => {
+      try {
+        const { item, potDelta } = await track(() => api.undoImprove(job.id, me));
+        setJobs((list) => list.filter((j) => j.id !== job.id));
+        setItems((list) => list.map((i) => (i.id === item.id ? item : i)));
+        adjustPot(potDelta);
+        return true;
+      } catch (err) {
+        fail(err);
+        return false;
+      }
+    },
+    [me, fail, adjustPot],
   );
 
   const jobByItem = useMemo(() => {
@@ -675,6 +698,7 @@ export function StoreProvider({
       jobs,
       jobByItem,
       askClaude,
+      undoImprove,
       updateJob,
       patchItem,
       toggleDone,
@@ -695,7 +719,7 @@ export function StoreProvider({
       openBulk: setBulk,
       closeBulk: () => setBulk(null),
     }),
-    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, calendarPath, connectorPath, workerToken, jobs, jobByItem, askClaude, updateJob, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, holdToast, toasts, editing, justAdded, bulk],
+    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, calendarPath, connectorPath, workerToken, jobs, jobByItem, askClaude, undoImprove, updateJob, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, holdToast, toasts, editing, justAdded, bulk],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

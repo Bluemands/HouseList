@@ -239,8 +239,14 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
         className={clsx("inline-flex items-center gap-1 font-medium text-accent-text", answered && "claude-arrive")}
       >
         <Sparkles size={12} strokeWidth={2.2} aria-hidden="true" />
-        Suggestion
-        <span className="sr-only">from Claude ready</span>
+        {job.applied ? (
+          "Improved by Claude"
+        ) : (
+          <>
+            Suggestion
+            <span className="sr-only">from Claude ready</span>
+          </>
+        )}
       </span>,
     );
   } else if (job?.status === "QUEUED" || job?.status === "RUNNING") {
@@ -249,7 +255,13 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
     meta.push(
       <span key="claude" className={clsx("inline-flex items-center gap-1 font-medium", working ? "text-accent-text" : "text-ink-3")}>
         <Chappie working={working} size={16} className="-my-1" />
-        {working ? (job.autofill ? "Claude's filling this in" : "Claude's on it") : "Waiting for Claude"}
+        {working
+          ? job.autofill
+            ? "Claude's filling this in"
+            : job.kind === "IMPROVE"
+              ? "Claude's improving this"
+              : "Claude's on it"
+          : "Waiting for Claude"}
       </span>,
     );
   }

@@ -189,6 +189,8 @@ enum AiJobKind {
   RESEARCH_ITEM
   FIND_PRODUCT
   ASK
+  // Revise an existing item in place, as the household asked.
+  IMPROVE
 }
 
 // QUEUED until a worker claims it, RUNNING while Claude works, then DONE (a
@@ -217,6 +219,9 @@ model AiJob {
   status      AiJobStatus @default(QUEUED)
   // The validated suggestion (see lib/ai.ts for its shape).
   result      Json?
+  // An IMPROVE job that changed its item: what it was before, so the change
+  // can be undone (see ImproveUndo in lib/ai.ts). Null when nothing was applied.
+  undo        Json?
   error       String?
   // Claims so far. A worker that dies mid-job leaves it RUNNING; it's handed
   // out again, but not forever.

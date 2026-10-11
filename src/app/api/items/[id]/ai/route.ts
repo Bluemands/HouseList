@@ -10,7 +10,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/items/[
   const { id } = await ctx.params;
   const body = await readBody(request, aiJobCreateSchema);
   if ("error" in body) return body.error;
-  const { question, requestedBy, autofill } = body.data;
+  const { question, requestedBy, autofill, improve } = body.data;
 
   const result = await prisma.$transaction(async (tx) => {
     // One question per item at a time, even if both of you tap at once.
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/items/[
       where: { itemId: id, status: { in: ["DONE", "FAILED"] } },
       data: { status: "DISMISSED" },
     });
-    return tx.aiJob.create({ data: { itemId: id, kind: jobKindFor(item.kind, question), question, requestedBy, autofill } });
+    return tx.aiJob.create({ data: { itemId: id, kind: jobKindFor(item.kind, question, improve), question, requestedBy, autofill } });
   });
 
   if (result === "gone") return NextResponse.json({ error: "Someone else deleted this" }, { status: 404 });

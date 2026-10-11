@@ -6,7 +6,7 @@ import { formatGBP } from "@/lib/format";
 // own computer runs Claude Code with their subscription (scripts/ai-worker.mjs),
 // and the answer comes back as a suggestion. Nothing here calls Claude.
 
-export const AI_JOB_KINDS = ["RESEARCH_ITEM", "FIND_PRODUCT", "ASK"] as const;
+export const AI_JOB_KINDS = ["RESEARCH_ITEM", "FIND_PRODUCT", "ASK", "IMPROVE"] as const;
 export type AiJobKind = (typeof AI_JOB_KINDS)[number];
 
 export const AI_JOB_STATUSES = ["QUEUED", "RUNNING", "DONE", "FAILED", "ACCEPTED", "DISMISSED"] as const;
@@ -22,8 +22,12 @@ export const STALE_CLAIM_MS = 10 * 60_000;
 /** Claims before a job that keeps killing its worker is given up on. */
 export const MAX_ATTEMPTS = 3;
 
-/** One tap researches a job or finds a thing to buy; a question is its own kind. */
-export function jobKindFor(itemKind: Kind, question?: string | null): AiJobKind {
+/**
+ * One tap researches a job or finds a thing to buy; a question is its own
+ * kind, and so is asking Claude to improve the item in place.
+ */
+export function jobKindFor(itemKind: Kind, question?: string | null, improve = false): AiJobKind {
+  if (improve) return "IMPROVE";
   if (question?.trim()) return "ASK";
   return itemKind === "BUY" ? "FIND_PRODUCT" : "RESEARCH_ITEM";
 }
@@ -91,17 +95,21 @@ export const workerSubmitSchema = z.discriminatedUnion("ok", [
   z.object({ ok: z.literal(false), error: z.string().trim().min(1).transform((s) => s.slice(0, 2000)) }),
 ]);
 
-export const aiJobCreateSchema = z.object({
-  question: z
-    .string()
-    .trim()
-    .max(QUESTION_MAX, `Keep it under ${QUESTION_MAX} characters`)
-    // The app sends null for "no question" (one tap, or quick add's sparkle).
-    .nullish()
-    .transform((q) => q || null),
-  requestedBy: z.string().trim().min(1).max(60),
-  autofill: z.boolean().optional().default(false),
-});
+export const aiJobCreateSchema = z
+  .object({
+    question: z
+      .string()
+      .trim()
+      .max(QUESTION_MAX, `Keep it under ${QUESTION_MAX} characters`)
+      // The app sends null for "no question" (one tap, or quick add's sparkle).
+      .nullish()
+      .transform((q) => q || null),
+    requestedBy: z.string().trim().min(1).max(60),
+    autofill: z.boolean().optional().default(false),
+    // Improve with Claude: the question is what they want improved.
+    improve: z.boolean().optional().default(false),
+  })
+  .refine((b) => !b.improve || b.question, { message: "Say what to improve first", path: ["question"] });
 
 /** Used (accepted), dismissed, sent round again, or (undoing a dismiss) back. */
 export const aiJobUpdateSchema = z.object({
@@ -125,6 +133,8 @@ export type AiJobDTO = {
   question: string | null;
   autofill: boolean;
   status: AiJobStatus;
+  /** An IMPROVE job whose changes are on the item, and can be undone. */
+  applied: boolean;
   result: AiResult | null;
   error: string | null;
   requestedBy: string;
@@ -161,6 +171,36 @@ const LINKS_MAX = 20;
 const DIY_LABELS = { yes: "Fine to DIY.", "with-care": "DIY with care.", no: "One for a tradesperson." } as const;
 
 /**
+ * Claude's answer as plain text, short enough to read on a phone: the answer,
+ * the options, then at most three things to watch, whatever came back.
+ */
+export function claudeNote(result: AiResult, lead: string) {
+  return [
+    [lead, result.summary, result.diy ? DIY_LABELS[result.diy] : null].filter(Boolean).join(" "),
+    result.options?.length
+      ? `Options:\n${result.options
+          .map((o) => `• ${o.title}${o.price != null ? ` — ${formatGBP(o.price)}` : ""}${o.retailer ? ` (${o.retailer})` : ""}`)
+          .join("\n")}`
+      : null,
+    result.cautions?.length ? `Watch out for:\n${result.cautions.slice(0, 3).map((c) => `• ${c}`).join("\n")}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+/** A cost range from the answer: its estimate, or the spread of its options' prices. */
+function answerRange(result: AiResult) {
+  const priced = (result.options ?? []).flatMap((o) => (o.price == null ? [] : [o.price]));
+  return result.estimate ?? (priced.length ? { min: Math.min(...priced), max: Math.max(...priced) } : null);
+}
+
+/** The item's links plus any new ones from the answer (its links, then its options'). */
+function withFoundLinks(links: string[], result: AiResult) {
+  const found = [...(result.links ?? []).map((l) => l.url), ...(result.options ?? []).flatMap((o) => (o.url ? [o.url] : []))];
+  return [...new Set([...links, ...found])].slice(0, LINKS_MAX);
+}
+
+/**
  * What an answer fills in on an item added with "Ask Claude": only what's
  * empty, so nothing typed is overwritten. Costs, steps and links go where
  * they belong; the rest (summary, options, cautions) is added to the notes.
@@ -169,8 +209,7 @@ export function autofillChanges(
   item: { estimatedPrice: number | null; steps: unknown[]; links: string[]; notes: string | null },
   result: AiResult,
 ) {
-  const priced = (result.options ?? []).flatMap((o) => (o.price == null ? [] : [o.price]));
-  const range = result.estimate ?? (priced.length ? { min: Math.min(...priced), max: Math.max(...priced) } : null);
+  const range = answerRange(result);
   const estimate =
     item.estimatedPrice == null && range
       ? { estimatedPrice: range.min, estimateMax: range.max > range.min ? range.max : null }
@@ -187,26 +226,119 @@ export function autofillChanges(
         notes: s.notes ?? null,
       }));
 
-  const found = [...(result.links ?? []).map((l) => l.url), ...(result.options ?? []).flatMap((o) => (o.url ? [o.url] : []))];
-  const links = [...new Set([...item.links, ...found])].slice(0, LINKS_MAX);
+  const links = withFoundLinks(item.links, result);
 
-  // Short enough to read on a phone: the answer, the options, then at most
-  // three things to watch, whatever came back.
-  const block = [
-    ["From Claude:", result.summary, result.diy ? DIY_LABELS[result.diy] : null].filter(Boolean).join(" "),
-    result.options?.length
-      ? `Options:\n${result.options
-          .map((o) => `• ${o.title}${o.price != null ? ` — ${formatGBP(o.price)}` : ""}${o.retailer ? ` (${o.retailer})` : ""}`)
-          .join("\n")}`
-      : null,
-    result.cautions?.length ? `Watch out for:\n${result.cautions.slice(0, 3).map((c) => `• ${c}`).join("\n")}` : null,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  const block = claudeNote(result, "From Claude:");
   const notes = (item.notes?.trim() ? `${item.notes.trim()}\n\n${block}` : block).slice(0, NOTES_MAX);
 
   return {
     changes: { ...estimate, notes, ...(links.length !== item.links.length ? { links } : {}) },
     appendSteps,
   };
+}
+
+// ---- Improve with Claude: the answer revises the item in place. ----
+
+type ItemStep = { id: string; text: string; done: boolean; cost: number | null; link: string | null; notes: string | null };
+type StepIn = { id?: string; text: string; done: boolean; cost: number | null; link: string | null; notes: string | null };
+type ImprovableItem = {
+  estimatedPrice: number | null;
+  estimateMax: number | null;
+  isQuote: boolean;
+  links: string[];
+  steps: ItemStep[];
+};
+
+const STEPS_MAX = 50;
+const stepIn = ({ id, text, done, cost, link, notes }: ItemStep): StepIn => ({ id, text, done, cost, link, notes });
+
+/**
+ * What an improvement changes on an item. Claude's steps replace the ones
+ * still to do (ticked ones are real progress, and may have been paid for, so
+ * they stay); its estimate replaces the item's unless that's a firm quote, in
+ * which case its steps come without costs so the step-total rule can't
+ * replace the quote either. New links are added. Notes are left alone: the
+ * answer itself is posted as an update.
+ */
+export function improveChanges(item: ImprovableItem, result: AiResult) {
+  const range = answerRange(result);
+  const estimate =
+    !item.isQuote && range ? { estimatedPrice: range.min, estimateMax: range.max > range.min ? range.max : null } : {};
+  const steps = result.steps?.length
+    ? [
+        ...item.steps.filter((s) => s.done).map(stepIn),
+        ...result.steps.map((s) => ({
+          text: s.text,
+          done: false,
+          cost: item.isQuote ? null : (s.cost ?? null),
+          link: s.link ?? null,
+          notes: s.notes ?? null,
+        })),
+      ].slice(0, STEPS_MAX)
+    : undefined;
+  const links = withFoundLinks(item.links, result);
+  const addedLinks = links.filter((l) => !item.links.includes(l));
+  return {
+    changes: { ...estimate, ...(steps ? { steps } : {}), ...(addedLinks.length ? { links } : {}) },
+    addedLinks,
+  };
+}
+
+const undoStep = z.object({
+  id: z.string(),
+  text: z.string(),
+  done: z.boolean(),
+  cost: z.number().nullable(),
+  link: z.string().nullable(),
+  notes: z.string().nullable(),
+});
+
+/** What an applied improvement keeps so it can be undone. */
+export const improveUndoSchema = z.object({
+  before: z.object({
+    estimatedPrice: z.number().nullable(),
+    estimateMax: z.number().nullable(),
+    /** Null: the steps weren't changed. */
+    steps: z.array(undoStep).nullable(),
+  }),
+  /** The estimate as Claude left it: only put back if nobody's changed it since. */
+  after: z.object({ estimatedPrice: z.number().nullable(), estimateMax: z.number().nullable() }),
+  addedLinks: z.array(z.string()),
+  /** The update Claude posted with its answer. */
+  commentId: z.string().nullable(),
+});
+export type ImproveUndo = z.infer<typeof improveUndoSchema>;
+
+/**
+ * Taking an improvement back, from the item as it is now. Anything someone
+ * has done since is kept: a step ticked off (even one of Claude's) stays, as
+ * does an estimate set by hand or a quote chosen. The rest goes back to how
+ * it was.
+ */
+export function undoImproveChanges(item: ImprovableItem, undo: ImproveUndo) {
+  const changes: { estimatedPrice?: number | null; estimateMax?: number | null; links?: string[]; steps?: StepIn[] } = {};
+
+  if (undo.before.steps) {
+    const now = new Map(item.steps.map((s) => [s.id, s]));
+    const before = new Set(undo.before.steps.map((s) => s.id));
+    changes.steps = [
+      // As they were, keeping any tick made since; ones Claude replaced come back.
+      ...undo.before.steps.map((s) => {
+        const current = now.get(s.id);
+        return current ? stepIn(current) : { text: s.text, done: s.done, cost: s.cost, link: s.link, notes: s.notes };
+      }),
+      // Claude's own steps go, unless someone has ticked one off since.
+      ...item.steps.filter((s) => !before.has(s.id) && s.done).map(stepIn),
+    ].slice(0, STEPS_MAX);
+  }
+
+  if (!item.isQuote && item.estimatedPrice === undo.after.estimatedPrice && item.estimateMax === undo.after.estimateMax) {
+    changes.estimatedPrice = undo.before.estimatedPrice;
+    changes.estimateMax = undo.before.estimateMax;
+  }
+
+  const added = new Set(undo.addedLinks);
+  const links = item.links.filter((l) => !added.has(l));
+  if (links.length !== item.links.length) changes.links = links;
+  return changes;
 }
