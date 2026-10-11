@@ -104,6 +104,70 @@ export function affordabilityIndex(plan: Plan): Map<string, number | null> {
 }
 
 // ---------------------------------------------------------------------------
+// What a change does to the plan: the same plan worked out twice, with the
+// item as it is and as it would be, so "if we made it a must…" or "if we
+// pinned it…" is answered before anything is saved. Moving one thing up the
+// order moves others down, so those are named too.
+
+/** Where an item sits in the plan. */
+export type PlanPlace = {
+  /** As PlanEntry: 0 = now, n = months of saving away, null = never at current saving. */
+  monthsAway: number | null;
+  /** How far the pot is from covering it and everything ahead of it today. */
+  short: number;
+  /** What's left in the pot after it and everything ahead of it. */
+  spare: number;
+  /** How many costed things the plan pays for first. */
+  ahead: number;
+};
+
+export type PlanMove = { item: ItemDTO; from: number | null; to: number | null };
+
+export type PlanImpact = {
+  /** Null when it isn't in the plan: new, free, or done. */
+  before: PlanPlace | null;
+  after: PlanPlace | null;
+  /** Everything else that becomes affordable later, or sooner, in plan order. */
+  later: PlanMove[];
+  sooner: PlanMove[];
+};
+
+/** Never is later than any month. */
+const monthsRank = (m: number | null) => (m === null ? Infinity : m);
+
+function placeIn(plan: Plan, id: string): PlanPlace | null {
+  const ahead = plan.entries.findIndex((e) => e.item.id === id);
+  if (ahead < 0) return null;
+  const entry = plan.entries[ahead];
+  return {
+    monthsAway: entry.monthsAway,
+    short: Math.max(0, entry.cumulative - plan.pot),
+    spare: Math.max(0, plan.pot - entry.cumulative),
+    ahead,
+  };
+}
+
+/**
+ * The plan's answer for `changed` (an item as edited, or a new one) against
+ * the list as it is, and whose dates it moves. Other items keep their own
+ * details; only their place in the queue can change.
+ */
+export function planImpact(items: ItemDTO[], settings: SettingsDTO, changed: ItemDTO): PlanImpact {
+  const before = buildPlan(items, settings);
+  const after = buildPlan([...items.filter((i) => i.id !== changed.id), changed], settings);
+  const was = new Map(before.entries.map((e) => [e.item.id, e.monthsAway]));
+  const later: PlanMove[] = [];
+  const sooner: PlanMove[] = [];
+  for (const e of after.entries) {
+    if (e.item.id === changed.id || !was.has(e.item.id)) continue;
+    const from = was.get(e.item.id)!;
+    if (monthsRank(e.monthsAway) > monthsRank(from)) later.push({ item: e.item, from, to: e.monthsAway });
+    else if (monthsRank(e.monthsAway) < monthsRank(from)) sooner.push({ item: e.item, from, to: e.monthsAway });
+  }
+  return { before: placeIn(before, changed.id), after: placeIn(after, changed.id), later, sooner };
+}
+
+// ---------------------------------------------------------------------------
 // Up next: the handful of things most worth doing now.
 
 export function upNext(items: ItemDTO[], me: string | null, afford: Map<string, number | null>, limit = 5) {

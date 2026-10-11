@@ -32,6 +32,7 @@ import type { ItemUpdateInput } from "@/lib/validation";
 import { Button, Chip, Field, GrowingTextarea, MoneyInput, PaintChip, Segmented, Suggestion, inputClass } from "@/components/ui";
 import { QuotesField, UpdatesField } from "@/components/ItemExtras";
 import { AskClaude } from "@/components/AskClaude";
+import { PlanNote } from "@/components/PlanNote";
 import { LinksField, StepsField, parseMoney, type DraftStep } from "@/components/StepsField";
 
 type Draft = {
@@ -97,6 +98,41 @@ const stepPayload = (s: DraftStep) => ({
 });
 
 const linksPayload = (urls: string[]) => [...new Set(urls.map(normaliseLink).filter((u): u is string => !!u))];
+
+/** An item that isn't saved yet, for the plan: added now, so last in its tier. */
+function unsavedItem(): ItemDTO {
+  const now = new Date().toISOString();
+  return {
+    id: "new",
+    title: "",
+    kind: "TASK",
+    room: "WHOLE_HOUSE",
+    priority: "WOULD_LIKE",
+    status: "TODO",
+    estimatedPrice: null,
+    estimateMax: null,
+    isQuote: false,
+    actualPrice: null,
+    assignee: null,
+    dueDate: null,
+    warrantyUntil: null,
+    project: null,
+    repeat: null,
+    spawnedFromId: null,
+    pinned: false,
+    potCharge: null,
+    links: [],
+    notes: null,
+    addedBy: "",
+    completedAt: null,
+    completedBy: null,
+    createdAt: now,
+    updatedAt: now,
+    steps: [],
+    quotes: [],
+    comments: [],
+  };
+}
 
 export function ItemSheet() {
   const { editing, items, closeItem } = useStore();
@@ -185,6 +221,33 @@ function SheetBody({
     fromSteps != null &&
     (costsKey(draft) !== costsKey(initial) || parseMoney(initial.estimatedPrice) === initialTotal);
   const paidSoFar = draft.steps.reduce((sum, st, i) => sum + (st.done && stepCosts[i] ? stepCosts[i]! : 0), 0);
+
+  // The item as saving it now would leave it, for the plan to place. Typos
+  // count as blank here; saving is what catches them.
+  const planned = useMemo<ItemDTO>(() => {
+    const money = (n: number | null) => (n == null || Number.isNaN(n) ? null : n);
+    const low = followsSteps ? fromSteps : money(parseMoney(draft.estimatedPrice));
+    const high = followsSteps ? null : money(parseMoney(draft.estimateMax));
+    return {
+      ...(item ?? unsavedItem()),
+      kind: draft.kind,
+      status: draft.status,
+      priority: draft.priority,
+      dueDate: draft.dueDate || null,
+      estimatedPrice: low,
+      estimateMax: high != null && low != null && high <= low ? null : high,
+      steps: draft.steps.map((s) => ({
+        id: s.id ?? s.key,
+        text: s.text,
+        done: s.done,
+        cost: money(parseMoney(s.cost)),
+        link: null,
+        notes: null,
+        potCharge: null,
+        doneAt: null,
+      })),
+    };
+  }, [item, draft, followsSteps, fromSteps]);
 
   const people = useMemo(() => {
     const names = new Set([...settings.members, me]);
@@ -636,6 +699,8 @@ function SheetBody({
               </div>
             )}
           </Field>
+
+          <PlanNote planned={planned} isNew={isNew} />
 
           {(draft.status === "DONE" || draft.warrantyUntil) && (
             <Field label="Guaranteed until" hint="The calendar feed reminds you a month before it runs out.">

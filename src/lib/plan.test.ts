@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { buildPlan, compareItems, planCost, spending, upNext, affordabilityIndex } from "@/lib/plan";
+import { buildPlan, compareItems, planCost, planImpact, spending, upNext, affordabilityIndex } from "@/lib/plan";
 import type { ItemDTO, SettingsDTO } from "@/lib/types";
 
 beforeAll(() => {
@@ -100,6 +100,61 @@ describe("buildPlan", () => {
     const a = item({ title: "A", priority: "MUST_HAVE", estimatedPrice: 10 });
     const b = item({ title: "B", priority: "MUST_HAVE", estimatedPrice: 10, status: "DOING" });
     expect([a, b].sort(compareItems).map((i) => i.title)).toEqual(["B", "A"]);
+  });
+});
+
+describe("planImpact", () => {
+  it("says where an item sits, and how short or spare the pot is there", () => {
+    const locks = item({ title: "Locks", priority: "MUST_HAVE", estimatedPrice: 200 });
+    const rug = item({ title: "Rug", estimatedPrice: 300 });
+    const impact = planImpact([locks, rug], settings(400, 100), rug);
+    expect(impact.before).toEqual({ monthsAway: 1, short: 100, spare: 0, ahead: 1 });
+    expect(impact.after).toEqual(impact.before);
+    expect(planImpact([locks, rug], settings(400, 100), locks).after).toEqual({
+      monthsAway: 0,
+      short: 0,
+      spare: 200,
+      ahead: 0,
+    });
+  });
+
+  it("names what a change of priority pushes back", () => {
+    const locks = item({ title: "Locks", priority: "MUST_HAVE", estimatedPrice: 300 });
+    const sofa = item({ title: "Sofa", estimatedPrice: 600 });
+    const shed = item({ title: "Shed", priority: "SOMEDAY", estimatedPrice: 400 });
+    const all = [locks, sofa, shed];
+    const impact = planImpact(all, settings(500, 200), { ...shed, priority: "MUST_HAVE" });
+    expect(impact.before?.monthsAway).toBe(4);
+    expect(impact.after?.monthsAway).toBe(1);
+    expect(impact.later.map((m) => [m.item.title, m.from, m.to])).toEqual([["Sofa", 2, 4]]);
+    expect(impact.sooner).toEqual([]);
+  });
+
+  it("names what dropping something brings forward", () => {
+    const sofa = item({ title: "Sofa", estimatedPrice: 600 });
+    const rug = item({ title: "Rug", estimatedPrice: 200 });
+    const impact = planImpact([sofa, rug], settings(300, 0), { ...sofa, priority: "SOMEDAY" });
+    expect(impact.after?.monthsAway).toBeNull();
+    expect(impact.sooner.map((m) => [m.item.title, m.from, m.to])).toEqual([["Rug", null, 0]]);
+  });
+
+  it("previews pinning, a new item, and an item that's been made free", () => {
+    const boiler = item({ title: "Boiler", priority: "MUST_HAVE", estimatedPrice: 900 });
+    const blind = item({ title: "Blind", estimatedPrice: 80 });
+    const all = [boiler, blind];
+    expect(planImpact(all, settings(1000), { ...blind, pinned: true }).later).toEqual([]);
+    const pinned = planImpact(all, settings(950), { ...blind, pinned: true });
+    expect(pinned.after?.monthsAway).toBe(0);
+    expect(pinned.later.map((m) => [m.item.title, m.from, m.to])).toEqual([["Boiler", 0, null]]);
+
+    // A new must-have queues behind the older one, ahead of the would-likes.
+    const fresh = item({ id: "new", title: "Fence", priority: "MUST_HAVE", estimatedPrice: 500 });
+    const added = planImpact(all, settings(1000), fresh);
+    expect(added.before).toBeNull();
+    expect(added.after?.monthsAway).toBeNull();
+    expect(added.later.map((m) => m.item.title)).toEqual(["Blind"]);
+
+    expect(planImpact(all, settings(0), { ...boiler, estimatedPrice: null }).after).toBeNull();
   });
 });
 
