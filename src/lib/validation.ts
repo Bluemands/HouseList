@@ -13,7 +13,11 @@ const optionalMoney = money.nullable().optional();
 const isoDate = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a real date")
-  .refine((s) => !Number.isNaN(Date.parse(`${s}T00:00:00Z`)), "Use a real date");
+  // Round-tripped, because 31 February parses fine as 3 March.
+  .refine((s) => {
+    const d = new Date(`${s}T00:00:00Z`);
+    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+  }, "Use a real date");
 
 const optionalText = (max: number) =>
   z.preprocess(emptyToNull, z.string().trim().max(max, `Keep it under ${max} characters`).nullable()).optional();
