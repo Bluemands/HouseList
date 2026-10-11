@@ -37,6 +37,11 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/calendar
     where: { status: { not: "DONE" }, dueDate: { not: null } },
     orderBy: { dueDate: "asc" },
   });
+  // Guarantees still running, whether the thing is finished or not.
+  const guaranteed = await prisma.item.findMany({
+    where: { warrantyUntil: { gte: new Date(Date.now() - 86_400_000) } },
+    orderBy: { warrantyUntil: "asc" },
+  });
 
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
   const origin = new URL(request.url).origin;
@@ -74,6 +79,26 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/calendar
       "ACTION:DISPLAY",
       "TRIGGER:PT9H",
       fold(`DESCRIPTION:${esc(item.title)}`),
+      "END:VALARM",
+      "END:VEVENT",
+    );
+  }
+  for (const item of guaranteed) {
+    const end = item.warrantyUntil!;
+    lines.push(
+      "BEGIN:VEVENT",
+      `UID:${item.id}-guarantee@house-list`,
+      `DTSTAMP:${stamp}`,
+      `DTSTART;VALUE=DATE:${ymd(end)}`,
+      `DTEND;VALUE=DATE:${ymd(new Date(end.getTime() + 86_400_000))}`,
+      fold(`SUMMARY:${esc(`Guarantee ends: ${item.title}`)}`),
+      fold(`DESCRIPTION:${esc(`The last day of its guarantee: anything wrong with it, claim now. ${ROOM_PAINT[item.room].label}.`)}`),
+      `URL:${origin}/`,
+      // A month's warning, while there's still time to get it looked at.
+      "BEGIN:VALARM",
+      "ACTION:DISPLAY",
+      "TRIGGER:-P30D",
+      fold(`DESCRIPTION:${esc(`Guarantee ends in a month: ${item.title}`)}`),
       "END:VALARM",
       "END:VEVENT",
     );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
 import { Search, ShoppingCart, SlidersHorizontal, X } from "lucide-react";
 import { useStore } from "@/lib/store";
@@ -20,6 +20,9 @@ import { formatGBP, today } from "@/lib/format";
 import { QuickAdd } from "@/components/QuickAdd";
 import { ItemList, ItemRow } from "@/components/ItemRow";
 import { Chip, PaintChip, Segmented } from "@/components/ui";
+import { SelectionBar } from "@/components/SelectionBar";
+import { Supplies, type Supply } from "@/components/Supplies";
+import { isShoppingStep } from "@/lib/parse";
 
 type GroupBy = "room" | "priority" | "due" | "who" | "project";
 type KindFilter = "ALL" | Kind;
@@ -74,6 +77,23 @@ export function ListView() {
   const [who, setWho] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false);
   const [trip, setTrip] = useState(false);
+  // Selecting several to act on at once; ids, so a poll doesn't drop them.
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const stopSelecting = () => {
+    setSelecting(false);
+    setSelected(new Set());
+  };
+  useEffect(() => {
+    if (!selecting) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setSelecting(false);
+      setSelected(new Set());
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selecting]);
 
   const plan = useMemo(() => buildPlan(listing, listingSettings), [listing, listingSettings]);
   const afford = useMemo(() => affordabilityIndex(plan), [plan]);
@@ -121,6 +141,18 @@ export function ListView() {
     .filter((i) => !isOpen(i))
     .sort((a, b) => ((a.completedAt ?? "") < (b.completedAt ?? "") ? 1 : -1));
   const tripDone = trip ? done.filter((i) => i.completedAt && i.completedAt.slice(0, 10) === today()) : [];
+
+  // Shopping inside jobs ("Buy faceplates" under "Fit sockets") belongs in To buy too.
+  const supplies = useMemo<Supply[]>(() => {
+    if (kind !== "BUY") return [];
+    return listing
+      .filter((item) => isOpen(item) && (!rooms.length || rooms.includes(item.room)) && (!who || item.assignee === who))
+      .flatMap((item) => item.steps.filter((step) => !step.done && isShoppingStep(step)).map((step) => ({ item, step })))
+      .filter(({ item, step }) => !q || `${step.text} ${item.title}`.toLowerCase().includes(q));
+  }, [kind, listing, rooms, who, q]);
+  const tripSupplies = trip
+    ? listing.flatMap((i) => i.steps.filter((s) => s.done && s.doneAt?.slice(0, 10) === today() && isShoppingStep(s)))
+    : [];
 
   const groups = useMemo(() => {
     const map = new Map<string, { key: string; label: React.ReactNode; order: number; items: ItemDTO[] }>();
@@ -170,15 +202,29 @@ export function ListView() {
     BUY: items.filter((i) => isOpen(i) && i.kind === "BUY").length,
   };
   const openTotal = open.reduce((s, i) => s + planCost(i), 0);
-  const tripSpent = tripDone.reduce((s, i) => s + (i.actualPrice ?? i.estimatedPrice ?? 0), 0);
+  const tripSpent =
+    tripDone.reduce((s, i) => s + (i.actualPrice ?? i.estimatedPrice ?? 0), 0) +
+    tripSupplies.reduce((s, st) => s + (st.cost ?? 0), 0);
+  const selectedItems = open.filter((i) => selected.has(i.id));
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
       <header className="flex items-end justify-between gap-3 pt-1">
         <h1 className="text-[28px] leading-tight font-bold tracking-[-0.025em]">Everything</h1>
-        <p className="pb-1 text-[14px] text-ink-2 tabular">
-          {open.length} open{openTotal > 0 && <> · {formatGBP(openTotal)}</>}
-        </p>
+        <div className="flex items-center gap-3 pb-1">
+          <p className="text-[14px] text-ink-2 tabular">
+            {open.length} open{openTotal > 0 && <> · {formatGBP(openTotal)}</>}
+          </p>
+          {open.length > 1 && !selecting && (
+            <button
+              type="button"
+              onClick={() => setSelecting(true)}
+              className="rounded-lg px-2 py-1 text-[14px] font-semibold text-accent-text hover:bg-sunken"
+            >
+              Select
+            </button>
+          )}
+        </div>
       </header>
 
       <QuickAdd defaultKind={kind === "ALL" ? undefined : kind} />
@@ -324,13 +370,17 @@ export function ListView() {
               <>
                 <div className="font-semibold text-ink">On a shopping trip</div>
                 <div className="text-ink-2 tabular">
-                  Showing what the pot covers. Bought today: {tripDone.length} · {formatGBP(tripSpent)}
+                  {plan.tracked ? "Showing what the pot covers. " : ""}Bought today:{" "}
+                  {tripDone.length + tripSupplies.length} · {formatGBP(tripSpent)}
                 </div>
               </>
             ) : (
               <>
                 <div className="font-semibold text-ink">Out shopping?</div>
-                <div className="text-ink-2">Only show what you can afford right now, and tick it off as you go.</div>
+                <div className="text-ink-2">
+                  {plan.tracked ? "Only show what you can afford right now, and tick" : "Tick"} things off as you go,
+                  supplies for jobs included.
+                </div>
               </>
             )}
           </div>
@@ -347,7 +397,7 @@ export function ListView() {
         </div>
       )}
 
-      {open.length === 0 && (
+      {open.length === 0 && !supplies.length && (
         <div className="rounded-2xl border border-dashed border-line-strong px-6 py-10 text-center">
           <p className="text-[16px] font-semibold text-ink">
             {q || filterCount
@@ -412,6 +462,19 @@ export function ListView() {
                     item={item}
                     hideRoom={groupBy === "room"}
                     monthsAway={item.kind === "BUY" || planCost(item) > 0 ? afford.get(item.id) : undefined}
+                    select={
+                      selecting
+                        ? {
+                            selected: selected.has(item.id),
+                            onToggle: () =>
+                              setSelected((set) => {
+                                const next = new Set(set);
+                                if (!next.delete(item.id)) next.add(item.id);
+                                return next;
+                              }),
+                          }
+                        : undefined
+                    }
                   />
                 ))}
               </ItemList>
@@ -420,7 +483,9 @@ export function ListView() {
         })}
       </div>
 
-      {done.length > 0 && (
+      {!selecting && <Supplies supplies={supplies} />}
+
+      {done.length > 0 && !selecting && (
         <section>
           <button
             type="button"
@@ -441,6 +506,20 @@ export function ListView() {
             </ItemList>
           )}
         </section>
+      )}
+      {selecting && (
+        <>
+          {/* Room to scroll the last rows clear of the bar. */}
+          <div aria-hidden="true" className="h-20" />
+          <SelectionBar
+            selected={selectedItems}
+            total={open.length}
+            onToggleAll={() =>
+              setSelected(selectedItems.length === open.length ? new Set() : new Set(open.map((i) => i.id)))
+            }
+            onExit={stopSelecting}
+          />
+        </>
       )}
     </div>
   );

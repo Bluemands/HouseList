@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     const out = [];
     // Oldest-first timestamps keep the list in the order it was written.
     const base = Date.now() - items.length;
-    for (const [index, { steps, dueDate, ...data }] of items.entries()) {
+    for (const [index, { steps, dueDate, warrantyUntil, ...data }] of items.entries()) {
       out.push(
         await tx.item.create({
           data: {
@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
             status: data.status === "DONE" ? "TODO" : data.status,
             addedBy,
             dueDate: fromDay(dueDate),
+            warrantyUntil: fromDay(warrantyUntil),
             createdAt: new Date(base + index),
             steps: steps?.length ? { create: stepRows(steps) } : undefined,
           },

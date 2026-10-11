@@ -26,6 +26,7 @@ export async function GET() {
     "Project",
     "Steps",
     "Links",
+    "Guarantee until",
     "Notes",
     "Added by",
     "Added",
@@ -49,6 +50,7 @@ export async function GET() {
       .map((s) => `${s.done ? "[x]" : "[ ]"} ${s.text}${s.cost != null ? ` (£${s.cost})` : ""}${s.link ? ` ${s.link}` : ""}`)
       .join("; "),
     i.links.join(" "),
+    i.warrantyUntil,
     i.notes,
     i.addedBy,
     i.createdAt.slice(0, 10),

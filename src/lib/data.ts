@@ -44,6 +44,7 @@ export function toItemDTO(item: FullItem): ItemDTO {
   return {
     ...rest,
     dueDate: toDay(item.dueDate),
+    warrantyUntil: toDay(item.warrantyUntil),
     completedAt: item.completedAt?.toISOString() ?? null,
     createdAt: item.createdAt.toISOString(),
     updatedAt: item.updatedAt.toISOString(),

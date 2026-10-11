@@ -42,6 +42,18 @@ export function addDays(day: string, n: number): string {
   return toDayString(new Date(y, m - 1, d + n));
 }
 
+/** "Mar 2028", for dates far enough off that the day doesn't matter. */
+export function formatMonthYear(day: string): string {
+  return new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric" }).format(new Date(`${day}T00:00:00`));
+}
+
+/** The same calendar day n years on (29 Feb lands on 28 Feb). */
+export function addYears(day: string, n: number): string {
+  const [y, m, d] = day.split("-").map(Number);
+  const last = new Date(y + n, m, 0).getDate();
+  return toDayString(new Date(y + n, m - 1, Math.min(d, last)));
+}
+
 export function dayDiff(from: string, to: string): number {
   const [y1, m1, d1] = from.split("-").map(Number);
   const [y2, m2, d2] = to.split("-").map(Number);

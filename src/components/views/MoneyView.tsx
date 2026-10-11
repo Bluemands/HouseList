@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { Download, Pencil, Plus } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { buildPlan, roomStats, spending, type PlanEntry } from "@/lib/plan";
-import { describeDay, formatGBP, formatGBPShort, formatMonth, today } from "@/lib/format";
+import { dayDiff, describeDay, formatGBP, formatGBPShort, formatMonth, formatMonthYear, today } from "@/lib/format";
 import { ROOM_PAINT } from "@/lib/rooms";
 import { ItemList, ItemRow } from "@/components/ItemRow";
 import { Button, MoneyInput, PaintChip, SectionHead } from "@/components/ui";
@@ -131,6 +131,8 @@ export function MoneyView() {
           <RecentSpend />
         </div>
       </section>
+
+      <Guarantees />
 
       <section className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
         <p className="text-[14px] text-ink-2">Want it in a spreadsheet?</p>
@@ -342,6 +344,41 @@ function MonthBars({ months }: { months: { key: string; total: number }[] }) {
         Spending by month: {months.map((m) => `${monthName(m.key)} ${formatGBPShort(m.total)}`).join(", ")}
       </figcaption>
     </figure>
+  );
+}
+
+/** Guarantees still running, soonest first, so a claim isn't missed. */
+function Guarantees() {
+  const { items, openItem } = useStore();
+  const now = today();
+  const running = items
+    .filter((i) => i.warrantyUntil && i.warrantyUntil >= now)
+    .sort((a, b) => (a.warrantyUntil! < b.warrantyUntil! ? -1 : 1));
+  if (!running.length) return null;
+  return (
+    <section aria-labelledby="guarantees-head">
+      <SectionHead id="guarantees-head" title="Guarantees" />
+      <ul className="grid gap-2 rounded-2xl border border-line bg-surface p-4">
+        {running.map((i) => {
+          const days = dayDiff(now, i.warrantyUntil!);
+          return (
+            <li key={i.id}>
+              <button
+                type="button"
+                onClick={() => openItem(i.id)}
+                className="flex w-full items-center gap-2.5 text-left text-[14px] hover:text-accent-text"
+              >
+                <PaintChip room={i.room} />
+                <span className="min-w-0 flex-1 truncate text-ink">{i.title}</span>
+                <span className={clsx("shrink-0 tabular", days <= 60 ? "font-semibold text-danger" : "text-ink-3")}>
+                  {days <= 60 ? `Ends in ${days} ${days === 1 ? "day" : "days"}` : `To ${formatMonthYear(i.warrantyUntil!)}`}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

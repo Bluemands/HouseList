@@ -22,7 +22,7 @@ import {
   type Status,
 } from "@/lib/types";
 import { ROOM_PAINT } from "@/lib/rooms";
-import { addDays, formatDay, formatGBP, isWebLink, normaliseLink, timeAgo, today, toDayString } from "@/lib/format";
+import { addDays, addYears, formatDay, formatGBP, isWebLink, normaliseLink, timeAgo, today, toDayString } from "@/lib/format";
 import { useStore, type SheetRestore } from "@/lib/store";
 import { parseStep } from "@/lib/parse";
 import { useSheetDrag } from "@/lib/useSheetDrag";
@@ -39,6 +39,7 @@ type Draft = {
   room: Room;
   assignee: string;
   dueDate: string;
+  warrantyUntil: string;
   estimatedPrice: string;
   estimateMax: string;
   isQuote: boolean;
@@ -61,6 +62,7 @@ function toDraft(item: Partial<ItemDTO>): Draft {
     room: item.room ?? "WHOLE_HOUSE",
     assignee: item.assignee ?? "",
     dueDate: item.dueDate ?? "",
+    warrantyUntil: item.warrantyUntil ?? "",
     estimatedPrice: num(item.estimatedPrice),
     estimateMax: num(item.estimateMax),
     isQuote: item.isQuote ?? false,
@@ -210,6 +212,7 @@ function SheetBody({
       room: draft.room,
       assignee: draft.assignee.trim() || null,
       dueDate: draft.dueDate || null,
+      warrantyUntil: draft.warrantyUntil || null,
       ...(followsSteps
         ? { estimatedPrice: fromSteps, estimateMax: null }
         : {
@@ -273,6 +276,7 @@ function SheetBody({
       room: d.room,
       assignee: d.assignee.trim() || null,
       dueDate: d.dueDate || null,
+      warrantyUntil: d.warrantyUntil || null,
       estimatedPrice: parseMoney(d.estimatedPrice),
       estimateMax: parseMoney(d.estimateMax),
       isQuote: d.isQuote,
@@ -308,6 +312,7 @@ function SheetBody({
       status: "TODO",
       actualPrice: null,
       pinned: false,
+      warrantyUntil: null,
       links: payload.links ?? [],
       steps: (payload.steps ?? []).map((st) => ({
         id: "",
@@ -567,6 +572,41 @@ function SheetBody({
               </div>
             )}
           </Field>
+
+          {(draft.status === "DONE" || draft.warrantyUntil) && (
+            <Field label="Guaranteed until" hint="The calendar feed reminds you a month before it runs out.">
+              <div className="flex flex-wrap gap-1.5">
+                {[1, 2, 5, 10].map((years) => {
+                  // Counted from when it was finished (or today, if that's now).
+                  const from = item?.completedAt ? toDayString(new Date(item.completedAt)) : today();
+                  const day = addYears(from, years);
+                  return (
+                    <Chip
+                      key={years}
+                      selected={draft.warrantyUntil === day}
+                      onClick={() => set("warrantyUntil", draft.warrantyUntil === day ? "" : day)}
+                    >
+                      {years} {years === 1 ? "year" : "years"}
+                    </Chip>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={draft.warrantyUntil}
+                  onChange={(e) => set("warrantyUntil", e.target.value)}
+                  aria-label="Guaranteed until"
+                  className={clsx(inputClass, "tabular")}
+                />
+                {draft.warrantyUntil && (
+                  <Button variant="ghost" onClick={() => set("warrantyUntil", "")} className="shrink-0">
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </Field>
+          )}
 
           {item && (
             <QuotesField

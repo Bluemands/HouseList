@@ -24,6 +24,7 @@ function item(over: Partial<ItemDTO>): ItemDTO {
     actualPrice: null,
     assignee: null,
     dueDate: null,
+    warrantyUntil: null,
     project: null,
     repeat: null,
     spawnedFromId: null,

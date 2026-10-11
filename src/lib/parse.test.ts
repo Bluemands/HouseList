@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { parseQuickAdd, parseStep, pastedLines } from "@/lib/parse";
+import { isShoppingStep, parseQuickAdd, parseStep, pastedLines } from "@/lib/parse";
 
 // Friday 9 October 2026, mid-afternoon.
 beforeAll(() => {
@@ -214,5 +214,16 @@ describe("steps and pasted lists", () => {
       "Sand",
       "First coat",
     ]);
+  });
+});
+
+describe("shopping steps", () => {
+  it("spots supplies inside jobs", () => {
+    const step = (text: string, link: string | null = null, cost: number | null = null) => ({ text, link, cost });
+    expect(isShoppingStep(step("Buy socket faceplates"))).toBe(true);
+    expect(isShoppingStep(step("Pick up grout"))).toBe(true);
+    expect(isShoppingStep(step("Faceplates", "https://screwfix.com/p/1", 45))).toBe(true);
+    expect(isShoppingStep(step("Watch the how-to", "https://youtube.com/x"))).toBe(false);
+    expect(isShoppingStep(step("Fit the sockets", null, 220))).toBe(false);
   });
 });

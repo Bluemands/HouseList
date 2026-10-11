@@ -48,6 +48,7 @@ const itemFields = {
   actualPrice: optionalMoney,
   assignee: optionalText(60),
   dueDate: isoDate.nullable().optional(),
+  warrantyUntil: isoDate.nullable().optional(),
   project: optionalText(60),
   repeat: z.enum(REPEATS).nullable().optional(),
   pinned: z.boolean().optional(),

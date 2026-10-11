@@ -59,6 +59,10 @@ type Store = {
   /** Tick (or untick) one step, straight from a list row. */
   toggleStep: (item: ItemDTO, stepId: string) => void;
   removeItem: (item: ItemDTO) => void;
+  /** Several at once, with one undo. */
+  removeItems: (items: ItemDTO[]) => void;
+  /** The same change to several items, with one undo. */
+  bulkEdit: (items: ItemDTO[], patch: ItemUpdateInput, message: string) => void;
   saveSettings: (patch: SettingsUpdateInput) => Promise<boolean>;
   toast: (t: Omit<Toast, "id">) => void;
   dismissToast: (id: number) => void;
@@ -268,6 +272,7 @@ export function StoreProvider({
         actualPrice: input.actualPrice ?? null,
         assignee: (input.assignee as string | null | undefined) ?? null,
         dueDate: input.dueDate ?? null,
+        warrantyUntil: input.warrantyUntil ?? null,
         project: (input.project as string | null | undefined) ?? null,
         repeat: input.repeat ?? null,
         spawnedFromId: null,
@@ -452,34 +457,58 @@ export function StoreProvider({
     [me, fail, settings.members],
   );
 
-  const removeItem = useCallback<Store["removeItem"]>(
-    (item) => {
-      setItems((list) => list.filter((i) => i.id !== item.id));
+  const removeItems = useCallback<Store["removeItems"]>(
+    (gone) => {
+      if (!gone.length) return;
+      const ids = new Set(gone.map((i) => i.id));
+      setItems((list) => list.filter((i) => !ids.has(i.id)));
       // The delete only happens once the undo window closes.
       const timer = window.setTimeout(async () => {
-        pendingDeletes.current.delete(item.id);
-        try {
-          const id = item.id.startsWith("tmp-") ? (await creating.current.get(item.id))?.id : item.id;
-          if (id) await track(() => api.deleteItem(id));
-        } catch (err) {
-          setItems((list) => [item, ...list]);
-          fail(err);
+        for (const item of gone) {
+          pendingDeletes.current.delete(item.id);
+          try {
+            const id = item.id.startsWith("tmp-") ? (await creating.current.get(item.id))?.id : item.id;
+            if (id) await track(() => api.deleteItem(id));
+          } catch (err) {
+            setItems((list) => [item, ...list]);
+            fail(err);
+          }
         }
       }, UNDO_MS);
-      pendingDeletes.current.set(item.id, timer);
+      for (const item of gone) pendingDeletes.current.set(item.id, timer);
       toast({
-        message: `Deleted “${item.title}”`,
+        message: gone.length === 1 ? `Deleted “${gone[0].title}”` : `Deleted ${gone.length} things`,
         action: {
           label: "Undo",
           run: () => {
-            window.clearTimeout(pendingDeletes.current.get(item.id));
-            pendingDeletes.current.delete(item.id);
-            setItems((list) => (list.some((i) => i.id === item.id) ? list : [item, ...list]));
+            window.clearTimeout(timer);
+            for (const item of gone) pendingDeletes.current.delete(item.id);
+            setItems((list) => [...gone.filter((g) => !list.some((i) => i.id === g.id)), ...list]);
           },
         },
       });
     },
     [toast, fail],
+  );
+  const removeItem = useCallback<Store["removeItem"]>((item) => removeItems([item]), [removeItems]);
+
+  // One change to several items, with one undo that puts each back as it was.
+  const bulkEdit = useCallback<Store["bulkEdit"]>(
+    (list, patch, message) => {
+      const keys = Object.keys(patch) as (keyof ItemDTO)[];
+      // Finishing spends from the pot; undoing must restore the price it guessed, too.
+      if (keys.includes("status")) keys.push("actualPrice");
+      const before = list.map((item) => ({
+        id: item.id,
+        patch: Object.fromEntries(keys.map((k) => [k, item[k]])) as ItemUpdateInput,
+      }));
+      for (const item of list) patchItem(item.id, patch);
+      toast({
+        message,
+        action: { label: "Undo", run: () => before.forEach((b) => patchItem(b.id, b.patch)) },
+      });
+    },
+    [patchItem, toast],
   );
 
   const saveSettings = useCallback<Store["saveSettings"]>(
@@ -526,6 +555,8 @@ export function StoreProvider({
       toggleDone,
       toggleStep,
       removeItem,
+      removeItems,
+      bulkEdit,
       saveSettings,
       toast,
       dismissToast,
@@ -538,7 +569,7 @@ export function StoreProvider({
       openBulk: setBulk,
       closeBulk: () => setBulk(null),
     }),
-    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, calendarPath, patchItem, toggleDone, toggleStep, removeItem, saveSettings, toast, dismissToast, toasts, editing, justAdded, bulk],
+    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, calendarPath, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, toasts, editing, justAdded, bulk],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

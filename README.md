@@ -14,7 +14,9 @@ A shared to-do list and budget planner for a new house, for two people. Log ever
 - **Home** — the one thing to do next, then four more; the money in one line; rooms filling in; what the other person finished recently.
 - **Rooms** — every room has its own paint colour; its swatch strip paints in as jobs get done.
 - **Money** — the pot (money you have now) and a monthly saving. The plan spends the pot on the list in priority order, marks where it runs out, and dates the rest month by month. Once you've set the pot, ticking off something with a cost takes it out automatically (and undo puts it back). Jobs paid in stages work too: ticking a costed step pays that stage, and finishing the job pays only what's left. Spending so far, accuracy vs. estimates, and a CSV export of everything.
-- **Shopping trip** — under *To buy*, show only what the pot covers right now and tick things off in the shop.
+- **Shopping trip** — under *To buy*, show only what the pot covers right now and tick things off in the shop. Supplies inside jobs ("Buy socket faceplates" under "Fit new sockets", or any step with a product link and a price) are listed too, under *For jobs*.
+- **Select several** in the list to finish, move, re-prioritise, hand over or delete them in one go — with one undo.
+- **Guarantees** — note when a guarantee or warranty runs out; it's listed under Money and the calendar feed reminds you a month before.
 - **Compare quotes** — log quotes from tradespeople against a job; the cheapest is flagged, and choosing one sets the job's cost.
 - **Updates** — a short thread on any item ("rang them, waiting for a callback"), with who said it and when.
 - **Duplicate** anything — the same job in another room, or again next year.

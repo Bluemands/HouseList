@@ -39,6 +39,11 @@ function parseRepeat(text: string): { repeat: Repeat; match: RegExpMatchArray } 
 }
 
 const BUY_WORDS = /^(buy|get|order|pick up|grab)\b/i;
+
+/** A step that's really shopping: "Buy faceplates", or a product link with a price. */
+export function isShoppingStep(step: { text: string; link: string | null; cost: number | null }): boolean {
+  return BUY_WORDS.test(step.text.trim()) || (!!step.link && step.cost != null);
+}
 const TASK_WORDS =
   /^(fix|paint|repair|install|fit|clean|call|book|sort|clear|remove|replace|hang|build|assemble|measure|tidy|empty|organise|organize|decorate|service|sand|seal|tile|plaster|rewire|treat|bleed|move|change|check|ring|email|find|research|plan)\b/i;
 // Work someone does, wherever it falls: "Boiler service", "Chimney sweep".

@@ -10,7 +10,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/items/
   const { id } = await ctx.params;
   const body = await readBody(request, itemUpdateSchema);
   if ("error" in body) return body.error;
-  const { steps: stepsIn, stepDone, dueDate, actor, ...fields } = body.data;
+  const { steps: stepsIn, stepDone, dueDate, warrantyUntil, actor, ...fields } = body.data;
 
   const settings = await getSettings();
   const result = await prisma.$transaction(async (tx) => {
@@ -79,6 +79,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/items/
         actualPrice,
         potCharge: pot.itemCharge,
         dueDate: fromDay(dueDate),
+        warrantyUntil: fromDay(warrantyUntil),
         ...(completing ? { completedAt: new Date(), completedBy: actor || null } : {}),
         ...(reopening ? { completedAt: null, completedBy: null } : {}),
       },

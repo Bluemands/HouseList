@@ -10,13 +10,14 @@ import {
   Pin,
   Receipt,
   Repeat,
+  ShieldCheck,
   ShoppingBag,
   Trash2,
   User,
 } from "lucide-react";
 import type { ItemDTO } from "@/lib/types";
 import { REPEAT_SHORT, STATUS_LABELS } from "@/lib/types";
-import { describeDue, formatCost, formatGBP, formatMonth } from "@/lib/format";
+import { describeDue, formatCost, formatGBP, formatMonth, formatMonthYear, today } from "@/lib/format";
 import { useStore } from "@/lib/store";
 import { haptic } from "@/lib/haptics";
 import { doneStepsCost } from "@/lib/pot";
@@ -28,6 +29,8 @@ type Props = {
   monthsAway?: number | null;
   hideRoom?: boolean;
   lead?: boolean;
+  /** Selection mode: a tap selects the row instead of opening it. */
+  select?: { selected: boolean; onToggle: () => void };
 };
 
 const SWIPE_COMMIT = 96;
@@ -101,7 +104,7 @@ function useSwipe(onRight: () => void, onLeft: () => void) {
   return { dx, settling, handlers };
 }
 
-export function ItemRow({ item: listed, monthsAway, hideRoom, lead }: Props) {
+export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Props) {
   const { toggleDone, toggleStep, openItem, removeItem, justAdded, settling, itemById } = useStore();
   // Just ticked: the list still holds its place, but the row shows it done.
   const leaving = settling.has(listed.id);
@@ -113,7 +116,7 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead }: Props) {
   );
   const due = item.dueDate && !done ? describeDue(item.dueDate) : null;
   const stepsDone = item.steps.filter((s) => s.done).length;
-  const nextStep = done ? undefined : item.steps.find((s) => !s.done);
+  const nextStep = done || select ? undefined : item.steps.find((s) => !s.done);
   const stagesPaid = done ? 0 : doneStepsCost(item.steps);
   const cost = done
     ? item.actualPrice != null
@@ -201,6 +204,14 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead }: Props) {
     );
   }
   if (done && item.completedBy) meta.push(<span key="by">{item.completedBy}</span>);
+  if (item.warrantyUntil && item.warrantyUntil >= today()) {
+    meta.push(
+      <span key="guarantee" className="inline-flex items-center gap-1">
+        <ShieldCheck size={12} strokeWidth={2.2} className="text-ink-3" aria-hidden="true" />
+        Guaranteed to {formatMonthYear(item.warrantyUntil)}
+      </span>,
+    );
+  }
 
   const reveal = Math.min(1, Math.abs(swipe.dx) / SWIPE_COMMIT);
   const armed = Math.abs(swipe.dx) >= SWIPE_COMMIT;
@@ -212,7 +223,7 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead }: Props) {
         justAdded === item.id && "row-arrive",
         leaving && "row-leave",
       )}
-      {...swipe.handlers}
+      {...(select ? {} : swipe.handlers)}
     >
       {/* What a swipe will do, revealed underneath the row. */}
       {swipe.dx !== 0 && (
@@ -250,26 +261,41 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead }: Props) {
       <div className="min-h-0">
         <div
           className={clsx(
-            "group relative flex items-start gap-3 bg-bg transition-colors duration-150 hover:bg-sunken/60",
+            "group relative flex items-start gap-3 transition-colors duration-150",
+            select?.selected ? "bg-accent-soft" : "bg-bg hover:bg-sunken/60",
             lead ? "px-1 py-4" : "px-1 py-3",
             swipe.settling && "transition-transform duration-200 ease-out",
           )}
           style={swipe.dx ? { transform: `translateX(${swipe.dx}px)` } : undefined}
         >
           <div className={clsx("relative z-10", lead ? "pt-0.5" : "pt-px")}>
-            <TickButton
-              done={done}
-              room={item.room}
-              label={item.title}
-              onToggle={() => toggleDone(item)}
-              size={lead ? "lg" : "md"}
-            />
+            {select ? (
+              <span
+                aria-hidden="true"
+                className={clsx(
+                  "grid place-items-center rounded-[8px] border-[1.5px] transition-colors",
+                  lead ? "h-8 w-8" : "h-[26px] w-[26px]",
+                  select.selected ? "border-accent bg-accent text-accent-ink" : "border-line-strong",
+                )}
+              >
+                {select.selected && <Check size={lead ? 18 : 15} strokeWidth={2.8} />}
+              </span>
+            ) : (
+              <TickButton
+                done={done}
+                room={item.room}
+                label={item.title}
+                onToggle={() => toggleDone(item)}
+                size={lead ? "lg" : "md"}
+              />
+            )}
           </div>
 
           <div className="min-w-0 flex-1">
             <button
               type="button"
-              onClick={() => openItem(item.id)}
+              onClick={() => (select ? select.onToggle() : openItem(item.id))}
+              aria-pressed={select ? select.selected : undefined}
               className="block w-full text-left outline-none after:absolute after:inset-0 after:rounded-[inherit] after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent"
             >
               <span className="flex items-start gap-2">

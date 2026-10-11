@@ -141,6 +141,8 @@ export type ItemDTO = {
   assignee: string | null;
   /** Calendar date, YYYY-MM-DD. */
   dueDate: string | null;
+  /** When its guarantee runs out, YYYY-MM-DD. */
+  warrantyUntil: string | null;
   project: string | null;
   repeat: Repeat | null;
   spawnedFromId: string | null;

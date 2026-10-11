@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   const parsed = await readBody(request, itemCreateSchema);
   if ("error" in parsed) return parsed.error;
 
-  const { steps, dueDate, ...fields } = parsed.data;
+  const { steps, dueDate, warrantyUntil, ...fields } = parsed.data;
   const data = { ...fields, ...estimateFromSteps(steps) };
   const done = data.status === "DONE";
   const actualPrice = done ? (data.actualPrice ?? data.estimatedPrice ?? null) : (data.actualPrice ?? null);
@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
         actualPrice,
         potCharge: pot.itemCharge,
         dueDate: fromDay(dueDate),
+        warrantyUntil: fromDay(warrantyUntil),
         completedAt: done ? new Date() : null,
         completedBy: done ? data.addedBy : null,
         steps: steps?.length

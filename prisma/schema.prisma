@@ -74,6 +74,9 @@ model Item {
   // Free text so it can be either of them, "Both", or a tradesperson.
   assignee String?
   dueDate  DateTime? @db.Date
+  // When the guarantee or warranty on it runs out; the calendar feed warns
+  // a month ahead.
+  warrantyUntil DateTime? @db.Date
   // Loose grouping tag ("Kitchen reno"). Replaced the old user-created lists.
   project  String?
   // Product pages, quotes, videos — a job often needs several.
