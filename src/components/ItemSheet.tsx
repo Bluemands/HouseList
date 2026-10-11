@@ -14,7 +14,9 @@ import {
   TITLE_MAX,
   rebaseSteps,
   stepCostsKey,
+  stepsGap,
   stepsTotal,
+  unsavedItem,
   type ItemDTO,
   type Kind,
   type Priority,
@@ -33,6 +35,7 @@ import type { ItemUpdateInput } from "@/lib/validation";
 import { Button, Chip, Field, GrowingTextarea, MoneyInput, PaintChip, Segmented, Suggestion, inputClass } from "@/components/ui";
 import { QuotesField, UpdatesField } from "@/components/ItemExtras";
 import { AskClaude } from "@/components/AskClaude";
+import { PlanNote } from "@/components/PlanNote";
 import { LinksField, StepsField, parseMoney, type DraftStep } from "@/components/StepsField";
 
 type Draft = {
@@ -186,6 +189,47 @@ function SheetBody({
     fromSteps != null &&
     (costsKey(draft) !== costsKey(initial) || parseMoney(initial.estimatedPrice) === initialTotal);
   const paidSoFar = draft.steps.reduce((sum, st, i) => sum + (st.done && stepCosts[i] ? stepCosts[i]! : 0), 0);
+  // Costing a stage of a quoted job (the deposit, say) would otherwise shrink
+  // the job to that stage: say so, and offer the rest as a step of its own.
+  const gap = followsSteps
+    ? stepsGap(
+        {
+          estimatedPrice: parseMoney(initial.estimatedPrice),
+          estimateMax: parseMoney(initial.estimateMax),
+          steps: initial.steps.map((s) => ({ cost: parseMoney(s.cost) })),
+        },
+        fromSteps,
+      )
+    : null;
+  const priorFigure = gap != null && fromSteps != null ? fromSteps + gap : null;
+  const priorLabel = initial.isQuote ? "quote" : initial.estimateMax ? "top of the estimate" : "estimate";
+
+  // The item as saving it now would leave it, for the plan to place. Typos
+  // count as blank here; saving is what catches them.
+  const planned = useMemo<ItemDTO>(() => {
+    const money = (n: number | null) => (n == null || Number.isNaN(n) ? null : n);
+    const low = followsSteps ? fromSteps : money(parseMoney(draft.estimatedPrice));
+    const high = followsSteps ? null : money(parseMoney(draft.estimateMax));
+    return {
+      ...(item ?? unsavedItem("new")),
+      kind: draft.kind,
+      status: draft.status,
+      priority: draft.priority,
+      dueDate: draft.dueDate || null,
+      estimatedPrice: low,
+      estimateMax: high != null && low != null && high <= low ? null : high,
+      steps: draft.steps.map((s) => ({
+        id: s.id ?? s.key,
+        text: s.text,
+        done: s.done,
+        cost: money(parseMoney(s.cost)),
+        link: null,
+        notes: null,
+        potCharge: null,
+        doneAt: null,
+      })),
+    };
+  }, [item, draft, followsSteps, fromSteps]);
 
   const people = useMemo(() => {
     const names = new Set([...settings.members, me]);
@@ -326,6 +370,20 @@ function SheetBody({
     if (!added.length) return;
     setDraft((d) => ({ ...d, steps: [...d.steps, ...added] }));
     setNewStep("");
+  }
+
+  // The part of a quote or estimate the costed steps don't cover, as a last
+  // step, so the total stays what was agreed and paying it is a tick.
+  function addBalance(amount: number) {
+    const step: DraftStep = {
+      key: `balance-${Date.now()}`,
+      text: initial.isQuote ? "Pay the balance" : "The rest",
+      done: false,
+      cost: num(amount),
+      link: "",
+      notes: "",
+    };
+    setDraft((d) => ({ ...d, steps: [...d.steps, step] }));
   }
 
   // The same thing again — for another room, or next time — as a new item.
@@ -630,6 +688,20 @@ function SheetBody({
                 <MoneyInput label="Up to" placeholder="Up to" value={draft.estimateMax} onChange={(v) => set("estimateMax", v)} />
               </div>
             )}
+            {gap != null && priorFigure != null && draft.status !== "DONE" && (
+              <div className="grid justify-items-start gap-1.5" aria-live="polite">
+                <span className="text-[13px] text-ink-2 tabular">
+                  That&apos;s {formatGBP(Math.abs(gap))} {gap > 0 ? "less" : "more"} than the {priorLabel} of{" "}
+                  {formatGBP(priorFigure)}
+                  {gap > 0 ? ", so the plan would count only the steps." : "."}
+                </span>
+                {gap > 0 && (
+                  <Suggestion onClick={() => addBalance(gap)}>
+                    Add the {formatGBP(gap)} balance as a step
+                  </Suggestion>
+                )}
+              </div>
+            )}
             <label className="flex items-center gap-2.5 py-1 text-[14px] text-ink-2">
               <input
                 type="checkbox"
@@ -646,6 +718,8 @@ function SheetBody({
               </div>
             )}
           </Field>
+
+          <PlanNote planned={planned} isNew={isNew} />
 
           {(draft.status === "DONE" || draft.warrantyUntil) && (
             <Field label="Guaranteed until" hint="The calendar feed reminds you a month before it runs out.">

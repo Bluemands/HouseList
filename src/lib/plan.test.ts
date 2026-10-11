@@ -1,5 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { buildPlan, compareItems, planCost, spending, upNext, affordabilityIndex } from "@/lib/plan";
+import {
+  affordabilityIndex,
+  buildPlan,
+  compareItems,
+  describeMoves,
+  describeWhen,
+  planCost,
+  planImpact,
+  planShifts,
+  spending,
+  upNext,
+} from "@/lib/plan";
 import type { ItemDTO, SettingsDTO } from "@/lib/types";
 
 beforeAll(() => {
@@ -100,6 +111,89 @@ describe("buildPlan", () => {
     const a = item({ title: "A", priority: "MUST_HAVE", estimatedPrice: 10 });
     const b = item({ title: "B", priority: "MUST_HAVE", estimatedPrice: 10, status: "DOING" });
     expect([a, b].sort(compareItems).map((i) => i.title)).toEqual(["B", "A"]);
+  });
+});
+
+describe("planImpact", () => {
+  it("says where an item sits, and how short or spare the pot is there", () => {
+    const locks = item({ title: "Locks", priority: "MUST_HAVE", estimatedPrice: 200 });
+    const rug = item({ title: "Rug", estimatedPrice: 300 });
+    const impact = planImpact([locks, rug], settings(400, 100), rug);
+    expect(impact.before).toEqual({ monthsAway: 1, short: 100, spare: 0, ahead: 1 });
+    expect(impact.after).toEqual(impact.before);
+    expect(planImpact([locks, rug], settings(400, 100), locks).after).toEqual({
+      monthsAway: 0,
+      short: 0,
+      spare: 200,
+      ahead: 0,
+    });
+  });
+
+  it("names what a change of priority pushes back", () => {
+    const locks = item({ title: "Locks", priority: "MUST_HAVE", estimatedPrice: 300 });
+    const sofa = item({ title: "Sofa", estimatedPrice: 600 });
+    const shed = item({ title: "Shed", priority: "SOMEDAY", estimatedPrice: 400 });
+    const all = [locks, sofa, shed];
+    const impact = planImpact(all, settings(500, 200), { ...shed, priority: "MUST_HAVE" });
+    expect(impact.before?.monthsAway).toBe(4);
+    expect(impact.after?.monthsAway).toBe(1);
+    expect(impact.later.map((m) => [m.item.title, m.from, m.to])).toEqual([["Sofa", 2, 4]]);
+    expect(impact.sooner).toEqual([]);
+  });
+
+  it("names what dropping something brings forward", () => {
+    const sofa = item({ title: "Sofa", estimatedPrice: 600 });
+    const rug = item({ title: "Rug", estimatedPrice: 200 });
+    const impact = planImpact([sofa, rug], settings(300, 0), { ...sofa, priority: "SOMEDAY" });
+    expect(impact.after?.monthsAway).toBeNull();
+    expect(impact.sooner.map((m) => [m.item.title, m.from, m.to])).toEqual([["Rug", null, 0]]);
+  });
+
+  it("previews pinning, a new item, and an item that's been made free", () => {
+    const boiler = item({ title: "Boiler", priority: "MUST_HAVE", estimatedPrice: 900 });
+    const blind = item({ title: "Blind", estimatedPrice: 80 });
+    const all = [boiler, blind];
+    expect(planImpact(all, settings(1000), { ...blind, pinned: true }).later).toEqual([]);
+    const pinned = planImpact(all, settings(950), { ...blind, pinned: true });
+    expect(pinned.after?.monthsAway).toBe(0);
+    expect(pinned.later.map((m) => [m.item.title, m.from, m.to])).toEqual([["Boiler", 0, null]]);
+
+    // A new must-have queues behind the older one, ahead of the would-likes.
+    const fresh = item({ id: "new", title: "Fence", priority: "MUST_HAVE", estimatedPrice: 500 });
+    const added = planImpact(all, settings(1000), fresh);
+    expect(added.before).toBeNull();
+    expect(added.after?.monthsAway).toBeNull();
+    expect(added.later.map((m) => m.item.title)).toEqual(["Blind"]);
+
+    expect(planImpact(all, settings(0), { ...boiler, estimatedPrice: null }).after).toBeNull();
+  });
+});
+
+describe("planShifts", () => {
+  it("moves the rest of the plan when several things change at once", () => {
+    const sofa = item({ title: "Sofa", estimatedPrice: 600 });
+    const rug = item({ title: "Rug", estimatedPrice: 200 });
+    const lamp = item({ title: "Lamp", estimatedPrice: 50 });
+    const shed = item({ title: "Shed", priority: "SOMEDAY", estimatedPrice: 100 });
+    const all = [sofa, rug, lamp, shed];
+    const { later, sooner } = planShifts(all, settings(300, 100), [sofa, rug].map((i) => ({ ...i, priority: "SOMEDAY" as const })));
+    // Sofa and Rug were the ones changed, so only the others are reported.
+    expect(sooner.map((m) => [m.item.title, m.from, m.to])).toEqual([
+      ["Lamp", 6, 0],
+      ["Shed", 7, 0],
+    ]);
+    expect(later).toEqual([]);
+  });
+
+  it("names what moved, briefly", () => {
+    const long = item({ title: "Install fire alarms, 1 office, 1 master bedroom, 1 hallway" });
+    const rug = item({ title: "Rug" });
+    expect(describeMoves([{ item: rug, from: 2, to: 0 }])).toBe("“Rug” (to now)");
+    expect(describeMoves([{ item: long, from: 0, to: 2 }, { item: rug, from: 0, to: null }])).toBe(
+      "“Install fire alarms, 1 office, 1 maste…” (to Dec 2026) and 1 more",
+    );
+    expect(describeWhen(null)).toBe("not at current savings");
+    expect(describeWhen(3, true)).toBe("January 2027");
   });
 });
 

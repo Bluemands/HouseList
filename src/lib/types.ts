@@ -156,6 +156,25 @@ export function stepsTotal(steps: { cost?: number | null }[]): number | null {
   return costed.length ? costed.reduce((sum, s) => sum + s.cost!, 0) : null;
 }
 
+/**
+ * Costing steps replaces the item's figure with their total, so a £2,000
+ * quote with only its £500 deposit costed would quietly plan as £500. This
+ * is how far the new total is from the figure the item had before its steps
+ * set it (a quote, an estimate, or the top of a range): positive when the
+ * steps leave some out, negative when they come to more. Null when there was
+ * no earlier figure, the steps already set it, or the two agree.
+ */
+export function stepsGap(
+  before: { estimatedPrice: number | null; estimateMax: number | null; steps: { cost?: number | null }[] },
+  total: number | null,
+): number | null {
+  const figure = before.estimateMax ?? before.estimatedPrice;
+  const beforeTotal = stepsTotal(before.steps);
+  if (figure == null || total == null || (beforeTotal != null && before.estimatedPrice === beforeTotal)) return null;
+  const gap = Math.round((figure - total) * 100) / 100;
+  return gap === 0 ? null : gap;
+}
+
 export type ItemDTO = {
   id: string;
   title: string;
@@ -189,6 +208,41 @@ export type ItemDTO = {
   quotes: QuoteDTO[];
   comments: CommentDTO[];
 };
+
+/** An item that isn't saved yet, for the plan to place: added now, so last in its tier. */
+export function unsavedItem(id: string, title = ""): ItemDTO {
+  const now = new Date().toISOString();
+  return {
+    id,
+    title,
+    kind: "TASK",
+    room: "WHOLE_HOUSE",
+    priority: "WOULD_LIKE",
+    status: "TODO",
+    estimatedPrice: null,
+    estimateMax: null,
+    isQuote: false,
+    actualPrice: null,
+    assignee: null,
+    dueDate: null,
+    warrantyUntil: null,
+    project: null,
+    repeat: null,
+    spawnedFromId: null,
+    pinned: false,
+    potCharge: null,
+    links: [],
+    notes: null,
+    addedBy: "",
+    completedAt: null,
+    completedBy: null,
+    createdAt: now,
+    updatedAt: now,
+    steps: [],
+    quotes: [],
+    comments: [],
+  };
+}
 
 export type SettingsDTO = {
   budgetAvailable: number;
