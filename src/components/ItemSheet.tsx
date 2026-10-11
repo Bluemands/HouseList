@@ -15,6 +15,7 @@ import {
   stepCostsKey,
   stepsGap,
   stepsTotal,
+  unsavedItem,
   type ItemDTO,
   type Kind,
   type Priority,
@@ -99,41 +100,6 @@ const stepPayload = (s: DraftStep) => ({
 });
 
 const linksPayload = (urls: string[]) => [...new Set(urls.map(normaliseLink).filter((u): u is string => !!u))];
-
-/** An item that isn't saved yet, for the plan: added now, so last in its tier. */
-function unsavedItem(): ItemDTO {
-  const now = new Date().toISOString();
-  return {
-    id: "new",
-    title: "",
-    kind: "TASK",
-    room: "WHOLE_HOUSE",
-    priority: "WOULD_LIKE",
-    status: "TODO",
-    estimatedPrice: null,
-    estimateMax: null,
-    isQuote: false,
-    actualPrice: null,
-    assignee: null,
-    dueDate: null,
-    warrantyUntil: null,
-    project: null,
-    repeat: null,
-    spawnedFromId: null,
-    pinned: false,
-    potCharge: null,
-    links: [],
-    notes: null,
-    addedBy: "",
-    completedAt: null,
-    completedBy: null,
-    createdAt: now,
-    updatedAt: now,
-    steps: [],
-    quotes: [],
-    comments: [],
-  };
-}
 
 export function ItemSheet() {
   const { editing, items, closeItem } = useStore();
@@ -244,7 +210,7 @@ function SheetBody({
     const low = followsSteps ? fromSteps : money(parseMoney(draft.estimatedPrice));
     const high = followsSteps ? null : money(parseMoney(draft.estimateMax));
     return {
-      ...(item ?? unsavedItem()),
+      ...(item ?? unsavedItem("new")),
       kind: draft.kind,
       status: draft.status,
       priority: draft.priority,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { handlePost, type McpServer } from "@/lib/mcp";
-import { TOOLS, affordLabel, filterItems, overview } from "@/lib/mcp-tools";
+import { TOOLS, affordLabel, filterItems, overview, previewChange, shoppingList } from "@/lib/mcp-tools";
+import { affordabilityIndex, buildPlan } from "@/lib/plan";
 import type { ItemDTO, SettingsDTO } from "@/lib/types";
 
 const echo: McpServer = {
@@ -237,6 +238,72 @@ describe("the tools", () => {
     expect(affordLabel(null)).toMatch(/not at the current/);
     expect(affordLabel(2)).toMatch(/after 2 more months/);
     expect(affordLabel(undefined)).toBeUndefined();
+  });
+
+  it("preview a change to the plan without making it", () => {
+    const boiler = item({ title: "Boiler", priority: "MUST_HAVE", estimatedPrice: 400 });
+    const sofa = item({ title: "Sofa", kind: "BUY", estimatedPrice: 300 });
+    const shed = item({ title: "Shed", priority: "SOMEDAY", estimatedPrice: 600 });
+    const all = [boiler, sofa, shed];
+
+    const must = previewChange(all, settings, { id: shed.id, priority: "MUST_HAVE" });
+    expect(must.before).toMatchObject({ affordable: expect.stringMatching(/after 3 more months/), shortToday: 800 });
+    expect(must.after).toMatchObject({ affordable: expect.stringMatching(/after 2 more months/) });
+    expect(must.pushedBack).toEqual([
+      { id: sofa.id, title: "Sofa", priority: "WOULD_LIKE", from: expect.stringMatching(/after 1 more month/), to: expect.stringMatching(/after 3 more/) },
+    ]);
+
+    const dropped = previewChange(all, settings, { id: boiler.id, drop: true });
+    expect(dropped.after).toBe("left out of the plan");
+    expect(dropped.broughtForward!.map((m) => m.title)).toEqual(["Sofa", "Shed"]);
+
+    const fence = previewChange(all, settings, { title: "Fence", estimatedPrice: 200, pinned: true });
+    expect(fence.before).toMatch(/not in the plan/);
+    expect(fence.after).toMatchObject({ affordable: expect.stringMatching(/^now/), potLeftAfter: 300 });
+    expect(fence.pushedBack!.map((m) => m.title)).toEqual(["Boiler", "Sofa", "Shed"]);
+
+    expect(() => previewChange(all, settings, { id: "nope" })).toThrow(/No item with id nope/);
+  });
+
+  it("gather the shopping list, supplies inside jobs included", () => {
+    const sofa = item({ title: "Sofa", kind: "BUY", estimatedPrice: 600, links: ["https://www.ikea.com/gb/en/p/kivik/"] });
+    const kettle = item({ title: "Kettle", kind: "BUY", priority: "MUST_HAVE", estimatedPrice: 30, estimateMax: 45 });
+    const ordered = item({ title: "Rug", kind: "BUY", status: "DOING", estimatedPrice: 80 });
+    const step = (text: string, cost: number | null, link: string | null, done = false) => ({
+      id: text,
+      text,
+      done,
+      cost,
+      link,
+      notes: null,
+      potCharge: null,
+      doneAt: null,
+    });
+    const sockets = item({
+      title: "Fit sockets",
+      room: "KITCHEN",
+      steps: [
+        step("Buy faceplates", 24, "https://www.screwfix.com/p/faceplate/1"),
+        step("Turn off the power", null, null),
+        step("Buy back boxes", 9, null, true),
+      ],
+    });
+    const all = [sofa, kettle, ordered, sockets];
+    const afford = affordabilityIndex(buildPlan(all, settings));
+
+    const list = shoppingList(all, afford);
+    expect(list.items.map((e) => [e.title, e.cost, e.shop ?? null])).toEqual([
+      ["Kettle", 45, null],
+      ["Sofa", 600, "ikea.com"],
+      ["Buy faceplates", 24, "screwfix.com"],
+    ]);
+    expect(list.items[2]).toMatchObject({ forJob: "Fit sockets", stepId: "Buy faceplates", itemId: sockets.id });
+    expect(list.total).toBe(669);
+    expect(list.byShop.map((s) => s.shop)).toEqual(["no shop linked", "ikea.com", "screwfix.com"]);
+
+    expect(shoppingList(all, afford, { shop: "Screwfix" }).items.map((e) => e.title)).toEqual(["Buy faceplates"]);
+    // £500 in the pot: the kettle (a must) fits, the sofa after it doesn't.
+    expect(shoppingList(all, afford, { affordableNow: true }).items.map((e) => e.title)).toEqual(["Kettle", "Buy faceplates"]);
   });
 
   it("build the overview from the app's own plan", () => {

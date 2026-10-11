@@ -180,6 +180,41 @@ export type ItemDTO = {
   comments: CommentDTO[];
 };
 
+/** An item that isn't saved yet, for the plan to place: added now, so last in its tier. */
+export function unsavedItem(id: string, title = ""): ItemDTO {
+  const now = new Date().toISOString();
+  return {
+    id,
+    title,
+    kind: "TASK",
+    room: "WHOLE_HOUSE",
+    priority: "WOULD_LIKE",
+    status: "TODO",
+    estimatedPrice: null,
+    estimateMax: null,
+    isQuote: false,
+    actualPrice: null,
+    assignee: null,
+    dueDate: null,
+    warrantyUntil: null,
+    project: null,
+    repeat: null,
+    spawnedFromId: null,
+    pinned: false,
+    potCharge: null,
+    links: [],
+    notes: null,
+    addedBy: "",
+    completedAt: null,
+    completedBy: null,
+    createdAt: now,
+    updatedAt: now,
+    steps: [],
+    quotes: [],
+    comments: [],
+  };
+}
+
 export type SettingsDTO = {
   budgetAvailable: number;
   /** Whether anyone has set up the pot; until then nothing spends from it. */

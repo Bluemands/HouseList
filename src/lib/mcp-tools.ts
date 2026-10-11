@@ -9,13 +9,17 @@ import {
   compareForList,
   isOpen,
   matchesSearch,
+  planImpact,
   roomStats,
   spending,
   upNext,
+  type PlanMove,
+  type PlanPlace,
 } from "@/lib/plan";
-import { KINDS, PRIORITIES, ROOMS, STATUS_LABELS, type ItemDTO, type SettingsDTO } from "@/lib/types";
+import { KINDS, PRIORITIES, ROOMS, STATUS_LABELS, unsavedItem, type ItemDTO, type SettingsDTO } from "@/lib/types";
 import { ROOM_PAINT } from "@/lib/rooms";
-import { addDays, formatGBP, formatMonth, today } from "@/lib/format";
+import { addDays, formatGBP, formatMonth, linkLabel, today } from "@/lib/format";
+import { isShoppingStep } from "@/lib/parse";
 import { AmazonUnavailable, SEARCH_RESULTS_MAX, amazonEnabled, lookupAmazon, searchAmazon } from "@/lib/amazon";
 
 // The tools Claude gets through the connector. Everything it writes goes
@@ -196,6 +200,114 @@ export function filterItems(items: ItemDTO[], f: z.output<typeof listInput>): It
 }
 
 // ---------------------------------------------------------------------------
+// What-ifs: the item sheet's plan preview (lib/plan planImpact), for "what if
+// we made the kitchen a must?" or "could we afford a £3,000 fence now?".
+
+const previewInput = z
+  .strictObject({
+    id: z.string().optional().describe("The item to change, from list_items or get_overview. Leave out to preview adding a new one."),
+    title: z.string().trim().min(1).max(200).optional().describe("For a new item: what it is."),
+    priority: z.enum(PRIORITIES).optional(),
+    pinned: z.boolean().optional().describe("Pinned items are paid for first, ahead of priority."),
+    estimatedPrice: z.number().nonnegative().nullable().optional().describe("Cost in GBP pounds; null makes it free."),
+    estimateMax: z.number().nonnegative().nullable().optional().describe("Top of a cost range in GBP; the plan counts this figure."),
+    drop: z.boolean().optional().describe("Leave it out of the plan altogether, as if they decided not to do it."),
+  })
+  .refine((v) => v.id || (v.title && v.estimatedPrice != null), {
+    message: "Pass an id to change an existing item, or a title and estimatedPrice to preview a new one.",
+  });
+
+const NEW_ID = "preview-new";
+
+export function previewChange(items: ItemDTO[], settings: SettingsDTO, input: z.output<typeof previewInput>) {
+  const existing = input.id ? items.find((i) => i.id === input.id) : undefined;
+  if (input.id && !existing) throw gone("item", input.id);
+  const base = existing ?? unsavedItem(NEW_ID, input.title);
+  const changed: ItemDTO = {
+    ...base,
+    priority: input.priority ?? base.priority,
+    pinned: input.pinned ?? base.pinned,
+    estimatedPrice: input.estimatedPrice !== undefined ? input.estimatedPrice : base.estimatedPrice,
+    estimateMax: input.estimateMax !== undefined ? input.estimateMax : base.estimateMax,
+    ...(input.drop ? { estimatedPrice: null, estimateMax: null, steps: [] } : {}),
+  };
+  const impact = planImpact(items, settings, changed);
+  const place = (p: PlanPlace | null) =>
+    p ? compact({ affordable: affordLabel(p.monthsAway), shortToday: p.short || null, potLeftAfter: p.monthsAway === 0 ? p.spare : null }) : "not in the plan (no cost, done, or new)";
+  const moves = (list: PlanMove[]) =>
+    list.map((m) => ({ id: m.item.id, title: m.item.title, priority: m.item.priority, from: affordLabel(m.from), to: affordLabel(m.to) }));
+  return compact({
+    note: settings.potTracked
+      ? "A preview only: nothing has changed. Make the change with update_item (or add_items) if they want it."
+      : "The pot isn't set up yet, so the app doesn't call anything unaffordable; this counts the pot as it stands.",
+    item: changed.title,
+    before: place(impact.before),
+    after: input.drop ? "left out of the plan" : place(impact.after),
+    pushedBack: moves(impact.later),
+    broughtForward: moves(impact.sooner),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// The shopping list, as the app's To buy shows it: things to buy, and the
+// supplies inside jobs ("Buy faceplates" under "Fit sockets").
+
+const shoppingInput = z.strictObject({
+  shop: z.string().optional().describe("Only things linked to this shop, e.g. 'screwfix'. Matched against the link's site."),
+  room: z.enum(ROOMS).optional(),
+  affordableNow: z.boolean().optional().describe("Only what the pot covers today, as the app's shopping trip does."),
+});
+
+export function shoppingList(items: ItemDTO[], afford: Map<string, number | null>, f: z.output<typeof shoppingInput> = {}) {
+  const fits = (item: ItemDTO) => !f.affordableNow || !afford.has(item.id) || afford.get(item.id) === 0;
+  const open = items.filter((i) => isOpen(i) && (!f.room || i.room === f.room) && fits(i)).sort(compareForList);
+  const entries = [
+    // Ordered things are on their way, so not for the shop.
+    ...open
+      .filter((i) => i.kind === "BUY" && i.status === "TODO")
+      .map((i) => ({
+        itemId: i.id,
+        title: i.title,
+        room: i.room,
+        priority: i.priority,
+        cost: i.estimateMax ?? i.estimatedPrice,
+        link: i.links[0] ?? null,
+        affordable: affordLabel(afford.get(i.id)),
+      })),
+    ...open.flatMap((i) =>
+      i.steps
+        .filter((s) => !s.done && isShoppingStep(s))
+        .map((s) => ({
+          itemId: i.id,
+          stepId: s.id,
+          title: s.text,
+          forJob: i.title,
+          room: i.room,
+          priority: i.priority,
+          cost: s.cost,
+          link: s.link,
+          affordable: affordLabel(afford.get(i.id)),
+        })),
+    ),
+  ].map((e) => ({ ...e, shop: e.link ? linkLabel(e.link) : null }));
+  const matched = f.shop ? entries.filter((e) => e.shop?.includes(f.shop!.toLowerCase().trim())) : entries;
+
+  const shops = new Map<string, { shop: string; count: number; total: number }>();
+  for (const e of matched) {
+    const key = e.shop ?? "no shop linked";
+    const s = shops.get(key) ?? { shop: key, count: 0, total: 0 };
+    s.count += 1;
+    s.total += e.cost ?? 0;
+    shops.set(key, s);
+  }
+  return {
+    total: matched.reduce((sum, e) => sum + (e.cost ?? 0), 0),
+    byShop: [...shops.values()].sort((a, b) => b.count - a.count),
+    items: matched.map((e) => compact(e)),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Inputs: the app's own validation, with the domain explained for Claude.
 
 const ROOM_DOC = ROOMS.map((r) => `${r} (${ROOM_PAINT[r].label})`).join(", ");
@@ -350,6 +462,30 @@ export const TOOLS: McpTool[] = [
         shown: Math.min(matched.length, filters.limit),
         items: matched.slice(0, filters.limit).map((i) => summarise(i, afford)),
       });
+    },
+  }),
+  tool({
+    name: "preview_change",
+    title: "Preview a change to the plan",
+    description:
+      "What-if, without changing anything: what a different priority, a pin, a new cost, dropping an item, or adding a new costed one would do to the affordability plan. Returns when the item becomes affordable before and after (with how far short the pot is today, or what's left after it), and every other item pushed back or brought forward, with from/to. Use it for 'what if we made the kitchen a must?', 'what would we have to put off to do the bathroom now?' or 'could we afford a £3,000 fence?', then make the change with update_item or add_items only if they want it. This is the same preview the app's item sheet shows.",
+    input: previewInput,
+    annotations: { readOnlyHint: true, idempotentHint: true },
+    async run(input) {
+      const { items, settings } = await getState();
+      return previewChange(items, settings, input);
+    },
+  }),
+  tool({
+    name: "shopping_list",
+    title: "Shopping list",
+    description:
+      "What's still to buy, as the app's To buy list shows it: open things to buy (not ones already ordered) and the supplies inside jobs (steps like 'Buy socket faceplates'), each with its cost, link, shop (the link's site), room and when it's affordable, plus totals by shop. Filter by shop ('screwfix'), room, or affordableNow for what the pot covers today. To tick something off once bought: update_item with status DONE for a thing to buy, or stepDone for a supply (itemId + stepId); both spend from the pot like ticking it in the app, so only when they say they've bought it.",
+    input: shoppingInput,
+    annotations: { readOnlyHint: true, idempotentHint: true },
+    async run(filters) {
+      const { items, afford } = await withAffordability();
+      return shoppingList(items, afford, filters);
     },
   }),
   tool({
@@ -527,6 +663,7 @@ Working well with them:
 - Call get_overview or list_items first. Update existing items rather than adding duplicates.
 - When you research a cost, put the range on the item (estimatedPrice/estimateMax, UK prices including VAT and labour where relevant), the sources in links, and a short summary as an update with add_comment.
 - Break big jobs into steps; supplies for a DIY job go in as steps starting "Buy …" with a cost and product link, which puts them on the To buy list under For jobs. Step costs add up to the job's estimate (replacing any range or quote), so for a job priced by a tradesperson, leave step costs off. Standalone purchases are BUY items.
+- For "what if…" money questions (a different priority, pinning something, dropping it, a big new cost), preview_change shows what moves in the plan before anything changes. For "what do we need from the shops?", shopping_list gathers things to buy and the supplies inside jobs.
 - Assignees are household members (get_overview → household), "Both", or a trade like "Electrician". Never assign Claude.
 - Dates are YYYY-MM-DD; get_overview tells you today's date.${amazonEnabled() ? AMAZON_INSTRUCTIONS : ""}`,
   tools: amazonEnabled() ? [...TOOLS, ...AMAZON_TOOLS] : TOOLS,

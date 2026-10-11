@@ -30,7 +30,7 @@ A shared to-do list and budget planner for a new house, for two people. Log ever
 - **Offline banner** — no signal in the shop? It says so instead of failing quietly.
 - **Since you last looked** — opening the app shows what the other person added and finished.
 - **Due dates in your phone calendar** — subscribe once (Settings) and everything with a date shows up with a 9am reminder. The link is private and unguessable; rotating `AUTH_SECRET` revokes it.
-- **Use it from Claude** — add the app to Claude as a connector and ask in plain English: "research what rewiring a 3-bed costs and put a range on the rewire job", "log this quote against the boiler job", "break 'tile bathroom 1' into steps", "what can we afford this month?". Claude does the research and writes the results into the list, signed "Claude" (see [Use it from Claude](#use-it-from-claude)).
+- **Use it from Claude** — add the app to Claude as a connector and ask in plain English: "research what rewiring a 3-bed costs and put a range on the rewire job", "log this quote against the boiler job", "break 'tile bathroom 1' into steps", "what can we afford this month?", "what if we made the bathroom a must?", "what do we need from Screwfix?". Claude does the research and writes the results into the list, signed "Claude" (see [Use it from Claude](#use-it-from-claude)).
 - Light and dark mode, installable to your phone's home screen, keyboard shortcut `N` to add on desktop.
 - A single shared PIN plus "who's this?" per device. Wrong PINs are rate-limited (10 per 15 minutes per device, 60 an hour overall), but use something longer than a single word.
 
@@ -146,7 +146,7 @@ The app is also a remote [MCP](https://modelcontextprotocol.io) server, so Claud
 3. In [claude.ai](https://claude.ai), go to **Settings → Connectors → Add custom connector**, give it a name ("The House List") and paste the link. Leave the OAuth fields empty.
 4. That's it: it's available in the Claude apps on your phone and desktop too, and in Claude Code (`claude mcp add --transport http house-list <link>`).
 
-Claude can see the overview and budget plan, find and read items, add and update them (steps, costs, links, notes, due dates, status), log and choose quotes, post updates and delete items when asked. Its changes go through the same rules as the app (finishing something costed spends from the pot, repeating jobs reschedule) and show up on both phones, attributed to "Claude" and in *Since you last looked*. Claude isn't added to your household.
+Claude can see the overview and budget plan, preview what a change would do to the plan without making it (a new priority, a pin, dropping something, a big new cost: what it moves forward and what it pushes back), pull together the shopping list (things to buy plus the supplies inside jobs, by shop, or just what the pot covers), find and read items, add and update them (steps, costs, links, notes, due dates, status), log and choose quotes, post updates and delete items when asked. Its changes go through the same rules as the app (finishing something costed spends from the pot, repeating jobs reschedule) and show up on both phones, attributed to "Claude" and in *Since you last looked*. Claude isn't added to your household.
 
 The link carries its own key, like the calendar link, so keep it private. Rotating `AUTH_SECRET` changes it (and the calendar link); you'd then re-add the connector with the new link.
 
