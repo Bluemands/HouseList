@@ -199,7 +199,9 @@ for (;;) {
   try {
     claim = await api("/api/worker/claim");
   } catch (err) {
-    log(`Couldn't reach the app: ${err.message}`);
+    // fetch's own message is just "fetch failed"; the cause says why (DNS, timeout, refused…).
+    const why = err.cause?.code ?? err.cause?.message;
+    log(`Couldn't reach the app: ${err.message}${why ? ` (${why})` : ""}.${once ? "" : " Trying again shortly."}`);
     if (once) process.exit(1);
   }
   if (claim?.job) {

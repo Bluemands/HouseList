@@ -96,7 +96,8 @@ export const aiJobCreateSchema = z.object({
     .string()
     .trim()
     .max(QUESTION_MAX, `Keep it under ${QUESTION_MAX} characters`)
-    .optional()
+    // The app sends null for "no question" (one tap, or quick add's sparkle).
+    .nullish()
     .transform((q) => q || null),
   requestedBy: z.string().trim().min(1).max(60),
   autofill: z.boolean().optional().default(false),

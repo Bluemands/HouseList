@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_ATTEMPTS,
   STALE_CLAIM_MS,
+  aiJobCreateSchema,
   aiResultSchema,
   autofillChanges,
   jobKindFor,
@@ -267,5 +268,25 @@ describe("autofillChanges", () => {
       links: ["https://example.com/a", "https://example.com/b"],
     });
     expect(changes.notes).toContain("• Fan A — £25 (Screwfix)\n• Fan B — £89.50");
+  });
+});
+
+describe("aiJobCreateSchema", () => {
+  it("takes no question as null, missing or blank", () => {
+    for (const question of [null, undefined, "  "]) {
+      expect(aiJobCreateSchema.parse({ question, requestedBy: "Sam" })).toEqual({
+        question: null,
+        requestedBy: "Sam",
+        autofill: false,
+      });
+    }
+  });
+
+  it("keeps a question and the autofill flag", () => {
+    expect(aiJobCreateSchema.parse({ question: " Repair or replace? ", requestedBy: "Sam", autofill: true })).toEqual({
+      question: "Repair or replace?",
+      requestedBy: "Sam",
+      autofill: true,
+    });
   });
 });
