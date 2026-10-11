@@ -64,7 +64,8 @@ const monthIndex = (name: string) => MONTHS.indexOf(name.toLowerCase().slice(0, 
 
 function money(raw: string, k?: string): number {
   const n = parseFloat(raw.replace(/,/g, ""));
-  return k ? n * 1000 : n;
+  // Rounded, or £16.1k is £16,100.000000000002 and never quite affordable.
+  return k ? Math.round(n * 1000) : n;
 }
 
 function nextWeekday(target: number, base = new Date()): string {

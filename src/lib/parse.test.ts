@@ -25,6 +25,11 @@ describe("money", () => {
     expect(p("Bulbs £4.99")).toMatchObject({ estimatedPrice: 4.99 });
     expect(p("Kitchen £8k-12k").estimateMax).toBe(12000);
   });
+  it("gives thousands shorthand in whole pounds, not floating-point crumbs", () => {
+    expect(p("New boiler £16.1k").estimatedPrice).toBe(16100);
+    expect(p("Extension £32.3k-64.1k")).toMatchObject({ estimatedPrice: 32300, estimateMax: 64100 });
+    expect(parseStep("Deposit £2.01k").cost).toBe(2010);
+  });
   it("reads 'quid'", () => {
     expect(p("Paint 40 quid")).toMatchObject({ title: "Paint", estimatedPrice: 40 });
   });
