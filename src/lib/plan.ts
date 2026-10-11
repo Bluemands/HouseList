@@ -5,9 +5,14 @@ import { ROOM_PAINT } from "@/lib/rooms";
 
 export const isOpen = (item: ItemDTO) => item.status !== "DONE";
 
-/** What planning assumes an open item still costs: the top of its range, less stages already done. */
+/**
+ * What planning assumes an open item still costs: the top of its range, less
+ * stages already done. A "top" below the estimate is a range left over from
+ * before the estimate changed (only the estimate is shown then), so the
+ * larger figure is the one that counts.
+ */
 export function planCost(item: ItemDTO): number {
-  return Math.max(0, (item.estimateMax ?? item.estimatedPrice ?? 0) - doneStepsCost(item.steps));
+  return Math.max(0, Math.max(item.estimateMax ?? 0, item.estimatedPrice ?? 0) - doneStepsCost(item.steps));
 }
 
 /** What a finished item actually cost. */

@@ -156,6 +156,14 @@ describe("stage payments", () => {
     expect(planCost(reno)).toBe(800);
   });
 
+  it("never plans below the estimate when an old range top is left behind", () => {
+    // A £200–300 job, then told it's £1,000 without the range being cleared
+    // (as the connector can): the app shows £1,000, so the plan counts £1,000.
+    expect(planCost(item({ estimatedPrice: 1000, estimateMax: 300 }))).toBe(1000);
+    expect(planCost(item({ estimatedPrice: 200, estimateMax: 300 }))).toBe(300);
+    expect(planCost(item({ estimateMax: 300 }))).toBe(300);
+  });
+
   it("counts stages as spent when they're ticked, and the rest when the job is done", () => {
     const going = item({
       estimatedPrice: 1000,
