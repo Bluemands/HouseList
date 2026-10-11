@@ -336,7 +336,8 @@ function titleWords(title: string): Set<string> {
     title
       .toLowerCase()
       .split(/[^a-z0-9]+/)
-      .filter((w) => w.length > 2 && !FILLER.has(w))
+      // Numbers count however short: "spare room 1" isn't "spare room 2".
+      .filter((w) => (w.length > 2 || /\d/.test(w)) && !FILLER.has(w))
       .map((w) => (w.length > 3 && w.endsWith("s") && !w.endsWith("ss") ? w.slice(0, -1) : w)),
   );
 }

@@ -289,6 +289,10 @@ describe("the same thing worded differently", () => {
     expect(sameThing("Paint hallway", "Paint landing")).toBe(false);
     expect(sameThing("Fix tap", "Fix bathroom tap")).toBe(false);
   });
+  it("keeps numbered rooms apart", () => {
+    expect(sameThing("Paint spare room 1", "Paint spare room 2")).toBe(false);
+    expect(sameThing("Clean bathroom 1 extractor", "Clean bathroom 2 extractor")).toBe(false);
+  });
 });
 
 describe("a job typed with a link", () => {
