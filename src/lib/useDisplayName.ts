@@ -10,8 +10,15 @@ function subscribe(callback: () => void) {
   return () => listeners.delete(callback);
 }
 
+// Storage can be blocked (some private modes); then the name lasts this visit.
+let fallback: string | null = null;
+
 function getSnapshot() {
-  return window.localStorage.getItem(STORAGE_KEY);
+  try {
+    return window.localStorage.getItem(STORAGE_KEY) ?? fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 function getServerSnapshot() {
@@ -26,12 +33,18 @@ export function useDisplayName() {
   const name = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const setName = useCallback((value: string) => {
-    window.localStorage.setItem(STORAGE_KEY, value.trim());
+    fallback = value.trim();
+    try {
+      window.localStorage.setItem(STORAGE_KEY, fallback);
+    } catch {}
     notify();
   }, []);
 
   const clearName = useCallback(() => {
-    window.localStorage.removeItem(STORAGE_KEY);
+    fallback = null;
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch {}
     notify();
   }, []);
 

@@ -12,6 +12,8 @@ import { haptic } from "@/lib/haptics";
 import type { ItemCreateInput, ItemUpdateInput, SettingsUpdateInput } from "@/lib/validation";
 import type { BulkCandidate } from "@/components/BulkAddSheet";
 
+export type SheetRestore = { draft: unknown; error: string };
+
 export type BulkRequest = { title: string; intro?: string; candidates: BulkCandidate[] };
 
 // One shared truth for both phones. Every change shows instantly (optimistic),
@@ -61,8 +63,9 @@ type Store = {
   toast: (t: Omit<Toast, "id">) => void;
   dismissToast: (id: number) => void;
   toasts: Toast[];
-  openItem: (id: string | "new", defaults?: Partial<ItemDTO>) => void;
-  editing: { id: string | "new"; defaults?: Partial<ItemDTO> } | null;
+  /** `restore` reopens a sheet whose save failed, with what was typed. */
+  openItem: (id: string | "new", defaults?: Partial<ItemDTO>, restore?: SheetRestore) => void;
+  editing: { id: string | "new"; defaults?: Partial<ItemDTO>; restore?: SheetRestore } | null;
   closeItem: () => void;
   justAdded: string | null;
   bulk: BulkRequest | null;
@@ -83,13 +86,21 @@ const UNDO_MS = 6_000;
 /** How long a ticked row lingers in an open list (matches .row-leave). */
 const SETTLE_MS = 1_000;
 
+/** A step as the API takes it back. */
+const stepInput = ({ id, text, done, cost, link, notes }: StepDTO) => ({ id, text, done, cost, link, notes });
+
 /** The item as it will be after the patch, and how far the pot moves. */
 function applyPatch(item: ItemDTO, patch: ItemUpdateInput, me: string, potTracked: boolean) {
   const next: ItemDTO = { ...item };
   for (const [key, value] of Object.entries(patch)) {
-    if (key === "steps" || key === "actor" || value === undefined) continue;
+    if (key === "steps" || key === "stepDone" || key === "actor" || value === undefined) continue;
     (next as Record<string, unknown>)[key] = value;
   }
+  // One step ticked from a row is the whole list with that one changed.
+  const { stepDone } = patch;
+  const steps =
+    patch.steps ??
+    (stepDone ? item.steps.map((st) => stepInput(st.id === stepDone.id ? { ...st, done: stepDone.done } : st)) : undefined);
   if (next.status === "DONE" && item.status !== "DONE") {
     next.completedAt = new Date().toISOString();
     next.completedBy = me;
@@ -98,12 +109,13 @@ function applyPatch(item: ItemDTO, patch: ItemUpdateInput, me: string, potTracke
   if (next.status !== "DONE" && item.status === "DONE") {
     next.completedAt = null;
     next.completedBy = null;
+    if (patch.actualPrice === undefined) next.actualPrice = null;
   }
   // Mirror the server's pot arithmetic so the money figures move instantly.
-  const pot = settlePot(item, { status: next.status, actualPrice: next.actualPrice, steps: patch.steps }, potTracked);
+  const pot = settlePot(item, { status: next.status, actualPrice: next.actualPrice, steps }, potTracked);
   next.potCharge = pot.itemCharge;
-  if (patch.steps) {
-    next.steps = patch.steps.map((s, i) => {
+  if (steps) {
+    next.steps = steps.map((s, i) => {
       const before = item.steps.find((b) => b.id === s.id);
       return {
         ...toStep(s, i),
@@ -128,8 +140,6 @@ function toStep(s: NonNullable<ItemUpdateInput["steps"]>[number], i: number): St
   };
 }
 
-/** A step as the API takes it back. */
-const stepInput = ({ id, text, done, cost, link, notes }: StepDTO) => ({ id, text, done, cost, link, notes });
 
 export function StoreProvider({
   initialItems,
@@ -173,6 +183,10 @@ export function StoreProvider({
   // Changes to one item go to the server strictly in order — otherwise a
   // quick tick-then-undo can arrive reversed and leave the pot wrong.
   const itemQueues = useRef(new Map<string, Promise<unknown>>());
+  // Items still being created, by their temporary id: a change made in that
+  // moment waits for the real id instead of being dropped.
+  const creating = useRef(new Map<string, Promise<ItemDTO | null>>());
+  const patchItemRef = useRef<Store["patchItem"] | null>(null);
   const lastMutation = useRef(0);
   const itemsRef = useRef(items);
   const settingsRef = useRef(settings);
@@ -272,9 +286,14 @@ export function StoreProvider({
       };
       setItems((list) => [optimistic, ...list]);
       setJustAdded(tempId);
+      const request = track(() => api.createItem({ ...input, addedBy: me }));
+      creating.current.set(tempId, request.catch(() => null));
       try {
-        const created = await track(() => api.createItem({ ...input, addedBy: me }));
+        const created = await request;
         setItems((list) => list.map((i) => (i.id === tempId ? created : i)));
+        // A change queued against the temporary id runs before the next
+        // render; it must already find the real item.
+        itemsRef.current = itemsRef.current.map((i) => (i.id === tempId ? created : i));
         setJustAdded(created.id);
         // What logging it took from the pot (it may have arrived already ticked).
         adjustPot(-((created.potCharge ?? 0) + created.steps.reduce((sum, s) => sum + (s.potCharge ?? 0), 0)));
@@ -284,6 +303,8 @@ export function StoreProvider({
         setItems((list) => list.filter((i) => i.id !== tempId));
         fail(err);
         return null;
+      } finally {
+        window.setTimeout(() => creating.current.delete(tempId), UNDO_MS * 2);
       }
     },
     [me, fail, adjustPot, settings.members],
@@ -291,8 +312,12 @@ export function StoreProvider({
 
   const patchItem = useCallback<Store["patchItem"]>(
     async (id, patch) => {
+      if (id.startsWith("tmp-")) {
+        const created = await creating.current.get(id);
+        return created ? patchItemRef.current!(created.id, patch) : null;
+      }
       const before = itemsRef.current.find((i) => i.id === id);
-      if (!before || id.startsWith("tmp-")) return null;
+      if (!before) return null;
       const { next: optimistic, delta: localDelta } = applyPatch(before, patch, me, settingsRef.current.potTracked);
       setItems((list) => list.map((i) => (i.id === id ? optimistic : i)));
       adjustPot(localDelta);
@@ -317,6 +342,10 @@ export function StoreProvider({
     },
     [me, fail, adjustPot],
   );
+
+  useLayoutEffect(() => {
+    patchItemRef.current = patchItem;
+  });
 
   const toggleDone = useCallback<Store["toggleDone"]>(
     (item) => {
@@ -360,8 +389,7 @@ export function StoreProvider({
     (item, stepId) => {
       const step = item.steps.find((s) => s.id === stepId);
       if (!step) return;
-      const withStep = (done: boolean) => item.steps.map((s) => stepInput(s.id === stepId ? { ...s, done } : s));
-      patchItem(item.id, { steps: withStep(!step.done) });
+      patchItem(item.id, { stepDone: { id: stepId, done: !step.done } });
       if (step.done) return;
       haptic(8);
       const paid = step.cost != null && step.cost > 0 && settingsRef.current.potTracked;
@@ -369,7 +397,7 @@ export function StoreProvider({
       const last = item.status !== "DONE" && item.steps.every((s) => s.id === stepId || s.done);
       toast({
         message: paid ? `${step.text} — ${formatGBP(step.cost!)} out of the pot` : `Done: ${step.text}`,
-        action: { label: "Undo", run: () => patchItem(item.id, { steps: withStep(false) }) },
+        action: { label: "Undo", run: () => patchItem(item.id, { stepDone: { id: stepId, done: false } }) },
         secondary: last
           ? {
               label: item.kind === "BUY" ? "Mark bought" : "Finish job",
@@ -431,7 +459,8 @@ export function StoreProvider({
       const timer = window.setTimeout(async () => {
         pendingDeletes.current.delete(item.id);
         try {
-          await track(() => api.deleteItem(item.id));
+          const id = item.id.startsWith("tmp-") ? (await creating.current.get(item.id))?.id : item.id;
+          if (id) await track(() => api.deleteItem(id));
         } catch (err) {
           setItems((list) => [item, ...list]);
           fail(err);
@@ -502,7 +531,7 @@ export function StoreProvider({
       dismissToast,
       toasts,
       editing,
-      openItem: (id, defaults) => setEditing({ id, defaults }),
+      openItem: (id, defaults, restore) => setEditing({ id, defaults, restore }),
       closeItem: () => setEditing(null),
       justAdded,
       bulk,

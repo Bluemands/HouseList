@@ -91,8 +91,10 @@ export function ListView() {
         if (priorities.length && !priorities.includes(i.priority)) return false;
         if (rooms.length && !rooms.includes(i.room)) return false;
         if (who && i.assignee !== who) return false;
-        // A shopping trip only shows what the pot can cover right now.
-        if (trip && (i.kind !== "BUY" || (isOpen(i) && afford.get(i.id) !== 0 && planCost(i) > 0))) return false;
+        // A shopping trip only shows what the pot can cover right now (everything, until there's a pot).
+        if (trip && (i.kind !== "BUY" || (plan.tracked && isOpen(i) && afford.get(i.id) !== 0 && planCost(i) > 0))) {
+          return false;
+        }
         if (q) {
           const hay = [
             i.title,
@@ -111,7 +113,7 @@ export function ListView() {
         }
         return true;
       }),
-    [listing, kind, priorities, rooms, who, trip, q, afford],
+    [listing, kind, priorities, rooms, who, trip, q, afford, plan.tracked],
   );
 
   const open = matches.filter(isOpen).sort(compareForList);

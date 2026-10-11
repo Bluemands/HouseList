@@ -1,24 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { itemBulkCreateSchema } from "@/lib/validation";
-import { ITEM_INCLUDE, estimateFromSteps, fromDay, getSettings, stepRows, toItemDTO } from "@/lib/data";
+import { readBody } from "@/lib/api-route";
+import { ITEM_INCLUDE, estimateFromSteps, fromDay, getSettings, isMember, stepRows, toItemDTO } from "@/lib/data";
 
 // Many items at once: a pasted list, or the new-home essentials.
 export async function POST(request: NextRequest) {
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
-  }
-
-  const parsed = itemBulkCreateSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Some of those couldn't be added", fieldErrors: parsed.error.flatten().fieldErrors },
-      { status: 400 },
-    );
-  }
+  const parsed = await readBody(request, itemBulkCreateSchema);
+  if ("error" in parsed) return parsed.error;
 
   const { addedBy, items } = parsed.data;
   const settings = await getSettings();
@@ -42,7 +31,7 @@ export async function POST(request: NextRequest) {
         }),
       );
     }
-    if (!settings.members.includes(addedBy)) {
+    if (!isMember(settings.members, addedBy)) {
       await tx.settings.update({ where: { id: 1 }, data: { members: { push: addedBy } } });
     }
     return out;

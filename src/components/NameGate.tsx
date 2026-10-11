@@ -17,7 +17,8 @@ export function NameGate({ members, onSubmit }: { members: string[]; onSubmit: (
       setError("Pop your name in so we know who added what");
       return;
     }
-    onSubmit(trimmed);
+    // "connor" typed on a new phone is the Connor already here, not a third person.
+    onSubmit(members.find((m) => m.toLowerCase() === trimmed.toLowerCase()) ?? trimmed);
   }
 
   return (
@@ -70,6 +71,7 @@ export function NameGate({ members, onSubmit }: { members: string[]; onSubmit: (
             </label>
             <input
               id="name"
+              maxLength={60}
               autoFocus
               autoComplete="given-name"
               value={value}

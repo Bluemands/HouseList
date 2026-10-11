@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { Comment, Item, Quote, Settings, Step } from "@/generated/prisma/client";
-import { stepsTotal, type ItemDTO, type SettingsDTO } from "@/lib/types";
+import { stepCostsKey, stepsTotal, type ItemDTO, type SettingsDTO } from "@/lib/types";
 
 const toDay = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
@@ -23,9 +23,14 @@ export function stepRows(steps: StepInput[]) {
   }));
 }
 
-/** When steps carry costs, the item's estimate is their total. */
-export function estimateFromSteps(steps: StepInput[] | undefined) {
-  const total = steps ? stepsTotal(steps) : null;
+/**
+ * When steps carry costs, the item's estimate is their total — set whenever
+ * those costs change. Ticking or reordering steps leaves the estimate alone,
+ * so a quote chosen for the whole job isn't quietly replaced.
+ */
+export function estimateFromSteps(steps: StepInput[] | undefined, before?: { cost: number | null }[]) {
+  if (!steps || (before && stepCostsKey(steps) === stepCostsKey(before))) return {};
+  const total = stepsTotal(steps);
   return total == null ? {} : { estimatedPrice: total, estimateMax: null };
 }
 
@@ -82,6 +87,10 @@ export function toSettingsDTO(settings: Settings): SettingsDTO {
     lastPaydayBy: settings.lastPaydayBy,
   };
 }
+
+/** Names are matched without regard to case: "connor" is Connor. */
+export const isMember = (members: string[], name: string) =>
+  members.some((m) => m.toLowerCase() === name.toLowerCase());
 
 export function getSettings() {
   return prisma.settings.upsert({ where: { id: 1 }, update: {}, create: { id: 1 } });

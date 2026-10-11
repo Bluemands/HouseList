@@ -158,6 +158,7 @@ export function roomStats(items: ItemDTO[]): RoomStats[] {
     if (isOpen(item)) {
       r.open += 1;
       r.openCost += planCost(item);
+      r.spent += doneStepsCost(item.steps);
       if (item.dueDate && item.dueDate < now) r.overdue += 1;
     } else {
       r.done += 1;

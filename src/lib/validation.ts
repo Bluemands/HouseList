@@ -54,6 +54,9 @@ const itemFields = {
   links: z.array(z.url({ error: "Enter a full link, e.g. https://…" })).max(20).optional(),
   notes: optionalText(4000),
   steps: z.array(stepInput).max(50).optional(),
+  // One step ticked from a list row, applied to the steps as they are on the
+  // server — so it can't undo a change the other phone just made to another.
+  stepDone: z.object({ id: z.string(), done: z.boolean() }).optional(),
 };
 
 export const itemCreateSchema = z.object({

@@ -149,6 +149,7 @@ export function StepsField({
                   <input
                     value={step.text}
                     aria-label={`Step ${index + 1}`}
+                    maxLength={200}
                     onChange={(e) => update(step.key, { text: e.target.value })}
                     onBlur={() => !step.text.trim() && remove(step.key)}
                     className={clsx(
@@ -221,6 +222,7 @@ export function StepsField({
                       rows={2}
                       placeholder="Details — sizes, colours, who's doing it…"
                       aria-label={`Details for “${step.text}”`}
+                      maxLength={1000}
                       className={clsx(inputClass, "resize-y")}
                     />
                     <div className="flex items-center gap-1">
@@ -270,6 +272,7 @@ export function StepsField({
           }}
           placeholder={steps.length ? "Add another step" : "Break it down — e.g. Deposit £200, Fit tiles…"}
           aria-label="New step"
+          maxLength={200}
           className={inputClass}
         />
         <Button variant="secondary" onClick={() => onAdd()} aria-label="Add step" className="shrink-0 px-3">

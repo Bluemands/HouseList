@@ -11,6 +11,8 @@ import {
   ROOMS,
   STATUSES,
   STATUS_LABELS,
+  TITLE_MAX,
+  stepCostsKey,
   stepsTotal,
   type ItemDTO,
   type Kind,
@@ -20,8 +22,8 @@ import {
   type Status,
 } from "@/lib/types";
 import { ROOM_PAINT } from "@/lib/rooms";
-import { addDays, formatDay, formatGBP, normaliseLink, timeAgo, today, toDayString } from "@/lib/format";
-import { useStore } from "@/lib/store";
+import { addDays, formatDay, formatGBP, isWebLink, normaliseLink, timeAgo, today, toDayString } from "@/lib/format";
+import { useStore, type SheetRestore } from "@/lib/store";
 import { parseStep } from "@/lib/parse";
 import { useSheetDrag } from "@/lib/useSheetDrag";
 import type { ItemUpdateInput } from "@/lib/validation";
@@ -92,22 +94,34 @@ const stepPayload = (s: DraftStep) => ({
 const linksPayload = (urls: string[]) => [...new Set(urls.map(normaliseLink).filter((u): u is string => !!u))];
 
 export function ItemSheet() {
-  const { editing, items } = useStore();
+  const { editing, items, closeItem } = useStore();
   const item = editing && editing.id !== "new" ? items.find((i) => i.id === editing.id) : undefined;
-  if (!editing) return null;
-  if (editing.id !== "new" && !item) return null;
-  return <SheetBody key={editing.id} item={item} defaults={editing.defaults} />;
+  const gone = !!editing && editing.id !== "new" && !item;
+  // Deleted by the other phone while open: let go, or the app stays "editing".
+  useEffect(() => {
+    if (gone) closeItem();
+  }, [gone, closeItem]);
+  if (!editing || gone) return null;
+  return <SheetBody key={editing.id} item={item} defaults={editing.defaults} restore={editing.restore} />;
 }
 
-function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<ItemDTO> }) {
+function SheetBody({
+  item,
+  defaults,
+  restore,
+}: {
+  item?: ItemDTO;
+  defaults?: Partial<ItemDTO>;
+  restore?: SheetRestore;
+}) {
   const { closeItem, openItem, addItem, patchItem, removeItem, settings, items, me } = useStore();
   const isNew = !item;
   // What the sheet opened with. Edits are diffed against this snapshot rather
   // than the live item, so a change the other person makes while this is
   // open is never overwritten by our stale copy of that field.
   const [initial, setInitial] = useState<Draft>(() => toDraft(item ?? defaults ?? {}));
-  const [draft, setDraft] = useState<Draft>(initial);
-  const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Draft>(() => (restore?.draft as Draft | undefined) ?? initial);
+  const [error, setError] = useState<string | null>(restore?.error ?? null);
   const [newStep, setNewStep] = useState("");
   const [newLink, setNewLink] = useState("");
   // Where focus was when the sheet opened, to hand it back on close.
@@ -152,9 +166,15 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
   const dirty =
     JSON.stringify(draft) !== JSON.stringify(initial) || newStep.trim() !== "" || newLink.trim() !== "";
-  // When steps carry costs, the estimate is their total rather than typed in.
+  // When steps carry costs, the estimate is their total rather than typed in —
+  // unless a quote set it since, and the step costs haven't changed after.
   const stepCosts = draft.steps.map((s) => parseMoney(s.cost));
   const fromSteps = stepsTotal(stepCosts.map((cost) => ({ cost: Number.isNaN(cost) ? null : cost })));
+  const costsKey = (d: Draft) => stepCostsKey(d.steps.map((s) => ({ cost: parseMoney(s.cost) })));
+  const initialTotal = stepsTotal(initial.steps.map((s) => ({ cost: parseMoney(s.cost) })));
+  const followsSteps =
+    fromSteps != null &&
+    (costsKey(draft) !== costsKey(initial) || parseMoney(initial.estimatedPrice) === initialTotal);
   const paidSoFar = draft.steps.reduce((sum, st, i) => sum + (st.done && stepCosts[i] ? stepCosts[i]! : 0), 0);
 
   const people = useMemo(() => {
@@ -175,6 +195,11 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
     if ([estimatedPrice, estimateMax, actualPrice, ...stepCosts].some((n) => Number.isNaN(n))) {
       return "Prices need to be numbers";
     }
+    // Caught here, not by the server, so a typo never costs the whole edit.
+    const badLink = [...draft.links.map((l) => l.url), newLink, ...draft.steps.map((st) => st.link)]
+      .map(normaliseLink)
+      .find((u) => u && !isWebLink(u));
+    if (badLink) return `“${badLink.replace(/^https:\/\//, "")}” isn't a web address. Use the full link, e.g. screwfix.com/…`;
     const steps = [...draft.steps];
     if (newStep.trim()) steps.push({ key: "pending", text: newStep.trim(), done: false, cost: "", link: "", notes: "" });
     return {
@@ -185,7 +210,7 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
       room: draft.room,
       assignee: draft.assignee.trim() || null,
       dueDate: draft.dueDate || null,
-      ...(fromSteps != null
+      ...(followsSteps
         ? { estimatedPrice: fromSteps, estimateMax: null }
         : {
             estimatedPrice,
@@ -209,9 +234,23 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
       setError(payload);
       return;
     }
+    // Saving closes at once; if it then fails (offline, say), the sheet comes
+    // back with everything as typed rather than losing it.
+    const typed: Draft = {
+      ...draft,
+      steps: newStep.trim()
+        ? [...draft.steps, { key: `new-${Date.now()}`, text: newStep.trim(), done: false, cost: "", link: "", notes: "" }]
+        : draft.steps,
+      links: newLink.trim() ? [...draft.links, { key: `new-${Date.now()}`, url: newLink.trim() }] : draft.links,
+    };
+    const reopen = () =>
+      openItem(isNew ? "new" : item!.id, defaults, {
+        draft: typed,
+        error: "That didn't save, so your changes are still here. Try again.",
+      });
     closeItem();
     if (isNew) {
-      await addItem({ ...payload, title: payload.title! });
+      if (!(await addItem({ ...payload, title: payload.title! }))) reopen();
     } else {
       // Only send what changed, so two people editing different fields of the
       // same item don't overwrite each other.
@@ -221,12 +260,11 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
           ([k, v]) => JSON.stringify(v) !== JSON.stringify((before as Record<string, unknown>)[k]),
         ),
       ) as ItemUpdateInput;
-      if (Object.keys(changes).length) await patchItem(item!.id, changes);
+      if (Object.keys(changes).length && !(await patchItem(item!.id, changes))) reopen();
     }
   }
 
   function buildFrom(d: Draft): ItemUpdateInput {
-    const total = stepsTotal(d.steps.map((s) => ({ cost: parseMoney(s.cost) })));
     return {
       title: d.title.trim(),
       kind: d.kind,
@@ -235,9 +273,8 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
       room: d.room,
       assignee: d.assignee.trim() || null,
       dueDate: d.dueDate || null,
-      ...(total != null
-        ? { estimatedPrice: total, estimateMax: null }
-        : { estimatedPrice: parseMoney(d.estimatedPrice), estimateMax: parseMoney(d.estimateMax) }),
+      estimatedPrice: parseMoney(d.estimatedPrice),
+      estimateMax: parseMoney(d.estimateMax),
       isQuote: d.isQuote,
       actualPrice: parseMoney(d.actualPrice),
       project: d.project.trim() || null,
@@ -253,7 +290,7 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
       .filter((l) => l.trim())
       .map((line, i) => {
         const { text, cost } = parseStep(line);
-        return { key: `new-${Date.now()}-${i}`, text, done: false, cost: num(cost), link: "", notes: "" };
+        return { key: `new-${Date.now()}-${i}`, text: text.slice(0, 200), done: false, cost: num(cost), link: "", notes: "" };
       });
     if (!added.length) return;
     setDraft((d) => ({ ...d, steps: [...d.steps, ...added] }));
@@ -359,6 +396,7 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
           }}
           placeholder={draft.kind === "BUY" ? "What do you need to buy?" : "What needs doing?"}
           aria-label="Title"
+          maxLength={TITLE_MAX}
           className="w-full resize-none overflow-hidden bg-transparent py-2 text-[22px] leading-tight font-bold tracking-[-0.015em] text-ink outline-none placeholder:text-ink-3"
         />
         {error && (
@@ -439,6 +477,7 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
                 onChange={(e) => set("assignee", e.target.value)}
                 placeholder="e.g. Electrician, Dad, Gary the plasterer"
                 aria-label="Who's doing it"
+                maxLength={60}
                 className={inputClass}
               />
             )}
@@ -489,12 +528,14 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
             hint={
               draft.status === "DONE"
                 ? "What you actually paid comes out of the pot."
-                : fromSteps != null
+                : followsSteps
                   ? "Set by the steps’ costs below. Clear those to enter one figure here."
+                  : fromSteps != null
+                    ? `The steps add up to ${formatGBP(fromSteps)}. Change a step's cost to use that instead.`
                   : "Leave blank if it's free. Add an upper figure for a range, or cost each step below."
             }
           >
-            {fromSteps != null ? (
+            {followsSteps ? (
               <div className="flex items-baseline justify-between gap-3 rounded-[10px] border border-line bg-sunken px-3 py-2.5">
                 <span className="text-[15px] font-semibold text-ink tabular">{formatGBP(fromSteps)}</span>
                 <span className="text-[13px] text-ink-3 tabular">
@@ -568,6 +609,7 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
               rows={3}
               placeholder="Measurements, colours, who quoted what…"
               aria-label="Notes"
+              maxLength={4000}
               className={clsx(inputClass, "resize-y")}
             />
           </Field>
@@ -579,6 +621,7 @@ function SheetBody({ item, defaults }: { item?: ItemDTO; defaults?: Partial<Item
               list="projects"
               placeholder="None"
               aria-label="Project"
+              maxLength={60}
               className={inputClass}
             />
             <datalist id="projects">

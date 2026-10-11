@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { ArrowUp, Calendar, Hammer, Plus, Repeat, ShoppingBag, SlidersHorizontal, User } from "lucide-react";
 import type { Kind, Room } from "@/lib/types";
-import { PRIORITY_LABELS, REPEAT_SHORT } from "@/lib/types";
+import { PRIORITY_LABELS, REPEAT_SHORT, TITLE_MAX } from "@/lib/types";
 import { ROOM_PAINT } from "@/lib/rooms";
 import { parseQuickAdd, pastedLines } from "@/lib/parse";
 import { describeDue, formatCost } from "@/lib/format";
@@ -62,7 +62,7 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
       candidates: lines.slice(0, 100).map((line) => {
         const p = parseQuickAdd(line, settings.members);
         return {
-          title: p.title || line,
+          title: (p.title || line).slice(0, TITLE_MAX),
           kind: p.kind,
           room: p.room ?? defaultRoom,
           priority: p.priority ?? undefined,
@@ -124,6 +124,7 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
             onKeyDown={(e) => e.key === "Escape" && (reset(), inputRef.current?.blur())}
             placeholder={placeholder ?? "Add a job or something to buy…"}
             aria-label="Add a job or something to buy"
+            maxLength={TITLE_MAX}
             aria-describedby="quick-add-help"
             autoComplete="off"
             enterKeyHint="done"

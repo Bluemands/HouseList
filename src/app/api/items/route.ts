@@ -1,24 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { itemCreateSchema } from "@/lib/validation";
+import { readBody } from "@/lib/api-route";
 import { settlePot } from "@/lib/pot";
-import { ITEM_INCLUDE, estimateFromSteps, fromDay, getSettings, stepRows, toItemDTO } from "@/lib/data";
+import { ITEM_INCLUDE, estimateFromSteps, fromDay, getSettings, isMember, stepRows, toItemDTO } from "@/lib/data";
 
 export async function POST(request: NextRequest) {
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
-  }
-
-  const parsed = itemCreateSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Check the highlighted fields", fieldErrors: parsed.error.flatten().fieldErrors },
-      { status: 400 },
-    );
-  }
+  const parsed = await readBody(request, itemCreateSchema);
+  if ("error" in parsed) return parsed.error;
 
   const { steps, dueDate, ...fields } = parsed.data;
   const data = { ...fields, ...estimateFromSteps(steps) };
@@ -58,7 +47,7 @@ export async function POST(request: NextRequest) {
       where: { id: 1 },
       data: {
         budgetAvailable: pot.delta ? { increment: pot.delta } : undefined,
-        members: settings.members.includes(data.addedBy) ? undefined : { push: data.addedBy },
+        members: isMember(settings.members, data.addedBy) ? undefined : { push: data.addedBy },
       },
     });
     return created;

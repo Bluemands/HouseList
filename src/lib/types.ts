@@ -114,6 +114,13 @@ export type StepDTO = {
   doneAt: string | null;
 };
 
+/** The steps' costs, order aside, to tell whether any were changed. */
+export const stepCostsKey = (steps: { cost?: number | null }[]) =>
+  steps
+    .flatMap((s) => (s.cost == null ? [] : [s.cost]))
+    .sort((a, b) => a - b)
+    .join(",");
+
 /** The steps' total, or null when none of them has a cost. */
 export function stepsTotal(steps: { cost?: number | null }[]): number | null {
   const costed = steps.filter((s) => s.cost != null);

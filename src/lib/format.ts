@@ -118,6 +118,16 @@ export function normaliseLink(s: string): string | null {
   return /^https?:\/\//i.test(t) ? t : `https://${t}`;
 }
 
+/** Whether a (normalised) link is a real web address the server will take. */
+export function isWebLink(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return (u.protocol === "https:" || u.protocol === "http:") && u.hostname.includes(".") && !/\s/.test(url);
+  } catch {
+    return false;
+  }
+}
+
 /** The short name to show for a link: its site, without "www.". */
 export function linkLabel(url: string): string {
   try {

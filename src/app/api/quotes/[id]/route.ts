@@ -20,6 +20,9 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/quotes
         where: { id: quote.itemId },
         data: { estimatedPrice: updated.amount, estimateMax: null, isQuote: true },
       });
+    } else if (body.data.chosen === false && quote.chosen) {
+      // Unchoosing keeps the cost as it was, but it's no longer a firm quote.
+      await tx.item.update({ where: { id: quote.itemId }, data: { isQuote: false } });
     } else if (updated.chosen && body.data.amount !== undefined) {
       await tx.item.update({ where: { id: quote.itemId }, data: { estimatedPrice: updated.amount } });
     }

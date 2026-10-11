@@ -136,6 +136,7 @@ export function QuotesField({ item, onChosen }: { item: ItemDTO; onChosen: (item
               onChange={(e) => setFrom(e.target.value)}
               placeholder="Who from?"
               aria-label="Quote from"
+              maxLength={80}
               className={inputClass}
             />
             <MoneyInput label="Quote amount" value={amount} onChange={setAmount} placeholder="Amount" />
@@ -146,6 +147,7 @@ export function QuotesField({ item, onChosen }: { item: ItemDTO; onChosen: (item
               onChange={(e) => setNote(e.target.value)}
               placeholder="What's included? (optional)"
               aria-label="Quote note"
+              maxLength={500}
               className={inputClass}
             />
             <Button type="submit" variant="secondary" disabled={busy} className="shrink-0">
@@ -220,6 +222,7 @@ export function UpdatesField({ item }: { item: ItemDTO }) {
           onChange={(e) => setText(e.target.value)}
           placeholder={item.comments.length ? "Add an update…" : "e.g. Rang them, waiting for a callback"}
           aria-label="Add an update"
+          maxLength={1000}
           className={inputClass}
         />
         <Button type="submit" variant="secondary" disabled={busy || !text.trim()} aria-label="Post update" className="shrink-0 px-3">

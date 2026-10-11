@@ -1,54 +1,58 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { itemUpdateSchema } from "@/lib/validation";
+import { readBody } from "@/lib/api-route";
 import { ITEM_INCLUDE, estimateFromSteps, fromDay, getSettings, stepRows, toItemDTO } from "@/lib/data";
 import { nextOccurrence } from "@/lib/types";
 import { settlePot } from "@/lib/pot";
 
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/items/[id]">) {
   const { id } = await ctx.params;
+  const body = await readBody(request, itemUpdateSchema);
+  if ("error" in body) return body.error;
+  const { steps: stepsIn, stepDone, dueDate, actor, ...fields } = body.data;
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
-  }
-
-  const parsed = itemUpdateSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Check the highlighted fields", fieldErrors: parsed.error.flatten().fieldErrors },
-      { status: 400 },
-    );
-  }
-
-  const existing = await prisma.item.findUnique({ where: { id }, include: { steps: true } });
-  if (!existing) {
-    return NextResponse.json({ error: "Someone else deleted this" }, { status: 404 });
-  }
-
-  const { steps, dueDate, actor, ...fields } = parsed.data;
-  const changes = { ...fields, ...estimateFromSteps(steps) };
-  const status = changes.status ?? existing.status;
-  const completing = status === "DONE" && existing.status !== "DONE";
-  const reopening = status !== "DONE" && existing.status === "DONE";
-
-  let actualPrice = changes.actualPrice !== undefined ? changes.actualPrice : existing.actualPrice;
-  // Ticking something off assumes it cost what you guessed; the toast offers
-  // a one-tap way to correct it.
-  if (completing && actualPrice == null) {
-    actualPrice = changes.estimatedPrice !== undefined ? changes.estimatedPrice : existing.estimatedPrice;
-  }
-
-  // The pot is real money: stages and finished items leave it, and come back
-  // if they're reopened or their price is corrected (see lib/pot).
   const settings = await getSettings();
-  const pot = settlePot(existing, { status, actualPrice: actualPrice ?? null, steps }, settings.potTracked);
-  const potDelta = pot.delta;
-  const now = new Date();
-
   const result = await prisma.$transaction(async (tx) => {
+    // One change to an item at a time: two phones ticking at once must each
+    // see the other's result, or both would spend from the same starting point.
+    await tx.$queryRaw`SELECT "id" FROM "Item" WHERE "id" = ${id} FOR UPDATE`;
+    const existing = await tx.item.findUnique({ where: { id }, include: { steps: true } });
+    if (!existing) return null;
+
+    const current = [...existing.steps].sort((a, b) => a.position - b.position);
+    const steps =
+      stepsIn ??
+      (stepDone
+        ? current.map(({ id: stepId, text, done, cost, link, notes }) => ({
+            id: stepId,
+            text,
+            done: stepId === stepDone.id ? stepDone.done : done,
+            cost,
+            link,
+            notes,
+          }))
+        : undefined);
+    const changes = { ...fields, ...estimateFromSteps(steps, existing.steps) };
+    const status = changes.status ?? existing.status;
+    const completing = status === "DONE" && existing.status !== "DONE";
+    const reopening = status !== "DONE" && existing.status === "DONE";
+
+    let actualPrice = changes.actualPrice !== undefined ? changes.actualPrice : existing.actualPrice;
+    // Ticking something off assumes it cost what you guessed; the toast offers
+    // a one-tap way to correct it. Reopening it forgets that guess, so the
+    // next finish uses the estimate as it is then.
+    if (completing && actualPrice == null) {
+      actualPrice = changes.estimatedPrice !== undefined ? changes.estimatedPrice : existing.estimatedPrice;
+    }
+    if (reopening && changes.actualPrice === undefined) actualPrice = null;
+
+    // The pot is real money: stages and finished items leave it, and come back
+    // if they're reopened or their price is corrected (see lib/pot).
+    const pot = settlePot(existing, { status, actualPrice: actualPrice ?? null, steps }, settings.potTracked);
+    const potDelta = pot.delta;
+    const now = new Date();
+
     if (steps) {
       const keep = steps.flatMap((s) => (s.id ? [s.id] : []));
       await tx.step.deleteMany({ where: { itemId: id, id: { notIn: keep } } });
@@ -129,12 +133,13 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/items/
       if (removedIds.length) await tx.item.deleteMany({ where: { id: { in: removedIds } } });
     }
 
-    return { updated, spawned, removedIds };
+    return { updated, spawned, removedIds, potDelta };
   });
+  if (!result) return NextResponse.json({ error: "Someone else deleted this" }, { status: 404 });
 
   return NextResponse.json({
     item: toItemDTO(result.updated),
-    potDelta,
+    potDelta: result.potDelta,
     spawned: result.spawned ? toItemDTO(result.spawned) : null,
     removedIds: result.removedIds,
   });
