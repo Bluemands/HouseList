@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
-import { Copy, Hammer, Pin, ShoppingBag, Trash2, X } from "lucide-react";
+import { Copy, Hammer, Pin, ShoppingBag, Sparkles, Trash2, X } from "lucide-react";
 import {
   PRIORITIES,
   PRIORITY_LABELS,
@@ -27,6 +27,7 @@ import {
 import { ROOM_PAINT } from "@/lib/rooms";
 import { addDays, addYears, formatDay, formatGBP, isWebLink, normaliseLink, timeAgo, today, toDayString } from "@/lib/format";
 import { useStore, type SheetRestore } from "@/lib/store";
+import { workerState } from "@/lib/ai";
 import { parseStep } from "@/lib/parse";
 import { readableLink, siteOf, splitLink, titleFromUrl } from "@/lib/unfurl";
 import { useUnfurl } from "@/lib/useUnfurl";
@@ -123,8 +124,10 @@ function SheetBody({
   defaults?: Partial<ItemDTO>;
   restore?: SheetRestore;
 }) {
-  const { closeItem, openItem, addItem, patchItem, removeItem, settings, items, me } = useStore();
+  const { closeItem, openItem, addItem, patchItem, removeItem, askClaude, toast, settings, items, me } = useStore();
   const isNew = !item;
+  // Only offered once a worker has ever checked in, so nobody queues into nothing.
+  const worker = workerState(settings.workerSeenAt);
   // What the sheet opened with. Edits are diffed against this snapshot rather
   // than the live item, so a change the other person makes while this is
   // open is never overwritten by our stale copy of that field.
@@ -282,7 +285,12 @@ function SheetBody({
     };
   }
 
-  async function save() {
+  /**
+   * With Claude (a new item only): it's added as typed, and the worker fills
+   * in what was left blank (cost, steps, links, notes) when it answers.
+   * Whatever was filled in here is what Claude works from.
+   */
+  async function save({ withClaude = false } = {}) {
     if (!dirty && !isNew) return closeItem();
     const payload = buildPayload();
     if (typeof payload === "string") {
@@ -305,7 +313,17 @@ function SheetBody({
       });
     closeItem();
     if (isNew) {
-      if (!(await addItem({ ...payload, title: payload.title! }))) reopen();
+      const created = await addItem({ ...payload, title: payload.title! });
+      if (!created) return reopen();
+      if (withClaude && (await askClaude(created.id, undefined, { autofill: true }))) {
+        toast({
+          message:
+            worker === "active"
+              ? "Added. Claude's filling in the rest."
+              : "Added. Claude will fill in the rest when the worker's next on.",
+          action: { label: "Open", run: () => openItem(created.id) },
+        });
+      }
     } else {
       // Only send what changed, so two people editing different fields of the
       // same item don't overwrite each other.
@@ -865,9 +883,16 @@ function SheetBody({
 
       <div className="flex items-center gap-2 border-t border-line bg-surface px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))]">
         {isNew ? (
-          <Button variant="ghost" onClick={closeItem}>
-            Cancel
-          </Button>
+          <>
+            <Button variant="ghost" onClick={closeItem} className="px-3">
+              Cancel
+            </Button>
+            {worker !== "never" && (
+              <Button variant="secondary" onClick={() => save({ withClaude: true })} className="ml-auto px-3">
+                <Sparkles size={16} /> Add with Claude
+              </Button>
+            )}
+          </>
         ) : (
           <>
             <Button
@@ -884,7 +909,7 @@ function SheetBody({
             </Button>
           </>
         )}
-        <Button onClick={save} className="ml-auto min-w-28">
+        <Button onClick={() => save()} className={clsx(isNew && worker !== "never" ? "min-w-20" : "ml-auto min-w-28")}>
           {isNew ? "Add" : dirty ? "Save" : "Close"}
         </Button>
       </div>
