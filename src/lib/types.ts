@@ -121,6 +121,35 @@ export const stepCostsKey = (steps: { cost?: number | null }[]) =>
     .sort((a, b) => a - b)
     .join(",");
 
+/**
+ * A sheet's edited steps, laid over the steps as they are now. Steps are
+ * saved as a whole list, so without this a sheet left open would undo what
+ * happened meanwhile: a step the other phone ticked (and paid for) would be
+ * unticked, and steps Claude added would be deleted. Ticks this sheet didn't
+ * change follow the live item; steps added elsewhere are kept, and steps
+ * deleted elsewhere stay gone.
+ */
+export function rebaseSteps<T extends { id?: string; done?: boolean }>(
+  sent: T[],
+  opened: { id: string; done: boolean }[],
+  live: (T & { id: string; done: boolean })[],
+): T[] {
+  const openedById = new Map(opened.map((s) => [s.id, s]));
+  const liveById = new Map(live.map((s) => [s.id, s]));
+  const kept = sent.flatMap((s) => {
+    if (!s.id) return [s];
+    const now = liveById.get(s.id);
+    if (!now) return openedById.has(s.id) ? [] : [s];
+    const before = openedById.get(s.id);
+    return [before && !!s.done === before.done ? { ...s, done: now.done } : s];
+  });
+  const sentIds = new Set(sent.flatMap((s) => (s.id ? [s.id] : [])));
+  const added: T[] = live.filter((s) => !openedById.has(s.id) && !sentIds.has(s.id));
+  // Added elsewhere: after the existing steps, before the ones typed here.
+  const firstNew = kept.findIndex((s) => !s.id);
+  return firstNew < 0 ? [...kept, ...added] : [...kept.slice(0, firstNew), ...added, ...kept.slice(firstNew)];
+}
+
 /** The steps' total, or null when none of them has a cost. */
 export function stepsTotal(steps: { cost?: number | null }[]): number | null {
   const costed = steps.filter((s) => s.cost != null);

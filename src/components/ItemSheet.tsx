@@ -12,6 +12,7 @@ import {
   STATUSES,
   STATUS_LABELS,
   TITLE_MAX,
+  rebaseSteps,
   stepCostsKey,
   stepsTotal,
   type ItemDTO,
@@ -270,6 +271,15 @@ function SheetBody({
           ([k, v]) => JSON.stringify(v) !== JSON.stringify((before as Record<string, unknown>)[k]),
         ),
       ) as ItemUpdateInput;
+      // Steps go as one whole list: keep what happened to them elsewhere
+      // while this was open (a tick on the other phone, Claude's additions).
+      if (changes.steps) {
+        changes.steps = rebaseSteps(
+          changes.steps,
+          initial.steps.flatMap((s) => (s.id ? [{ id: s.id, done: s.done }] : [])),
+          item!.steps.map(({ id, text, done, cost, link, notes }) => ({ id, text, done, cost, link, notes })),
+        );
+      }
       if (Object.keys(changes).length && !(await patchItem(item!.id, changes))) reopen();
     }
   }
