@@ -349,6 +349,14 @@ A native dialog that rises as a bottom sheet on phones (92dvh max, 22px top corn
 
 The sheet leads with what most items need: title, type and status, priority, then cost and where it sits in the plan, then room, who, when, steps, Ask Claude and notes. Repeats, quotes, updates, links and project show once they have something in them; until then they wait behind one dashed "More" row naming them.
 
+### Simple Layout
+A per-phone alternative to the whole app for whoever wants a paper list, not a planner. One column on the limestone ground: a greeting with the count to do (and done today), Print-outs if any, then every open item under room headings (paint chip, room name, a Print link), as hairline rows with the 32px tick and the title at 17px. Rows stay in the order they were written; ticked ones cross out in place (the tick floods with the room's paint as everywhere) until the next day. A job with steps shows "3 of 10 steps" and unfolds a nested checklist of 20px boxes. A full-width 56px green **Add something** bar sits at the thumb. No pills, meta lines, money or Claude.
+
+**Guided add.** A full-screen card, one question per screen with Back, "2 of 3" and close: *What needs doing?* (a large text box), *Which room?* (a two-column grid of 56px room buttons with their paint chips, the guessed room pre-selected, and *Not sure*), *How soon?* (three 64px cards: Soon / When we can / One day, each with a one-line hint), then *Added* with a green tick, the title and room, *Add another* and *Done*.
+
+### Print-outs
+**The paper:** A4, black on white whatever the theme. Title at 22pt bold, "Printed Mon 12 Oct by Connor · 3 things", a 26mm QR code captioned "Done? Scan to tick these off in the app", a 1.5pt rule, then group headings at 12pt bold and 10mm rows (a grey tabular number, a 5mm square box, the text, a dotted writing line); steps indent 9mm with 4mm boxes and lettered numbers (2a, 2b). On screen the sheet sits on the ground with Back and a green Print above it. **Tick back** is a bottom sheet listing the print-out as printed, same numbers, with tappable square boxes; anything done or deleted since is greyed and says so, and one green "Mark 3 done" commits with a single undo toast.
+
 ### Toasts
 Ink pills (limestone text) that rise 8px into view above the tab bar, carrying the message and an "Undo" action in green-soft bold. Errors use a danger fill. They replace every confirmation dialog. While a sheet is open the toasts render inside it (a modal sheet makes everything outside it inert), so an undo or an error raised from a sheet is always visible and tappable.
 

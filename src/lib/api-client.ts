@@ -2,6 +2,7 @@ import type { ItemDTO, SettingsDTO } from "@/lib/types";
 import type { Unfurled } from "@/lib/unfurl";
 import type { AiJobDTO, AiJobUpdate } from "@/lib/ai";
 import type { ItemCreateInput, ItemUpdateInput, SettingsUpdateInput } from "@/lib/validation";
+import type { PrintLine, PrintOutDTO, PrintOutSummary } from "@/lib/printouts";
 
 export class ApiError extends Error {
   fieldErrors?: Record<string, string[] | undefined>;
@@ -123,4 +124,21 @@ export async function login(pin: string): Promise<void> {
 
 export async function logout(): Promise<void> {
   await fetch("/api/auth", { method: "DELETE" });
+}
+
+export async function createPrintOut(input: { title: string; createdBy: string; lines: PrintLine[] }): Promise<string> {
+  const { id } = await request<{ id: string }>("/api/printouts", { method: "POST", body: JSON.stringify(input) });
+  return id;
+}
+
+export async function listPrintOuts(): Promise<PrintOutSummary[]> {
+  const { printOuts } = await request<{ printOuts: PrintOutSummary[] }>("/api/printouts", { cache: "no-store" });
+  return printOuts;
+}
+
+export async function fetchPrintOut(id: string): Promise<PrintOutDTO> {
+  const { printOut } = await request<{ printOut: PrintOutDTO }>(`/api/printouts/${encodeURIComponent(id)}`, {
+    cache: "no-store",
+  });
+  return printOut;
 }

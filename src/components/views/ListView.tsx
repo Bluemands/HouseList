@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import clsx from "clsx";
-import { Search, ShoppingCart, SlidersHorizontal, X } from "lucide-react";
+import { Printer, Search, ShoppingCart, SlidersHorizontal, X } from "lucide-react";
 import { useStore } from "@/lib/store";
 import {
   PRIORITIES,
@@ -23,6 +23,9 @@ import { Chip, PaintChip, Segmented } from "@/components/ui";
 import { SelectionBar } from "@/components/SelectionBar";
 import { Supplies, type Supply } from "@/components/Supplies";
 import { isShoppingStep } from "@/lib/parse";
+import { usePrint } from "@/components/PrintButton";
+import { RecentPrintOuts } from "@/components/RecentPrintOuts";
+import { listLines, type PrintLine } from "@/lib/printouts";
 
 type GroupBy = "room" | "priority" | "due" | "who" | "project";
 type KindFilter = "ALL" | Kind;
@@ -192,6 +195,24 @@ export function ListView() {
     tripSupplies.reduce((s, st) => s + (st.cost ?? 0), 0);
   const selectedItems = open.filter((i) => selected.has(i.id));
 
+  // Print what's showing: the groups as on screen, then supplies for jobs.
+  const { print, busy: printing } = usePrint();
+  function printShowing() {
+    const label = (g: (typeof groups)[number]) =>
+      groupBy === "room" ? ROOM_PAINT[g.key as Room].label : typeof g.label === "string" ? g.label : g.key || null;
+    const lines: PrintLine[] = [
+      ...listLines(groups.map((g) => ({ label: groups.length > 1 ? label(g) : null, items: g.items }))),
+      ...supplies.map(({ item, step }) => ({
+        itemId: item.id,
+        stepId: step.id,
+        text: `${step.text} (for ${item.title})`,
+        group: "For jobs",
+      })),
+    ];
+    const base = kind === "BUY" ? (trip ? "Shopping trip" : "To buy") : kind === "TASK" ? "Jobs" : "Everything";
+    print(rooms.length === 1 ? `${base} · ${ROOM_PAINT[rooms[0]].label}` : base, lines);
+  }
+
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
       <header className="flex items-end justify-between gap-3 pt-1">
@@ -249,6 +270,19 @@ export function ListView() {
             <span className="hidden sm:inline">Filter</span>
             {filterCount > 0 && <span className="tabular">{filterCount}</span>}
           </button>
+          {(open.length > 0 || supplies.length > 0) && (
+            <button
+              type="button"
+              onClick={printShowing}
+              disabled={printing}
+              aria-label="Print this list"
+              title="Print this list to tick off on paper"
+              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[10px] border border-line bg-surface px-3 text-[14px] font-semibold text-ink-2 hover:text-ink disabled:opacity-50"
+            >
+              <Printer size={16} />
+              <span className="hidden sm:inline">Print</span>
+            </button>
+          )}
         </div>
         <Segmented
           label="Show"
@@ -470,6 +504,8 @@ export function ListView() {
       </div>
 
       {!selecting && <Supplies supplies={supplies} />}
+
+      {!selecting && <RecentPrintOuts />}
 
       {done.length > 0 && !selecting && (
         <section>

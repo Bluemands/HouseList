@@ -1,0 +1,149 @@
+/* A print-out: an A4 sheet, black on white whatever the app's theme. On
+   screen it sits on the app's ground with Back and Print above it; on paper
+   only the sheet prints. */
+
+@page {
+  size: A4;
+  margin: 14mm 14mm 16mm;
+}
+
+.paper-screen {
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  padding: 16px 16px 48px;
+}
+
+.paper-controls {
+  display: flex;
+  width: min(100%, 210mm);
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.paper {
+  width: min(100%, 210mm);
+  min-height: 297mm;
+  padding: 14mm;
+  background: #fff;
+  color: #111;
+  border-radius: 6px;
+  box-shadow: var(--shadow-pop);
+  font-size: 11.5pt;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.paper-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8mm;
+  padding-bottom: 5mm;
+  border-bottom: 1.5pt solid #111;
+}
+.paper-head h1 {
+  font-size: 22pt;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.paper-head p {
+  margin-top: 2mm;
+  font-size: 10pt;
+  color: #555;
+}
+
+.paper-qr {
+  display: grid;
+  justify-items: center;
+  gap: 1.5mm;
+  width: 30mm;
+  flex-shrink: 0;
+}
+.paper-qr figcaption {
+  font-size: 7.5pt;
+  line-height: 1.25;
+  text-align: center;
+  color: #555;
+}
+
+.paper-lines {
+  list-style: none;
+  margin-top: 3mm;
+}
+
+.paper-group {
+  margin-top: 6mm;
+  padding-bottom: 1mm;
+  font-size: 12pt;
+  font-weight: 700;
+  break-after: avoid;
+}
+
+/* Tall enough to tick by hand, with a faint line to write on. */
+.paper-line {
+  display: grid;
+  grid-template-columns: 8mm 6mm 1fr;
+  align-items: center;
+  gap: 3mm;
+  min-height: 10mm;
+  border-bottom: 0.5pt dotted #bbb;
+  break-inside: avoid;
+}
+.paper-n {
+  font-size: 9.5pt;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: #777;
+}
+.paper-box {
+  width: 5mm;
+  height: 5mm;
+  border: 1.2pt solid #111;
+  border-radius: 1mm;
+}
+.paper-text {
+  padding: 1.5mm 0;
+  line-height: 1.3;
+}
+
+.paper-step {
+  grid-template-columns: 8mm 6mm 1fr;
+  padding-left: 9mm;
+  min-height: 8.5mm;
+  font-size: 10.5pt;
+}
+.paper-step .paper-box {
+  width: 4mm;
+  height: 4mm;
+  border-width: 1pt;
+}
+
+.paper-foot {
+  margin-top: 8mm;
+  font-size: 8pt;
+  color: #999;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+  .paper-screen {
+    display: block;
+    justify-items: normal;
+    padding: 0;
+  }
+  .paper-controls {
+    display: none;
+  }
+  .paper {
+    width: auto;
+    min-height: 0;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}

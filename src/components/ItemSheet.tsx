@@ -32,6 +32,8 @@ import { parseStep } from "@/lib/parse";
 import { readableLink, siteOf, splitLink, titleFromUrl } from "@/lib/unfurl";
 import { useUnfurl } from "@/lib/useUnfurl";
 import { useSheetDrag, useSheetExit } from "@/lib/useSheetDrag";
+import { stepLines } from "@/lib/printouts";
+import { PrintButton } from "@/components/PrintButton";
 import type { ItemUpdateInput } from "@/lib/validation";
 import { Button, Chip, Field, GrowingTextarea, MoneyInput, PaintChip, Segmented, Suggestion, inputClass } from "@/components/ui";
 import { QuotesField, UpdatesField } from "@/components/ItemExtras";
@@ -837,6 +839,15 @@ function SheetBody({
             onNewStep={setNewStep}
             onAdd={addStep}
           />
+          {item && item.steps.some((st) => !st.done) && (
+            <PrintButton
+              title={item.title}
+              lines={() => stepLines(item)}
+              label="Print the steps"
+              before={() => save()}
+              className="-mt-3 -ml-3 justify-self-start"
+            />
+          )}
 
           {item && (
             <AskClaude

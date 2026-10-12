@@ -14,6 +14,8 @@ import { ItemList, ItemRow } from "@/components/ItemRow";
 import { SectionHead } from "@/components/ui";
 import { FloorPlan } from "@/components/FloorPlan";
 import { FLOOR_LABELS, ROOM_LAYOUT, roomAreas, roomSizeLabel } from "@/lib/house";
+import { PrintButton } from "@/components/PrintButton";
+import { listLines } from "@/lib/printouts";
 
 export function RoomsView({ go }: { go: (r: Route) => void }) {
   const { items } = useStore();
@@ -89,13 +91,31 @@ export function RoomView({ room, go }: { room: Room; go: (r: Route) => void }) {
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
-      <button
-        type="button"
-        onClick={() => go({ view: "rooms" })}
-        className="inline-flex items-center gap-1 justify-self-start rounded-lg py-1 pr-2 text-[14px] font-semibold text-ink-2 hover:text-ink"
-      >
-        <ArrowLeft size={17} /> Rooms
-      </button>
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => go({ view: "rooms" })}
+          className="inline-flex items-center gap-1 rounded-lg py-1 pr-2 text-[14px] font-semibold text-ink-2 hover:text-ink"
+        >
+          <ArrowLeft size={17} /> Rooms
+        </button>
+        {open.length > 0 && (
+          <PrintButton
+            title={paint.label}
+            lines={() =>
+              listLines(
+                doing.length && todo.length
+                  ? [
+                      { label: "In progress", items: doing },
+                      { label: "To do", items: todo },
+                    ]
+                  : [{ label: null, items: open }],
+              )
+            }
+            className="-mr-2"
+          />
+        )}
+      </div>
 
       <header
         className="-mx-4 grid gap-4 px-5 pt-6 pb-5 sm:mx-0 sm:rounded-[20px]"

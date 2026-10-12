@@ -11,6 +11,7 @@ import { workerState } from "@/lib/ai";
 import { timeAgo } from "@/lib/format";
 import { Button, Field, Segmented, inputClass } from "@/components/ui";
 import { NotificationsField } from "@/components/NotificationsField";
+import type { Layout } from "@/lib/layout";
 
 type Theme = "system" | "light" | "dark";
 
@@ -35,7 +36,19 @@ function applyTheme(theme: Theme) {
   } catch {}
 }
 
-export function SettingsSheet({ open, onClose, onSwitchUser }: { open: boolean; onClose: () => void; onSwitchUser: () => void }) {
+export function SettingsSheet({
+  open,
+  onClose,
+  onSwitchUser,
+  layout,
+  onLayout,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSwitchUser: () => void;
+  layout: Layout;
+  onLayout: (layout: Layout) => void;
+}) {
   const { me, settings, saveSettings, calendarPath, connectorPath, workerToken, openBulk } = useStore();
   const [copied, setCopied] = useState<"calendar" | "connector" | null>(null);
   const [origin, setOrigin] = useState("");
@@ -118,6 +131,28 @@ export function SettingsSheet({ open, onClose, onSwitchUser }: { open: boolean; 
               Save
             </Button>
           </div>
+        </Field>
+
+        <Field
+          label="This phone shows"
+          hint={
+            layout === "simple"
+              ? "Just the checklist, with adding one question at a time. Money, plans and Claude are in the full app."
+              : "Everything: money, plans, priorities and Claude. A simple list is just the checklist, on this phone only."
+          }
+        >
+          <Segmented
+            label="This phone shows"
+            value={layout}
+            onChange={(next) => {
+              onLayout(next);
+              onClose();
+            }}
+            options={[
+              { value: "full", label: "The full app" },
+              { value: "simple", label: "A simple list" },
+            ]}
+          />
         </Field>
 
         <Field label="Appearance">

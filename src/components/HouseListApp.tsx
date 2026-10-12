@@ -6,6 +6,12 @@ import { House, LayoutGrid, ListChecks, Plus, Settings, Wallet } from "lucide-re
 import { useDisplayName } from "@/lib/useDisplayName";
 import { useSheetExit } from "@/lib/useSheetDrag";
 import { refreshPush } from "@/lib/push-client";
+import { saveLayout, type Layout } from "@/lib/layout";
+import { TickBackContext } from "@/components/RecentPrintOuts";
+import { TickBackSheet } from "@/components/TickBackSheet";
+import { SimpleHome } from "@/components/simple/SimpleHome";
+import { GuidedAdd } from "@/components/simple/GuidedAdd";
+import { SimpleItemSheet } from "@/components/simple/SimpleItemSheet";
 import { StoreProvider, useStore } from "@/lib/store";
 import { useRoute, type Route, type View } from "@/lib/nav";
 import type { ItemDTO, SettingsDTO } from "@/lib/types";
@@ -29,10 +35,20 @@ type Props = {
   calendarPath: string;
   connectorPath: string;
   workerToken: string;
+  initialLayout: Layout;
 };
 
-export function HouseListApp({ initialItems, initialSettings, initialJobs, calendarPath, connectorPath, workerToken }: Props) {
+export function HouseListApp({
+  initialItems,
+  initialSettings,
+  initialJobs,
+  calendarPath,
+  connectorPath,
+  workerToken,
+  initialLayout,
+}: Props) {
   const { name, setName, clearName } = useDisplayName();
+  const [layout, setLayout] = useState(initialLayout);
 
   if (!name) {
     return <NameGate members={initialSettings.members} onSubmit={setName} />;
@@ -48,7 +64,14 @@ export function HouseListApp({ initialItems, initialSettings, initialJobs, calen
       connectorPath={connectorPath}
       workerToken={workerToken}
     >
-      <Shell onSwitchUser={clearName} />
+      <Shell
+        onSwitchUser={clearName}
+        layout={layout}
+        onLayout={(next) => {
+          saveLayout(next);
+          setLayout(next);
+        }}
+      />
     </StoreProvider>
   );
 }
@@ -60,17 +83,32 @@ const NAV: { view: View; label: string; icon: typeof House }[] = [
   { view: "money", label: "Money", icon: Wallet },
 ];
 
-function Shell({ onSwitchUser }: { onSwitchUser: () => void }) {
+function Shell({
+  onSwitchUser,
+  layout,
+  onLayout,
+}: {
+  onSwitchUser: () => void;
+  layout: Layout;
+  onLayout: (layout: Layout) => void;
+}) {
   const { route, go } = useRoute();
   const { openItem, me, editing, bulk, closeBulk } = useStore();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const bulkSheet = useSheetExit(bulk);
+  // A print-out being ticked back in, by id.
+  const [tickBack, setTickBack] = useState<string | null>(null);
+  const tickSheet = useSheetExit(tickBack);
+  // Simple layout: the guided add.
+  const [adding, setAdding] = useState(false);
+  const addSheet = useSheetExit(adding || null);
+  const simple = layout === "simple";
 
   // "n" to add from anywhere on a keyboard.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const t = e.target as HTMLElement;
-      if (e.metaKey || e.ctrlKey || e.altKey || editing || settingsOpen || bulk) return;
+      if (e.metaKey || e.ctrlKey || e.altKey || editing || settingsOpen || bulk || simple) return;
       if (t.closest("input, textarea, select, [contenteditable]")) return;
       if (e.key === "n") {
         e.preventDefault();
@@ -81,22 +119,26 @@ function Shell({ onSwitchUser }: { onSwitchUser: () => void }) {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [openItem, editing, settingsOpen, bulk]);
+  }, [openItem, editing, settingsOpen, bulk, simple]);
 
   // Opened from a notification: "?item=…" opens that item (then leaves the
   // address as it was), and a tap while the app's already open arrives as a
   // message from the service worker instead.
   useEffect(() => {
     function follow(url: URL) {
+      // A print-out's QR code: tick it back in.
+      const printOut = url.searchParams.get("printout");
+      if (printOut) return setTickBack(printOut);
       const id = url.searchParams.get("item");
       if (id) return openItem(id);
       const view = url.searchParams.get("v");
       if (view === "list" || view === "rooms" || view === "money") go({ view });
     }
     const here = new URL(window.location.href);
-    if (here.searchParams.has("item")) {
+    if (here.searchParams.has("item") || here.searchParams.has("printout")) {
       follow(here);
       here.searchParams.delete("item");
+      here.searchParams.delete("printout");
       window.history.replaceState(null, "", here.search || here.pathname);
     }
     const onMessage = (e: MessageEvent) => {
@@ -113,7 +155,57 @@ function Shell({ onSwitchUser }: { onSwitchUser: () => void }) {
 
   const addDefaults = route.room ? { room: route.room } : undefined;
 
+  // Sheets both layouts share.
+  const shared = (
+    <>
+      {bulkSheet.shown && (
+        <BulkAddSheet
+          key={`${bulkSheet.opening}:${bulkSheet.shown.title}`}
+          {...bulkSheet.shown}
+          leaving={bulkSheet.leaving}
+          onClose={closeBulk}
+        />
+      )}
+      {tickSheet.shown && (
+        <TickBackSheet
+          key={`${tickSheet.opening}:${tickSheet.shown}`}
+          id={tickSheet.shown}
+          leaving={tickSheet.leaving}
+          onClose={() => setTickBack(null)}
+        />
+      )}
+      <SettingsSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        layout={layout}
+        onLayout={onLayout}
+        onSwitchUser={() => {
+          setSettingsOpen(false);
+          onSwitchUser();
+        }}
+      />
+      <Toasts />
+      <OfflineBanner />
+    </>
+  );
+
+  if (simple) {
+    return (
+      <TickBackContext.Provider value={setTickBack}>
+        <main className="mx-auto w-full max-w-[640px] px-4 pt-[max(16px,env(safe-area-inset-top))] pb-[calc(env(safe-area-inset-bottom)+112px)] sm:px-6 lg:pt-10">
+          <SimpleHome onAdd={() => setAdding(true)} onSettings={() => setSettingsOpen(true)} />
+        </main>
+        {addSheet.shown && (
+          <GuidedAdd key={addSheet.opening} leaving={addSheet.leaving} onClose={() => setAdding(false)} />
+        )}
+        <SimpleItemSheet />
+        {shared}
+      </TickBackContext.Provider>
+    );
+  }
+
   return (
+    <TickBackContext.Provider value={setTickBack}>
     <div className="lg:grid lg:grid-cols-[240px_1fr]">
       {/* Desktop rail */}
       <aside className="sticky top-0 hidden h-dvh flex-col border-r border-line px-4 py-6 lg:flex">
@@ -188,25 +280,9 @@ function Shell({ onSwitchUser }: { onSwitchUser: () => void }) {
       </nav>
 
       <ItemSheet />
-      {bulkSheet.shown && (
-        <BulkAddSheet
-          key={`${bulkSheet.opening}:${bulkSheet.shown.title}`}
-          {...bulkSheet.shown}
-          leaving={bulkSheet.leaving}
-          onClose={closeBulk}
-        />
-      )}
-      <SettingsSheet
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        onSwitchUser={() => {
-          setSettingsOpen(false);
-          onSwitchUser();
-        }}
-      />
-      <Toasts />
-      <OfflineBanner />
+      {shared}
     </div>
+    </TickBackContext.Provider>
   );
 }
 

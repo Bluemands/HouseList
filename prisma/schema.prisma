@@ -154,6 +154,20 @@ model Settings {
   workerSeenAt    DateTime?
 }
 
+// A list printed to tick off on paper. It keeps the lines as printed, so
+// ticking it back in later shows exactly what was on the page, in the same
+// order and numbering, even after the list has moved on.
+model PrintOut {
+  id        String   @id @default(cuid())
+  title     String
+  createdBy String
+  // PrintLine[] (src/lib/printouts.ts): item, optional step, text, group.
+  lines     Json
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 // A phone that has turned on notifications. Tagged with whose phone it is,
 // so a change only buzzes the other person's.
 model PushSubscription {
