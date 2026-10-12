@@ -426,7 +426,7 @@ export function ListView() {
         </div>
       )}
 
-      <div className="grid gap-5">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
         {groups.map((group) => {
           const subtotal = group.items.reduce((s, i) => s + planCost(i), 0);
           return (

@@ -282,7 +282,7 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
     <li
       ref={rowRef}
       className={clsx(
-        "relative grid touch-pan-y grid-rows-[1fr] overflow-hidden border-b border-line",
+        "relative grid touch-pan-y grid-cols-[minmax(0,1fr)] grid-rows-[1fr] overflow-hidden border-b border-line",
         justAdded === item.id && "row-arrive",
         leaving && "row-leave",
       )}
