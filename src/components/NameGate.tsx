@@ -25,8 +25,8 @@ export function NameGate({ members, onSubmit }: { members: string[]; onSubmit: (
     <main className="grid min-h-dvh place-items-center px-5 py-10">
       <div className="w-full max-w-[380px]">
         <Wordmark className="mb-8" />
-        <h1 className="text-[26px] leading-tight font-bold tracking-[-0.02em]">Who&apos;s this?</h1>
-        <p className="mt-1 text-[15px] text-ink-2">
+        <h1 className="text-headline leading-tight font-bold tracking-[-0.02em]">Who&apos;s this?</h1>
+        <p className="mt-1 text-body text-ink-2">
           So the list knows who added, bought and finished what. Remembered on this device.
         </p>
 
@@ -39,11 +39,11 @@ export function NameGate({ members, onSubmit }: { members: string[]; onSubmit: (
                   key={m}
                   type="button"
                   onClick={() => onSubmit(m)}
-                  className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 text-left text-[16px] font-semibold transition-colors hover:border-accent"
+                  className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 text-left text-title font-semibold transition-colors hover:border-accent"
                 >
                   <span
                     aria-hidden="true"
-                    className="grid h-10 w-10 place-items-center rounded-[10px] text-[17px] font-bold"
+                    className="grid h-10 w-10 place-items-center rounded-control text-title font-bold"
                     style={{ background: ROOM_PAINT[room].hex, color: ROOM_PAINT[room].ink }}
                   >
                     {m.charAt(0).toUpperCase()}
@@ -56,7 +56,7 @@ export function NameGate({ members, onSubmit }: { members: string[]; onSubmit: (
               <button
                 type="button"
                 onClick={() => setTyping(true)}
-                className="rounded-2xl border border-dashed border-line-strong p-3.5 text-[15px] font-semibold text-ink-2 hover:text-ink"
+                className="rounded-2xl border border-dashed border-line-strong p-3.5 text-body font-semibold text-ink-2 hover:text-ink"
               >
                 Someone new
               </button>
@@ -66,7 +66,7 @@ export function NameGate({ members, onSubmit }: { members: string[]; onSubmit: (
 
         {typing && (
           <form onSubmit={handleSubmit} noValidate className="mt-6 grid gap-3">
-            <label htmlFor="name" className="text-[13px] font-semibold text-ink-2">
+            <label htmlFor="name" className="text-meta font-semibold text-ink-2">
               Your name
             </label>
             <input

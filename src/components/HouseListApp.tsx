@@ -1,32 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import clsx from "clsx";
-import { House, LayoutGrid, ListChecks, Plus, Settings, Wallet } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useDisplayName } from "@/lib/useDisplayName";
 import { useSheetExit } from "@/lib/useSheetDrag";
 import { refreshPush } from "@/lib/push-client";
 import { saveLayout, type Layout } from "@/lib/layout";
 import { TickBackContext } from "@/components/RecentPrintOuts";
-import { TickBackSheet } from "@/components/TickBackSheet";
-import { SimpleHome } from "@/components/simple/SimpleHome";
-import { GuidedAdd } from "@/components/simple/GuidedAdd";
-import { SimpleItemSheet } from "@/components/simple/SimpleItemSheet";
 import { StoreProvider, useStore } from "@/lib/store";
-import { useRoute, type Route, type View } from "@/lib/nav";
+import { useRoute } from "@/lib/nav";
 import type { ItemDTO, SettingsDTO } from "@/lib/types";
 import type { AiJobDTO } from "@/lib/ai";
 import { NameGate } from "@/components/NameGate";
-import { ItemSheet } from "@/components/ItemSheet";
-import { BulkAddSheet } from "@/components/BulkAddSheet";
 import { SettingsSheet } from "@/components/SettingsSheet";
 import { Toasts } from "@/components/Toasts";
 import { OfflineBanner } from "@/components/OfflineBanner";
-import { Wordmark } from "@/components/Wordmark";
-import { HomeView } from "@/components/views/HomeView";
-import { ListView } from "@/components/views/ListView";
-import { RoomView, RoomsView } from "@/components/views/RoomsView";
-import { MoneyView } from "@/components/views/MoneyView";
+
+// Each phone only downloads the layout it shows; the server still draws it
+// first time. The two sheets below open rarely, so they load when they do.
+const FullLayout = dynamic(() => import("@/components/FullLayout").then((m) => m.FullLayout));
+const SimpleLayout = dynamic(() => import("@/components/SimpleLayout").then((m) => m.SimpleLayout));
+const BulkAddSheet = dynamic(() => import("@/components/BulkAddSheet").then((m) => m.BulkAddSheet));
+const TickBackSheet = dynamic(() => import("@/components/TickBackSheet").then((m) => m.TickBackSheet));
 
 type Props = {
   initialItems: ItemDTO[];
@@ -76,13 +71,6 @@ export function HouseListApp({
   );
 }
 
-const NAV: { view: View; label: string; icon: typeof House }[] = [
-  { view: "home", label: "Home", icon: House },
-  { view: "list", label: "List", icon: ListChecks },
-  { view: "rooms", label: "Rooms", icon: LayoutGrid },
-  { view: "money", label: "Money", icon: Wallet },
-];
-
 function Shell({
   onSwitchUser,
   layout,
@@ -99,9 +87,6 @@ function Shell({
   // A print-out being ticked back in, by id.
   const [tickBack, setTickBack] = useState<string | null>(null);
   const tickSheet = useSheetExit(tickBack);
-  // Simple layout: the guided add.
-  const [adding, setAdding] = useState(false);
-  const addSheet = useSheetExit(adding || null);
   const simple = layout === "simple";
 
   // "n" to add from anywhere on a keyboard.
@@ -153,8 +138,6 @@ function Shell({
     if (me) refreshPush(me);
   }, [me]);
 
-  const addDefaults = route.room ? { room: route.room } : undefined;
-
   // Sheets both layouts share.
   const shared = (
     <>
@@ -189,139 +172,14 @@ function Shell({
     </>
   );
 
-  if (simple) {
-    return (
-      <TickBackContext.Provider value={setTickBack}>
-        <main className="mx-auto w-full max-w-[640px] px-4 pt-[max(16px,env(safe-area-inset-top))] pb-[calc(env(safe-area-inset-bottom)+112px)] sm:px-6 lg:pt-10">
-          <SimpleHome onAdd={() => setAdding(true)} onSettings={() => setSettingsOpen(true)} />
-        </main>
-        {addSheet.shown && (
-          <GuidedAdd key={addSheet.opening} leaving={addSheet.leaving} onClose={() => setAdding(false)} />
-        )}
-        <SimpleItemSheet />
-        {shared}
-      </TickBackContext.Provider>
-    );
-  }
-
   return (
     <TickBackContext.Provider value={setTickBack}>
-    <div className="lg:grid lg:grid-cols-[240px_1fr]">
-      {/* Desktop rail */}
-      <aside className="sticky top-0 hidden h-dvh flex-col border-r border-line px-4 py-6 lg:flex">
-        <Wordmark compact className="px-2" />
-        <button
-          type="button"
-          onClick={() => openItem("new", addDefaults)}
-          className="mt-7 flex items-center justify-center gap-2 rounded-xl bg-accent px-3 py-2.5 text-[14px] font-semibold text-accent-ink transition-colors hover:bg-accent-hover"
-        >
-          <Plus size={18} strokeWidth={2.4} /> Add something
-          <kbd className="ml-1 rounded border border-white/30 px-1 text-[11px] font-medium opacity-80">N</kbd>
-        </button>
-        <nav aria-label="Main" className="mt-6 grid gap-0.5">
-          {NAV.map(({ view, label, icon: Icon }) => {
-            const active = route.view === view;
-            return (
-              <button
-                key={view}
-                type="button"
-                onClick={() => go({ view })}
-                aria-current={active ? "page" : undefined}
-                className={clsx(
-                  "flex items-center gap-3 rounded-[10px] px-3 py-2 text-[15px] font-semibold transition-colors",
-                  active ? "bg-sunken text-ink" : "text-ink-2 hover:bg-sunken/60 hover:text-ink",
-                )}
-              >
-                <Icon size={19} strokeWidth={active ? 2.3 : 2} />
-                {label}
-              </button>
-            );
-          })}
-        </nav>
-        <button
-          type="button"
-          onClick={() => setSettingsOpen(true)}
-          className="mt-auto flex items-center gap-3 rounded-[10px] px-3 py-2 text-left text-[14px] text-ink-2 hover:bg-sunken/60 hover:text-ink"
-        >
-          <Settings size={18} />
-          <span className="min-w-0 flex-1 truncate">
-            Settings · <span className="font-semibold text-ink">{me}</span>
-          </span>
-        </button>
-      </aside>
-
-      <main className="mx-auto w-full max-w-[800px] px-4 pt-[max(16px,env(safe-area-inset-top))] pb-[calc(env(safe-area-inset-bottom)+104px)] sm:px-6 lg:pt-10 lg:pb-16">
-        <ViewSwitch route={route} go={go} onSettings={() => setSettingsOpen(true)} />
-      </main>
-
-      {/* Phone tab bar */}
-      <nav
-        aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/92 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg lg:hidden"
-      >
-        <div className="mx-auto grid max-w-[520px] grid-cols-5 items-center px-2">
-          {NAV.slice(0, 2).map((n) => (
-            <TabButton key={n.view} {...n} active={route.view === n.view} onClick={() => go({ view: n.view })} />
-          ))}
-          <div className="grid place-items-center">
-            <button
-              type="button"
-              onClick={() => openItem("new", addDefaults)}
-              aria-label="Add something"
-              className="grid h-12 w-12 place-items-center rounded-2xl bg-accent text-accent-ink shadow-pop transition-transform duration-150 active:scale-90"
-            >
-              <Plus size={24} strokeWidth={2.4} />
-            </button>
-          </div>
-          {NAV.slice(2).map((n) => (
-            <TabButton key={n.view} {...n} active={route.view === n.view} onClick={() => go({ view: n.view })} />
-          ))}
-        </div>
-      </nav>
-
-      <ItemSheet />
-      {shared}
-    </div>
-    </TickBackContext.Provider>
-  );
-}
-
-function ViewSwitch({ route, go, onSettings }: { route: Route; go: (r: Route) => void; onSettings: () => void }) {
-  switch (route.view) {
-    case "list":
-      return <ListView />;
-    case "rooms":
-      return route.room ? <RoomView key={route.room} room={route.room} go={go} /> : <RoomsView go={go} />;
-    case "money":
-      return <MoneyView />;
-    default:
-      return <HomeView go={go} onSettings={onSettings} />;
-  }
-}
-
-function TabButton({
-  label,
-  icon: Icon,
-  active,
-  onClick,
-}: {
-  label: string;
-  icon: typeof House;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-current={active ? "page" : undefined}
-      className={clsx(
-        "flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold transition-colors",
-        active ? "text-ink" : "text-ink-3",
+      {simple ? (
+        <SimpleLayout onSettings={() => setSettingsOpen(true)} />
+      ) : (
+        <FullLayout route={route} go={go} onSettings={() => setSettingsOpen(true)} />
       )}
-    >
-      <Icon size={22} strokeWidth={active ? 2.3 : 1.9} />
-      {label}
-    </button>
+      {shared}
+    </TickBackContext.Provider>
   );
 }

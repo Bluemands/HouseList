@@ -22,10 +22,10 @@ export function Supplies({ supplies }: { supplies: Supply[] }) {
     <section aria-labelledby="supplies-head">
       <h2
         id="supplies-head"
-        className="sticky top-[104px] z-[15] -mx-1 flex items-center justify-between bg-bg px-1 py-2 text-[14px] font-bold text-ink"
+        className="sticky top-[104px] z-[15] -mx-1 flex items-center justify-between bg-bg px-1 py-2 text-supporting font-bold text-ink"
       >
         For jobs
-        <span className="text-[13px] font-medium text-ink-3 tabular">
+        <span className="text-meta font-medium text-ink-3 tabular">
           {supplies.length}
           {total > 0 && <> · {formatGBP(total)}</>}
         </span>
@@ -46,12 +46,12 @@ export function Supplies({ supplies }: { supplies: Supply[] }) {
             <div className="min-w-0 flex-1">
               <button type="button" onClick={() => openItem(item.id)} className="block w-full text-left">
                 <span className="flex items-start gap-2">
-                  <span className="min-w-0 flex-1 text-[15px] leading-snug font-medium text-ink">{step.text}</span>
+                  <span className="min-w-0 flex-1 text-body leading-snug font-medium text-ink">{step.text}</span>
                   {step.cost != null && step.cost > 0 && (
-                    <span className="shrink-0 pt-px text-[14px] font-medium text-ink tabular">{formatGBP(step.cost)}</span>
+                    <span className="shrink-0 pt-px text-supporting font-medium text-ink tabular">{formatGBP(step.cost)}</span>
                   )}
                 </span>
-                <span className="mt-1 flex min-w-0 items-center gap-1.5 text-[13px] text-ink-2">
+                <span className="mt-1 flex min-w-0 items-center gap-1.5 text-meta text-ink-2">
                   <PaintChip room={item.room} />
                   <span className="truncate">For {item.title}</span>
                 </span>
@@ -61,7 +61,7 @@ export function Supplies({ supplies }: { supplies: Supply[] }) {
                   href={step.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-1 inline-flex items-center gap-1 text-[13px] font-medium text-accent-text hover:underline"
+                  className="mt-1 inline-flex items-center gap-1 text-meta font-medium text-accent-text hover:underline"
                 >
                   <Link2 size={13} /> {linkLabel(step.link)}
                 </a>

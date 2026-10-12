@@ -14,7 +14,7 @@ export function PaintFan({ size = 26 }: { size?: number }) {
       {FAN.map((c) => (
         <span
           key={c.hex}
-          className="absolute bottom-0 rounded-[2px] shadow-[0_1px_1.5px_rgb(0_0_0/0.18)]"
+          className="absolute bottom-0 rounded-cell shadow-[0_1px_1.5px_rgb(0_0_0/0.18)]"
           style={{
             left: (size - w) / 2,
             width: w,
@@ -33,7 +33,7 @@ export function Wordmark({ className, compact }: { className?: string; compact?:
   return (
     <div className={clsx("flex items-center gap-2.5", className)}>
       <PaintFan size={compact ? 24 : 28} />
-      <span className={clsx("font-bold tracking-[-0.02em] text-ink", compact ? "text-[16px]" : "text-[18px]")}>
+      <span className={clsx("font-bold tracking-[-0.02em] text-ink", compact ? "text-[16px]" : "text-item-lead")}>
         The House List
       </span>
     </div>

@@ -74,14 +74,14 @@ export function BulkAddSheet({
       aria-label={title}
       className={clsx(
         leaving && "sheet-leaving",
-        "sheet m-0 inset-x-0 top-auto bottom-0 flex h-[min(90dvh,820px)] w-full max-w-none flex-col overflow-hidden rounded-t-[22px] bg-surface p-0 text-ink shadow-sheet lg:inset-y-0 lg:right-0 lg:left-auto lg:h-dvh lg:w-[480px] lg:rounded-none lg:rounded-l-[22px]",
+        "sheet m-0 inset-x-0 top-auto bottom-0 flex h-[min(90dvh,820px)] w-full max-w-none flex-col overflow-hidden rounded-t-sheet bg-surface p-0 text-ink shadow-sheet lg:inset-y-0 lg:right-0 lg:left-auto lg:h-dvh lg:w-[480px] lg:rounded-none lg:rounded-l-sheet",
       )}
     >
       <div {...dragHandlers} className="relative flex touch-none items-start justify-between gap-3 px-5 pt-5 pb-3">
         <span aria-hidden="true" className="absolute top-2 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-line-strong lg:hidden" />
         <div>
-          <h2 className="text-[20px] font-bold tracking-[-0.01em]">{title}</h2>
-          {intro && <p className="mt-1 text-[14px] text-ink-2">{intro}</p>}
+          <h2 className="text-sheet-title font-bold tracking-[-0.01em]">{title}</h2>
+          {intro && <p className="mt-1 text-supporting text-ink-2">{intro}</p>}
         </div>
         <button type="button" onClick={onClose} aria-label="Close" className="hit grid h-9 w-9 shrink-0 place-items-center rounded-full hover:bg-sunken">
           <X size={19} />
@@ -104,10 +104,10 @@ export function BulkAddSheet({
                 />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-start justify-between gap-3">
-                    <span className="text-[15px] font-medium text-ink">{c.title}</span>
-                    {cost && <span className="shrink-0 text-[13.5px] text-ink-2 tabular">{cost}</span>}
+                    <span className="text-body font-medium text-ink">{c.title}</span>
+                    {cost && <span className="shrink-0 text-supporting text-ink-2 tabular">{cost}</span>}
                   </span>
-                  <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12.5px] text-ink-2">
+                  <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-meta text-ink-2">
                     <span className="inline-flex items-center gap-1.5">
                       <PaintChip room={room} className="!h-2.5 !w-2.5" />
                       {ROOM_PAINT[room].label}
@@ -133,7 +133,7 @@ export function BulkAddSheet({
                     )}
                     {already && <span className="italic">Already on your list</span>}
                   </span>
-                  {c.why && <span className="mt-1 block text-[13px] text-ink-3">{c.why}</span>}
+                  {c.why && <span className="mt-1 block text-meta text-ink-3">{c.why}</span>}
                 </span>
               </label>
             </li>
@@ -145,7 +145,7 @@ export function BulkAddSheet({
         <button
           type="button"
           onClick={() => setPicked((p) => p.map(() => count === 0))}
-          className="rounded-lg px-2 py-2 text-[14px] font-semibold text-ink-2 hover:text-ink"
+          className="rounded-lg px-2 py-2 text-supporting font-semibold text-ink-2 hover:text-ink"
         >
           {count === 0 ? "Select all" : "Select none"}
         </button>

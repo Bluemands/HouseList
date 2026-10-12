@@ -94,8 +94,8 @@ function Body({ item, leaving }: { item: ItemDTO; leaving: boolean }) {
       onClick={(e) => e.target === e.currentTarget && !leaving && save()}
       className={clsx(
         leaving && "sheet-leaving",
-        "sheet m-0 inset-x-0 top-auto bottom-0 flex h-[min(88dvh,780px)] w-full max-w-none flex-col overflow-hidden rounded-t-[22px] bg-surface p-0 text-ink shadow-sheet",
-        "lg:inset-y-0 lg:right-0 lg:left-auto lg:h-dvh lg:w-[460px] lg:rounded-none lg:rounded-l-[22px]",
+        "sheet m-0 inset-x-0 top-auto bottom-0 flex h-[min(88dvh,780px)] w-full max-w-none flex-col overflow-hidden rounded-t-sheet bg-surface p-0 text-ink shadow-sheet",
+        "lg:inset-y-0 lg:right-0 lg:left-auto lg:h-dvh lg:w-[460px] lg:rounded-none lg:rounded-l-sheet",
       )}
     >
       <div {...dragHandlers} className="relative flex touch-none items-center justify-end px-4 pt-4">
@@ -117,14 +117,14 @@ function Body({ item, leaving }: { item: ItemDTO; leaving: boolean }) {
           onChange={(e) => setTitle(e.target.value.replace(/\n/g, ""))}
           aria-label="What needs doing"
           maxLength={200}
-          className="field-sizing-content w-full resize-none bg-transparent text-[22px] leading-tight font-bold tracking-[-0.015em] text-ink outline-none"
+          className="field-sizing-content w-full resize-none bg-transparent text-sheet-title leading-tight font-bold tracking-[-0.015em] text-ink outline-none"
         />
 
         <section className="grid gap-2">
-          <h3 className="text-[14px] font-semibold text-ink-2">Room</h3>
+          <h3 className="text-supporting font-semibold text-ink-2">Room</h3>
           <div ref={railRef} className="rail -mx-5 flex gap-1.5 overflow-x-auto px-5 pb-1">
             {ROOMS.map((r) => (
-              <Chip key={r} selected={room === r} onClick={() => setRoom(r)} className="py-2 text-[14px]">
+              <Chip key={r} selected={room === r} onClick={() => setRoom(r)} className="py-2 text-supporting">
                 <PaintChip room={r} />
                 {ROOM_PAINT[r].label}
               </Chip>
@@ -133,7 +133,7 @@ function Body({ item, leaving }: { item: ItemDTO; leaving: boolean }) {
         </section>
 
         <section className="grid gap-2">
-          <h3 className="text-[14px] font-semibold text-ink-2">Steps</h3>
+          <h3 className="text-supporting font-semibold text-ink-2">Steps</h3>
           {steps.length > 0 && (
             <ul className="border-t border-line">
               {steps.map((s) => (
@@ -159,7 +159,7 @@ function Body({ item, leaving }: { item: ItemDTO; leaving: boolean }) {
                     value={s.text}
                     onChange={(e) => setSteps((list) => list.map((x) => (x.key === s.key ? { ...x, text: e.target.value } : x)))}
                     aria-label="Step"
-                    className={clsx("min-w-0 flex-1 bg-transparent py-2.5 text-[15px] outline-none", s.done && "text-ink-3 line-through")}
+                    className={clsx("min-w-0 flex-1 bg-transparent py-2.5 text-body outline-none", s.done && "text-ink-3 line-through")}
                   />
                   <button
                     type="button"
@@ -204,7 +204,7 @@ function Body({ item, leaving }: { item: ItemDTO; leaving: boolean }) {
         </section>
 
         <section className="grid gap-2">
-          <h3 className="text-[14px] font-semibold text-ink-2">Notes</h3>
+          <h3 className="text-supporting font-semibold text-ink-2">Notes</h3>
           <GrowingTextarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}

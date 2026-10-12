@@ -37,7 +37,7 @@ export function NotificationsField({ me }: { me: string }) {
   if (state === "unsupported") {
     return (
       <Field label="Notifications">
-        <p className="text-[14px] text-ink-2">
+        <p className="text-supporting text-ink-2">
           {isIphoneInBrowser()
             ? "On iPhone, add the app to your home screen first (Share, then Add to Home Screen), and turn them on from there."
             : "This browser can't show notifications."}
@@ -49,7 +49,7 @@ export function NotificationsField({ me }: { me: string }) {
   if (state === "blocked") {
     return (
       <Field label="Notifications">
-        <p className="text-[14px] text-ink-2">
+        <p className="text-supporting text-ink-2">
           They&apos;re blocked for this app. Allow notifications for it in your phone&apos;s or browser&apos;s site settings,
           then come back here.
         </p>
@@ -62,7 +62,7 @@ export function NotificationsField({ me }: { me: string }) {
       <div className="flex flex-wrap items-center gap-3">
         {state === "on" ? (
           <>
-            <span className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-accent-text">
+            <span className="inline-flex items-center gap-1.5 text-body font-semibold text-accent-text">
               <Bell size={16} aria-hidden="true" /> On for this phone
             </span>
             <Button variant="ghost" disabled={busy} onClick={() => change(false)} className="px-3 py-1.5">
@@ -76,7 +76,7 @@ export function NotificationsField({ me }: { me: string }) {
         )}
       </div>
       {error && (
-        <p role="alert" className="text-[13px] font-medium text-danger">
+        <p role="alert" className="text-meta font-medium text-danger">
           {error}
         </p>
       )}

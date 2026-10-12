@@ -2,6 +2,9 @@ import { z } from "zod";
 import type { Kind } from "@/lib/types";
 import { formatGBP } from "@/lib/format";
 
+// Kept apart so the app can use it without loading zod.
+export { workerState } from "@/lib/worker-state";
+
 // "Ask Claude": the app queues a question about an item, a worker on someone's
 // own computer runs Claude Code with their subscription (scripts/ai-worker.mjs),
 // and the answer comes back as a suggestion. Nothing here calls Claude.
@@ -154,16 +157,6 @@ export function staleOutcome(
   if (job.status !== "RUNNING" || !job.claimedAt) return null;
   if (now.getTime() - job.claimedAt.getTime() < STALE_CLAIM_MS) return null;
   return job.attempts >= MAX_ATTEMPTS ? "fail" : "requeue";
-}
-
-/**
- * Whether a worker is listening, from when it last asked for work. Workers
- * check in every minute or so while running, so a few minutes' silence means
- * the computer it's on is off or asleep.
- */
-export function workerState(seenAt: string | null, now = Date.now()): "never" | "active" | "away" {
-  if (!seenAt) return "never";
-  return now - new Date(seenAt).getTime() < 5 * 60_000 ? "active" : "away";
 }
 
 const NOTES_MAX = 4000;

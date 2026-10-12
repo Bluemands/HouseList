@@ -19,6 +19,28 @@ function toHex(buffer: ArrayBuffer): string {
     .join("");
 }
 
+// The secret only changes with a redeploy, so its key is imported once.
+let keyPromise: Promise<CryptoKey> | null = null;
+
+/** HMAC-SHA256 of a fixed label under AUTH_SECRET, as hex. */
+async function sign(label: string): Promise<string> {
+  keyPromise ??= crypto.subtle.importKey(
+    "raw",
+    encoder.encode(getSecret()),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  let key: CryptoKey;
+  try {
+    key = await keyPromise;
+  } catch (error) {
+    keyPromise = null;
+    throw error;
+  }
+  return toHex(await crypto.subtle.sign("HMAC", key, encoder.encode(label)));
+}
+
 function timingSafeEqualStr(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let result = 0;
@@ -32,15 +54,7 @@ function timingSafeEqualStr(a: string, b: string): boolean {
 // it's a deterministic HMAC of a fixed label, not a per-session token, which
 // is fine for a two-person shared-PIN app with no per-user accounts.
 export async function computeAuthToken(): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(getSecret()),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode("authenticated"));
-  return toHex(signature);
+  return sign("authenticated");
 }
 
 export async function isValidAuthToken(token: string | undefined): Promise<boolean> {
@@ -61,15 +75,7 @@ export function isValidPin(pin: string): boolean {
 // so it's protected by an unguessable token in the URL instead — derived from
 // the same secret, so rotating AUTH_SECRET revokes old subscriptions too.
 export async function computeCalendarToken(): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(getSecret()),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode("calendar-feed"));
-  return toHex(signature).slice(0, 40);
+  return (await sign("calendar-feed")).slice(0, 40);
 }
 
 export async function isValidCalendarToken(token: string): Promise<boolean> {
@@ -80,15 +86,7 @@ export async function isValidCalendarToken(token: string): Promise<boolean> {
 // the PIN either, so it gets its own URL token, under a different label so
 // the calendar link and the connector link can't stand in for each other.
 export async function computeConnectorToken(): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(getSecret()),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode("claude-connector"));
-  return toHex(signature).slice(0, 40);
+  return (await sign("claude-connector")).slice(0, 40);
 }
 
 export async function isValidConnectorToken(token: string): Promise<boolean> {
@@ -99,15 +97,7 @@ export async function isValidConnectorToken(token: string): Promise<boolean> {
 // this as a bearer token. Same secret, its own label: rotating AUTH_SECRET
 // revokes it along with everything else.
 export async function computeWorkerToken(): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(getSecret()),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode("ai-worker"));
-  return toHex(signature);
+  return sign("ai-worker");
 }
 
 /** Whether a request carries the worker's `Authorization: Bearer` token. */

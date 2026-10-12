@@ -9,11 +9,19 @@ import { computeCalendarToken, computeConnectorToken, computeWorkerToken } from 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const { items, settings, jobs } = await getState();
-  const calendarPath = `/api/calendar/${await computeCalendarToken()}.ics`;
-  const connectorPath = `/api/mcp/${await computeConnectorToken()}`;
+  // The tokens and cookie don't touch the database, so they're worked out
+  // while the state loads.
+  const [{ items, settings, jobs }, calendarToken, connectorToken, workerToken, cookieStore] = await Promise.all([
+    getState(),
+    computeCalendarToken(),
+    computeConnectorToken(),
+    computeWorkerToken(),
+    cookies(),
+  ]);
+  const calendarPath = `/api/calendar/${calendarToken}.ics`;
+  const connectorPath = `/api/mcp/${connectorToken}`;
   // Each phone keeps its own layout, so the first paint is already the right one.
-  const layout = (await cookies()).get(LAYOUT_COOKIE)?.value === "simple" ? "simple" : "full";
+  const layout = cookieStore.get(LAYOUT_COOKIE)?.value === "simple" ? "simple" : "full";
   return (
     <HouseListApp
       initialItems={items}
@@ -21,7 +29,7 @@ export default async function Home() {
       initialJobs={jobs}
       calendarPath={calendarPath}
       connectorPath={connectorPath}
-      workerToken={await computeWorkerToken()}
+      workerToken={workerToken}
       initialLayout={layout}
     />
   );

@@ -23,7 +23,7 @@ export function OfflineBanner() {
   return (
     <div
       role="status"
-      className="fixed inset-x-0 top-0 z-40 flex shadow-pop lg:left-[240px] items-center justify-center gap-2 bg-warn-soft px-4 pt-[max(8px,env(safe-area-inset-top))] pb-2 text-[13.5px] font-semibold text-warn"
+      className="fixed inset-x-0 top-0 z-40 flex shadow-pop lg:left-[240px] items-center justify-center gap-2 bg-warn-soft px-4 pt-[max(8px,env(safe-area-inset-top))] pb-2 text-supporting font-semibold text-warn"
     >
       <WifiOff size={15} strokeWidth={2.3} aria-hidden="true" />
       You&apos;re offline. You can look, but changes won&apos;t save until you&apos;re back.

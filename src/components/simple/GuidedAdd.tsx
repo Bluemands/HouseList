@@ -87,7 +87,7 @@ export function GuidedAdd({ leaving, onClose }: { leaving: boolean; onClose: () 
       className={clsx(
         leaving && "sheet-leaving",
         "sheet m-0 inset-0 flex h-dvh max-h-none w-full max-w-none flex-col bg-surface p-0 text-ink",
-        "lg:inset-y-0 lg:right-0 lg:left-auto lg:w-[480px] lg:rounded-l-[22px] lg:shadow-sheet",
+        "lg:inset-y-0 lg:right-0 lg:left-auto lg:w-[480px] lg:rounded-l-sheet lg:shadow-sheet",
       )}
     >
       <div className="flex items-center justify-between gap-2 px-3 pt-[max(12px,env(safe-area-inset-top))]">
@@ -95,14 +95,14 @@ export function GuidedAdd({ leaving, onClose }: { leaving: boolean; onClose: () 
           <button
             type="button"
             onClick={() => setStep(back[step]!)}
-            className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-[15px] font-semibold text-ink-2 hover:text-ink"
+            className="inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-body font-semibold text-ink-2 hover:text-ink"
           >
             <ArrowLeft size={18} aria-hidden="true" /> Back
           </button>
         ) : (
           <span />
         )}
-        {step !== "added" && <span className="text-[13px] text-ink-3 tabular">{number} of 3</span>}
+        {step !== "added" && <span className="text-meta text-ink-3 tabular">{number} of 3</span>}
         <button
           type="button"
           onClick={onClose}
@@ -122,7 +122,7 @@ export function GuidedAdd({ leaving, onClose }: { leaving: boolean; onClose: () 
               toRoom();
             }}
           >
-            <label htmlFor="guided-what" className="text-[28px] leading-tight font-bold tracking-[-0.025em]">
+            <label htmlFor="guided-what" className="text-headline leading-tight font-bold tracking-[-0.025em]">
               What needs doing?
             </label>
             <textarea
@@ -140,9 +140,9 @@ export function GuidedAdd({ leaving, onClose }: { leaving: boolean; onClose: () 
               maxLength={200}
               enterKeyHint="next"
               placeholder="e.g. Fix the bathroom tap"
-              className="w-full resize-none rounded-2xl border border-line bg-bg px-4 py-3.5 text-[18px] leading-snug text-ink outline-none placeholder:text-ink-3 focus:border-accent"
+              className="w-full resize-none rounded-2xl border border-line bg-bg px-4 py-3.5 text-item-lead leading-snug text-ink outline-none placeholder:text-ink-3 focus:border-accent"
             />
-            <Button type="submit" disabled={!text.trim()} className="mt-auto h-14 text-[17px]">
+            <Button type="submit" disabled={!text.trim()} className="mt-auto h-14 text-title">
               Next
             </Button>
           </form>
@@ -150,7 +150,7 @@ export function GuidedAdd({ leaving, onClose }: { leaving: boolean; onClose: () 
 
         {step === "room" && (
           <div className="flex flex-1 flex-col gap-4">
-            <h2 className="text-[28px] leading-tight font-bold tracking-[-0.025em]">Which room?</h2>
+            <h2 className="text-headline leading-tight font-bold tracking-[-0.025em]">Which room?</h2>
             <div className="grid grid-cols-2 gap-2">
               {ROOMS.map((r) => (
                 <button
@@ -162,7 +162,7 @@ export function GuidedAdd({ leaving, onClose }: { leaving: boolean; onClose: () 
                   }}
                   aria-pressed={room === r}
                   className={clsx(
-                    "flex min-h-14 items-center gap-2.5 rounded-2xl border px-3.5 text-left text-[15px] font-semibold transition-colors",
+                    "flex min-h-14 items-center gap-2.5 rounded-2xl border px-3.5 text-left text-body font-semibold transition-colors",
                     room === r ? "border-accent bg-accent-soft text-accent-text" : "border-line bg-bg text-ink hover:border-line-strong",
                   )}
                 >
@@ -177,7 +177,7 @@ export function GuidedAdd({ leaving, onClose }: { leaving: boolean; onClose: () 
                 setRoom((r) => r ?? "WHOLE_HOUSE");
                 setStep("soon");
               }}
-              className="h-12 text-[17px]"
+              className="h-12 text-title"
             >
               {room ? `Keep ${ROOM_PAINT[room].label}` : "Not sure"}
             </Button>
@@ -186,7 +186,7 @@ export function GuidedAdd({ leaving, onClose }: { leaving: boolean; onClose: () 
 
         {step === "soon" && (
           <div className="flex flex-1 flex-col gap-4">
-            <h2 className="text-[28px] leading-tight font-bold tracking-[-0.025em]">How soon?</h2>
+            <h2 className="text-headline leading-tight font-bold tracking-[-0.025em]">How soon?</h2>
             <div className="grid gap-2.5">
               {SOON.map((s) => (
                 <button
@@ -195,8 +195,8 @@ export function GuidedAdd({ leaving, onClose }: { leaving: boolean; onClose: () 
                   onClick={() => add(s.priority)}
                   className="grid min-h-16 gap-0.5 rounded-2xl border border-line bg-bg px-4 py-3 text-left transition-colors hover:border-accent active:bg-accent-soft"
                 >
-                  <span className="text-[18px] font-semibold text-ink">{s.label}</span>
-                  <span className="text-[14px] text-ink-2">{s.hint}</span>
+                  <span className="text-item-lead font-semibold text-ink">{s.label}</span>
+                  <span className="text-supporting text-ink-2">{s.hint}</span>
                 </button>
               ))}
             </div>
@@ -208,18 +208,18 @@ export function GuidedAdd({ leaving, onClose }: { leaving: boolean; onClose: () 
             <span className="grid h-16 w-16 place-items-center rounded-full bg-accent text-accent-ink">
               <Check size={32} strokeWidth={3} aria-hidden="true" />
             </span>
-            <h2 className="text-[22px] leading-tight font-bold tracking-[-0.015em]">Added</h2>
-            <p className="max-w-[30ch] text-[15px] text-ink-2">
+            <h2 className="text-sheet-title leading-tight font-bold tracking-[-0.015em]">Added</h2>
+            <p className="max-w-[30ch] text-body text-ink-2">
               {added.title}
-              <span className="mt-1.5 flex items-center justify-center gap-1.5 text-[14px]">
+              <span className="mt-1.5 flex items-center justify-center gap-1.5 text-supporting">
                 <PaintChip room={added.room} /> {ROOM_PAINT[added.room].label}
               </span>
             </p>
             <div className="mt-6 grid w-full max-w-[360px] gap-2.5">
-              <Button onClick={again} className="h-14 text-[17px]">
+              <Button onClick={again} className="h-14 text-title">
                 Add another
               </Button>
-              <Button variant="secondary" onClick={onClose} className="h-12 text-[17px]">
+              <Button variant="secondary" onClick={onClose} className="h-12 text-title">
                 Done
               </Button>
             </div>

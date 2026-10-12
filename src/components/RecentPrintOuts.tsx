@@ -39,7 +39,7 @@ export function RecentPrintOuts({ limit = 3 }: { limit?: number }) {
 
   return (
     <section aria-labelledby="printouts-head">
-      <h2 id="printouts-head" className="px-1 pb-1.5 text-[14px] font-bold text-ink">
+      <h2 id="printouts-head" className="px-1 pb-1.5 text-supporting font-bold text-ink">
         Print-outs
       </h2>
       <ul className="overflow-hidden rounded-2xl border border-line bg-surface">
@@ -52,12 +52,12 @@ export function RecentPrintOuts({ limit = 3 }: { limit?: number }) {
             >
               <Printer size={17} className="shrink-0 text-ink-3" aria-hidden="true" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[15px] font-semibold text-ink">{p.title}</span>
-                <span className="block text-[13px] text-ink-2">
+                <span className="block truncate text-body font-semibold text-ink">{p.title}</span>
+                <span className="block text-meta text-ink-2">
                   Printed {describeDay(toDayString(new Date(p.createdAt)))} by {p.createdBy}
                 </span>
               </span>
-              <span className="shrink-0 text-[14px] font-semibold text-accent-text">Tick off</span>
+              <span className="shrink-0 text-supporting font-semibold text-accent-text">Tick off</span>
               <ChevronRight size={16} className="-ml-2 shrink-0 text-accent-text" aria-hidden="true" />
             </button>
           </li>

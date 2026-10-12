@@ -7,7 +7,7 @@ import { ESSENTIALS } from "@/lib/essentials";
 import { useStore } from "@/lib/store";
 import { useSheetDrag, useSheetExit } from "@/lib/useSheetDrag";
 import { logout } from "@/lib/api-client";
-import { workerState } from "@/lib/ai";
+import { workerState } from "@/lib/worker-state";
 import { timeAgo } from "@/lib/format";
 import { Button, Field, Segmented, inputClass } from "@/components/ui";
 import { NotificationsField } from "@/components/NotificationsField";
@@ -92,11 +92,11 @@ export function SettingsSheet({
       }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
       aria-labelledby="settings-title"
-      className={clsx(leaving && "sheet-leaving", "sheet m-0 inset-x-0 top-auto bottom-0 max-h-[90dvh] w-full max-w-none overflow-y-auto rounded-t-[22px] bg-surface p-0 text-ink shadow-sheet lg:inset-y-0 lg:right-0 lg:left-auto lg:h-dvh lg:max-h-none lg:w-[420px] lg:rounded-none lg:rounded-l-[22px]")}
+      className={clsx(leaving && "sheet-leaving", "sheet m-0 inset-x-0 top-auto bottom-0 max-h-[90dvh] w-full max-w-none overflow-y-auto rounded-t-sheet bg-surface p-0 text-ink shadow-sheet lg:inset-y-0 lg:right-0 lg:left-auto lg:h-dvh lg:max-h-none lg:w-[420px] lg:rounded-none lg:rounded-l-sheet")}
     >
       <div {...dragHandlers} className="relative flex touch-none items-center justify-between px-5 pt-5">
         <span aria-hidden="true" className="absolute top-2 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-line-strong lg:hidden" />
-        <h2 id="settings-title" className="text-[20px] font-bold">
+        <h2 id="settings-title" className="text-sheet-title font-bold">
           Settings
         </h2>
         <button type="button" onClick={onClose} aria-label="Close" className="hit grid h-9 w-9 place-items-center rounded-full hover:bg-sunken">
@@ -107,7 +107,7 @@ export function SettingsSheet({
       <div className="grid gap-6 px-5 pt-4 pb-[max(24px,env(safe-area-inset-bottom))]">
         <Field label="You are">
           <div className="flex items-center justify-between gap-3 rounded-xl border border-line px-3.5 py-2.5">
-            <span className="text-[16px] font-semibold">{me}</span>
+            <span className="text-title font-semibold">{me}</span>
             <Button variant="ghost" onClick={onSwitchUser} className="px-3 py-1.5">
               Not you?
             </Button>
@@ -175,7 +175,7 @@ export function SettingsSheet({
 
         {settings.members.length > 0 && (
           <Field label="Household">
-            <p className="text-[15px] text-ink-2">{settings.members.join(", ")}</p>
+            <p className="text-body text-ink-2">{settings.members.join(", ")}</p>
           </Field>
         )}
 
@@ -186,7 +186,7 @@ export function SettingsSheet({
           <div className="flex flex-wrap gap-2">
             <a
               href={`webcal://${typeof window === "undefined" ? "" : window.location.host}${calendarPath}`}
-              className="inline-flex items-center gap-1.5 rounded-[10px] bg-accent px-3.5 py-2.5 text-sm font-semibold text-accent-ink hover:bg-accent-hover"
+              className="inline-flex items-center gap-1.5 rounded-control bg-accent px-3.5 py-2.5 text-sm font-semibold text-accent-ink hover:bg-accent-hover"
             >
               <CalendarPlus size={16} /> Subscribe
             </a>
@@ -218,7 +218,7 @@ export function SettingsSheet({
           label="Ask Claude"
           hint="A worker answers questions from the app: a small script running Claude Code on a computer signed in to a Claude subscription (see the README). It needs this token. Keep it private, like the calendar link."
         >
-          <p className="text-[14px] text-ink-2">
+          <p className="text-supporting text-ink-2">
             {worker === "never"
               ? "No worker has checked in yet."
               : worker === "active"
@@ -227,7 +227,7 @@ export function SettingsSheet({
           </p>
           <p
             aria-label={showToken ? "Worker token" : "Worker token, hidden"}
-            className="rounded-[10px] border border-line bg-sunken px-3 py-2.5 text-[13px] break-all text-ink tabular"
+            className="rounded-control border border-line bg-sunken px-3 py-2.5 text-meta break-all text-ink tabular"
           >
             {showToken ? workerToken : `${"•".repeat(16)}${workerToken.slice(-4)}`}
           </p>
@@ -261,20 +261,20 @@ export function SettingsSheet({
                 candidates: ESSENTIALS,
               });
             }}
-            className="inline-flex items-center gap-2 rounded-[10px] px-1 py-2 text-left text-[15px] font-semibold text-ink hover:text-accent-text"
+            className="inline-flex items-center gap-2 rounded-control px-1 py-2 text-left text-body font-semibold text-ink hover:text-accent-text"
           >
             <ListPlus size={17} /> New-home essentials checklist
           </button>
           <a
             href="/api/export"
-            className="inline-flex items-center gap-2 rounded-[10px] px-1 py-2 text-[15px] font-semibold text-ink hover:text-accent-text"
+            className="inline-flex items-center gap-2 rounded-control px-1 py-2 text-body font-semibold text-ink hover:text-accent-text"
           >
             <Download size={17} /> Download everything (CSV)
           </a>
           <button
             type="button"
             onClick={() => logout().then(() => window.location.replace("/login"))}
-            className="inline-flex items-center gap-2 rounded-[10px] px-1 py-2 text-left text-[15px] font-semibold text-ink-2 hover:text-danger"
+            className="inline-flex items-center gap-2 rounded-control px-1 py-2 text-left text-body font-semibold text-ink-2 hover:text-danger"
           >
             <Lock size={17} /> Lock this device
           </button>

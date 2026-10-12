@@ -128,7 +128,7 @@ export function SelectionBar({
           >
             <X size={18} />
           </button>
-          <span className="min-w-0 truncate text-[14px] font-semibold tabular" aria-live="polite">
+          <span className="min-w-0 truncate text-supporting font-semibold tabular" aria-live="polite">
             {n} selected
             {/* What they'd cost between them: "if we put these off, what's that worth?" */}
             {selectedCost > 0 && <span className="font-medium text-ink-2"> · {formatGBP(selectedCost)}</span>}
@@ -136,7 +136,7 @@ export function SelectionBar({
           <button
             type="button"
             onClick={onToggleAll}
-            className="shrink-0 rounded-lg px-2 py-1.5 text-[13.5px] font-semibold text-accent-text hover:bg-sunken"
+            className="shrink-0 rounded-lg px-2 py-1.5 text-supporting font-semibold text-accent-text hover:bg-sunken"
           >
             {n === total ? "None" : "All"}
           </button>

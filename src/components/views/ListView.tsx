@@ -216,9 +216,9 @@ export function ListView() {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
       <header className="flex items-end justify-between gap-3 pt-1">
-        <h1 className="text-[28px] leading-tight font-bold tracking-[-0.025em]">Everything</h1>
+        <h1 className="text-headline leading-tight font-bold tracking-[-0.025em]">Everything</h1>
         <div className="flex items-center gap-3 pb-1">
-          <p className="text-[14px] text-ink-2 tabular">
+          <p className="text-supporting text-ink-2 tabular">
             {open.length} open{openTotal > 0 && <> · {formatGBP(openTotal)}</>}
             {somedayTotal > 0 && <span className="text-ink-3"> + {formatGBPShort(somedayTotal)} someday</span>}
           </p>
@@ -226,7 +226,7 @@ export function ListView() {
             <button
               type="button"
               onClick={() => setSelecting(true)}
-              className="rounded-lg px-2 py-1 text-[14px] font-semibold text-accent-text hover:bg-sunken"
+              className="rounded-lg px-2 py-1 text-supporting font-semibold text-accent-text hover:bg-sunken"
             >
               Select
             </button>
@@ -251,7 +251,7 @@ export function ListView() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search"
               aria-label="Search everything"
-              className="w-full rounded-[10px] border border-line bg-surface py-2 pr-3 pl-9 text-[15px] outline-none placeholder:text-ink-3 focus:border-accent"
+              className="w-full rounded-control border border-line bg-surface py-2 pr-3 pl-9 text-body outline-none placeholder:text-ink-3 focus:border-accent"
             />
           </div>
           <button
@@ -260,7 +260,7 @@ export function ListView() {
             aria-expanded={showFilters}
             aria-label={filterCount ? `Filters, ${filterCount} on` : "Filters"}
             className={clsx(
-              "inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[10px] border px-3 text-[14px] font-semibold transition-colors",
+              "inline-flex h-10 shrink-0 items-center gap-1.5 rounded-control border px-3 text-supporting font-semibold transition-colors",
               showFilters || filterCount
                 ? "border-accent bg-accent-soft text-accent-text"
                 : "border-line bg-surface text-ink-2 hover:text-ink",
@@ -277,7 +277,7 @@ export function ListView() {
               disabled={printing}
               aria-label="Print this list"
               title="Print this list to tick off on paper"
-              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[10px] border border-line bg-surface px-3 text-[14px] font-semibold text-ink-2 hover:text-ink disabled:opacity-50"
+              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-control border border-line bg-surface px-3 text-supporting font-semibold text-ink-2 hover:text-ink disabled:opacity-50"
             >
               <Printer size={16} />
               <span className="hidden sm:inline">Print</span>
@@ -369,7 +369,7 @@ export function ListView() {
                 setRooms([]);
                 setWho(null);
               }}
-              className="justify-self-start text-[14px] font-semibold text-accent-text hover:underline"
+              className="justify-self-start text-supporting font-semibold text-accent-text hover:underline"
             >
               Clear filters
             </button>
@@ -385,7 +385,7 @@ export function ListView() {
           )}
         >
           <ShoppingCart size={20} className={trip ? "text-accent-text" : "text-ink-2"} aria-hidden="true" />
-          <div className="min-w-0 flex-1 text-[14px]">
+          <div className="min-w-0 flex-1 text-supporting">
             {trip ? (
               <>
                 <div className="font-semibold text-ink">On a shopping trip</div>
@@ -408,7 +408,7 @@ export function ListView() {
             type="button"
             onClick={() => setTrip((t) => !t)}
             className={clsx(
-              "shrink-0 rounded-[10px] px-3 py-2 text-[14px] font-semibold",
+              "shrink-0 rounded-control px-3 py-2 text-supporting font-semibold",
               trip ? "text-accent-text hover:bg-surface/60" : "bg-accent text-accent-ink hover:bg-accent-hover",
             )}
           >
@@ -419,14 +419,14 @@ export function ListView() {
 
       {open.length === 0 && !supplies.length && (
         <div className="rounded-2xl border border-dashed border-line-strong px-6 py-10 text-center">
-          <p className="text-[16px] font-semibold text-ink">
+          <p className="text-title font-semibold text-ink">
             {q || filterCount
               ? "Nothing matches"
               : trip
                 ? "Nothing to buy fits the pot right now"
                 : "Nothing open here"}
           </p>
-          <p className="mt-1 text-[14px] text-ink-2">
+          <p className="mt-1 text-supporting text-ink-2">
             {q || filterCount ? (
               <button
                 type="button"
@@ -468,9 +468,9 @@ export function ListView() {
           return (
             <section key={group.key} aria-label={typeof group.label === "string" ? group.label : undefined}>
               {/* Sticky header names the group you're scrolled into. */}
-              <h2 className="sticky top-[104px] z-[15] -mx-1 flex items-center justify-between bg-bg px-1 py-2 text-[14px] font-bold text-ink">
+              <h2 className="sticky top-[104px] z-[15] -mx-1 flex items-center justify-between bg-bg px-1 py-2 text-supporting font-bold text-ink">
                 {group.label}
-                <span className="text-[13px] font-medium text-ink-3 tabular">
+                <span className="text-meta font-medium text-ink-3 tabular">
                   {group.items.length}
                   {subtotal > 0 && <> · {formatGBP(subtotal)}</>}
                 </span>
@@ -513,7 +513,7 @@ export function ListView() {
             type="button"
             onClick={() => setShowDone((s) => !s)}
             aria-expanded={showDone}
-            className="flex w-full items-center justify-between rounded-[10px] px-1 py-2 text-[14px] font-semibold text-ink-2 hover:text-ink"
+            className="flex w-full items-center justify-between rounded-control px-1 py-2 text-supporting font-semibold text-ink-2 hover:text-ink"
           >
             <span>
               {showDone ? "Hide" : "Show"} {done.length} done
@@ -550,7 +550,7 @@ export function ListView() {
 function FilterRow({ label, children, scroll }: { label: string; children: React.ReactNode; scroll?: boolean }) {
   return (
     <div className="grid gap-1.5">
-      <span className="text-[13px] font-semibold text-ink-2">{label}</span>
+      <span className="text-meta font-semibold text-ink-2">{label}</span>
       <div className={clsx("flex gap-1.5", scroll ? "rail -mx-4 overflow-x-auto px-4" : "flex-wrap")}>{children}</div>
     </div>
   );

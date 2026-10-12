@@ -1,87 +1,48 @@
 @import "tailwindcss";
 
-/* Dark mode follows the system unless someone picks a side in settings,
-   which sets data-theme on <html>. Components only ever use these tokens. */
+/* Every colour token, light and dark side by side. Dark follows the system
+   unless someone picks a side in settings, which sets data-theme on <html>
+   and pins color-scheme, the switch light-dark() reads. Components only
+   ever use these tokens. */
 :root {
+  color-scheme: light dark;
+
   /* Limestone — a warm grey-white ground, not cream. */
-  --bg: #f3f0ea;
-  --surface: #fbfaf7;
-  --sunken: #ebe7df;
-  --line: #e2ddd3;
-  --line-strong: #cbc4b6;
+  --bg: light-dark(#f3f0ea, #151412);
+  --surface: light-dark(#fbfaf7, #1d1c19);
+  --sunken: light-dark(#ebe7df, #262420);
+  --line: light-dark(#e2ddd3, #2e2c28);
+  --line-strong: light-dark(#cbc4b6, #45413b);
   /* The empty tick's ring: the lightest that still holds 3:1 on every row ground. */
-  --tick-ring: #898277;
-  --ink: #211f1b;
-  --ink-2: #57524a;
-  --ink-3: #6f695e;
+  --tick-ring: light-dark(#898277, #807a70);
+  --ink: light-dark(#211f1b, #efebe4);
+  --ink-2: light-dark(#57524a, #b9b2a6);
+  --ink-3: light-dark(#6f695e, #9a9387);
 
   /* Front Door Green — every action, selection and "done". */
-  --accent: #2c6a55;
-  --accent-hover: #245a48;
-  --accent-ink: #ffffff;
-  --accent-soft: #dceae3;
-  --accent-text: #24604c;
+  --accent: light-dark(#2c6a55, #5fb497);
+  --accent-hover: light-dark(#245a48, #74c3a7);
+  --accent-ink: light-dark(#ffffff, #0f2a21);
+  --accent-soft: light-dark(#dceae3, #1e352d);
+  --accent-text: light-dark(#24604c, #7fcbb0);
 
-  --danger: #b03d27;
-  --danger-soft: #f6e1da;
-  --warn: #8f5d0e;
-  --warn-soft: #f4e7cd;
+  --danger: light-dark(#b03d27, #f08a73);
+  --danger-soft: light-dark(#f6e1da, #3b211b);
+  --warn: light-dark(#8f5d0e, #e2b15b);
+  --warn-soft: light-dark(#f4e7cd, #362b16);
 
-  --chip-edge: rgb(0 0 0 / 0.08);
-  --shadow-sheet: 0 -12px 40px rgb(33 31 27 / 0.16);
-  --shadow-pop: 0 10px 30px rgb(33 31 27 / 0.14), 0 2px 6px rgb(33 31 27 / 0.08);
+  --chip-edge: light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.16));
+  --shadow-sheet: 0 -12px 40px light-dark(rgb(33 31 27 / 0.16), rgb(0 0 0 / 0.5));
+  --shadow-pop:
+    0 10px 30px light-dark(rgb(33 31 27 / 0.14), rgb(0 0 0 / 0.45)),
+    0 2px 6px light-dark(rgb(33 31 27 / 0.08), rgb(0 0 0 / 0.3));
+}
+
+:root[data-theme="light"] {
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #151412;
-    --surface: #1d1c19;
-    --sunken: #262420;
-    --line: #2e2c28;
-    --line-strong: #45413b;
-    --tick-ring: #807a70;
-    --ink: #efebe4;
-    --ink-2: #b9b2a6;
-    --ink-3: #9a9387;
-    --accent: #5fb497;
-    --accent-hover: #74c3a7;
-    --accent-ink: #0f2a21;
-    --accent-soft: #1e352d;
-    --accent-text: #7fcbb0;
-    --danger: #f08a73;
-    --danger-soft: #3b211b;
-    --warn: #e2b15b;
-    --warn-soft: #362b16;
-    --chip-edge: rgb(255 255 255 / 0.16);
-    --shadow-sheet: 0 -12px 40px rgb(0 0 0 / 0.5);
-    --shadow-pop: 0 10px 30px rgb(0 0 0 / 0.45), 0 2px 6px rgb(0 0 0 / 0.3);
-    color-scheme: dark;
-  }
-}
-
 :root[data-theme="dark"] {
-  --bg: #151412;
-  --surface: #1d1c19;
-  --sunken: #262420;
-  --line: #2e2c28;
-  --line-strong: #45413b;
-  --tick-ring: #807a70;
-  --ink: #efebe4;
-  --ink-2: #b9b2a6;
-  --ink-3: #9a9387;
-  --accent: #5fb497;
-  --accent-hover: #74c3a7;
-  --accent-ink: #0f2a21;
-  --accent-soft: #1e352d;
-  --accent-text: #7fcbb0;
-  --danger: #f08a73;
-  --danger-soft: #3b211b;
-  --warn: #e2b15b;
-  --warn-soft: #362b16;
-  --chip-edge: rgb(255 255 255 / 0.16);
-  --shadow-sheet: 0 -12px 40px rgb(0 0 0 / 0.5);
-  --shadow-pop: 0 10px 30px rgb(0 0 0 / 0.45), 0 2px 6px rgb(0 0 0 / 0.3);
   color-scheme: dark;
 }
 
@@ -108,6 +69,32 @@
   --shadow-pop: var(--shadow-pop);
   --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The type and corner scales from DESIGN.md, as utilities: text-meta,
+   rounded-control and so on. Reach for these before an arbitrary value. */
+@theme {
+  --text-figure: 34px;
+  --text-display: 32px;
+  --text-headline: 28px;
+  --text-sheet-title: 22px;
+  --text-item-lead: 18px;
+  --text-title: 17px;
+  /* Typed-into fields: iOS zooms the page in on anything smaller. */
+  --text-field: 16px;
+  --text-body: 15px;
+  --text-supporting: 14px;
+  --text-meta: 13px;
+  --text-hint: 12px;
+  --text-label: 11px;
+
+  --radius-cell: 2px;
+  --radius-chip: 3px;
+  --radius-control: 10px;
+  --radius-card: 14px;
+  --radius-panel: 16px;
+  --radius-room: 20px;
+  --radius-sheet: 22px;
 }
 
 @layer base {
@@ -153,6 +140,15 @@
 
   a {
     text-underline-offset: 3px;
+  }
+}
+
+/* On a touchscreen, typed-into fields are never under 16px: iOS zooms the
+   whole page in on a smaller one and leaves it zoomed. Unlayered, so it
+   outranks the size utilities. */
+@media (pointer: coarse) {
+  :is(input, textarea, select):is(.text-body, .text-supporting, .text-meta, .text-hint, .text-label) {
+    font-size: var(--text-field);
   }
 }
 
@@ -483,6 +479,106 @@ dialog.sheet.sheet-leaving[open]::backdrop {
 .toast-out {
   pointer-events: none;
   animation: toast-out 160ms ease-in forwards;
+}
+
+/* ---- Moving between views (React view transitions, FullLayout) ----------
+   Into a room slides in from the side and back out slides the other way;
+   tabs swap with a quick cross-fade. Short, so a tap never waits on them. */
+:root {
+  --vt-exit: 110ms;
+  --vt-enter: 190ms;
+  --vt-move: 280ms;
+}
+@keyframes vt-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes vt-slide {
+  from {
+    translate: var(--vt-offset) 0;
+  }
+}
+::view-transition-old(.nav-forward),
+::view-transition-old(.nav-back) {
+  animation:
+    var(--vt-exit) ease-in both vt-fade reverse,
+    var(--vt-move) var(--ease-out-expo) both vt-slide reverse;
+}
+::view-transition-new(.nav-forward),
+::view-transition-new(.nav-back) {
+  animation:
+    var(--vt-enter) ease-out 60ms both vt-fade,
+    var(--vt-move) var(--ease-out-expo) both vt-slide;
+}
+::view-transition-old(.nav-forward),
+::view-transition-new(.nav-back) {
+  --vt-offset: -48px;
+}
+::view-transition-new(.nav-forward),
+::view-transition-old(.nav-back) {
+  --vt-offset: 48px;
+}
+::view-transition-old(.nav-tab) {
+  animation: var(--vt-exit) ease-in both vt-fade reverse;
+}
+::view-transition-new(.nav-tab) {
+  animation: var(--vt-enter) ease-out 50ms both vt-fade;
+}
+/* Views above the paint they sit on; the paint above the (live) page. */
+::view-transition-group(.nav-forward),
+::view-transition-group(.nav-back),
+::view-transition-group(.nav-tab) {
+  z-index: 2;
+}
+
+/* A room's swatch grows into its header (PaintFill). Flat colour, so the
+   box just stretches rather than cross-fading two pictures of it. */
+::view-transition-group(.paint-morph) {
+  z-index: 1;
+  animation-duration: var(--vt-move);
+  animation-timing-function: var(--ease-out-expo);
+}
+::view-transition-old(.paint-morph),
+::view-transition-new(.paint-morph) {
+  animation: none;
+  height: 100%;
+}
+::view-transition-old(.paint-morph) {
+  display: none;
+}
+
+/* The rest of the page stays live and tappable underneath. */
+::view-transition-old(root) {
+  display: none;
+}
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition {
+  pointer-events: none;
+}
+
+/* The phone tab bar holds still on top. Only its live picture is shown, so
+   its backdrop blur doesn't flash. */
+::view-transition-group(tab-bar) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(tab-bar) {
+  display: none;
+}
+::view-transition-new(tab-bar) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

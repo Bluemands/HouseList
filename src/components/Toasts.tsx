@@ -87,7 +87,7 @@ export function Toasts() {
           key={t.id}
           role={t.tone === "error" ? "alert" : "status"}
           className={clsx(
-            "toast-in pointer-events-auto flex w-full max-w-[460px] flex-col rounded-[14px] py-1.5 pr-1.5 pl-4 text-[14px] shadow-pop",
+            "toast-in pointer-events-auto flex w-full max-w-[460px] flex-col rounded-card py-1.5 pr-1.5 pl-4 text-supporting shadow-pop",
             t.leaving && "toast-out",
             t.tone === "error" ? "bg-danger text-white" : "bg-ink text-bg",
           )}

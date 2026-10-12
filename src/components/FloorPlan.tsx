@@ -109,10 +109,10 @@ export function FloorPlan({ stats, onOpen }: { stats: RoomStats[]; onOpen: (room
   const byRoom = new Map(stats.map((s) => [s.room, s]));
 
   return (
-    <section aria-label="Floor plan" className="grid gap-4 rounded-[16px] border border-line bg-surface p-3 sm:grid-cols-2 sm:p-4">
+    <section aria-label="Floor plan" className="grid gap-4 rounded-panel border border-line bg-surface p-3 sm:grid-cols-2 sm:p-4">
       {FLOORS.map(({ floor, shapes, stairs, fixtures }) => (
         <figure key={floor} className="grid gap-1.5">
-          <figcaption className="text-[12px] font-semibold text-ink-2">{FLOOR_LABELS[floor]}</figcaption>
+          <figcaption className="text-hint font-semibold text-ink-2">{FLOOR_LABELS[floor]}</figcaption>
           <div className="relative" style={{ aspectRatio: `${W} / ${H}` }}>
             <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 h-full w-full overflow-visible">
               {fixtures?.map(([x, y, w, h], i) => (
@@ -162,7 +162,7 @@ export function FloorPlan({ stats, onOpen }: { stats: RoomStats[]; onOpen: (room
                 <span
                   key={room}
                   aria-hidden="true"
-                  className="pointer-events-none absolute grid -translate-x-1/2 -translate-y-1/2 text-center text-[11px] leading-[1.2] whitespace-nowrap"
+                  className="pointer-events-none absolute grid -translate-x-1/2 -translate-y-1/2 text-center text-label leading-[1.2] whitespace-nowrap"
                   style={{ left: pct(label.x, W), top: pct(label.y, H), color: busy ? paint.ink : "var(--ink-2)" }}
                 >
                   <span className="font-semibold">{label.text}</span>

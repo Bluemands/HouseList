@@ -118,6 +118,19 @@ export const settingsUpdateSchema = z.object({
   removeMember: z.string().trim().min(1).max(60).optional(),
 });
 
+const printLine = z.object({
+  itemId: z.string().min(1).max(40),
+  stepId: z.string().min(1).max(40).nullable().optional(),
+  text: z.string().trim().min(1).max(300),
+  group: z.string().trim().max(80).nullable().optional(),
+});
+
+export const printOutCreateSchema = z.object({
+  title: z.string().trim().min(1).max(80),
+  createdBy: z.string().trim().min(1).max(60),
+  lines: z.array(printLine).min(1, "Nothing to print").max(400),
+});
+
 export type ItemCreateInput = z.input<typeof itemCreateSchema>;
 export type ItemUpdateInput = z.input<typeof itemUpdateSchema>;
 export type SettingsUpdateInput = z.input<typeof settingsUpdateSchema>;

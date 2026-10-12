@@ -55,15 +55,15 @@ export function PlanNote({ planned, isNew }: { planned: ItemDTO; isNew: boolean 
   return (
     <Field label="The plan">
       <div className="grid gap-1" aria-live="polite">
-        <span className="text-[15px] font-semibold text-ink tabular">{status}</span>
-        <span className="text-[13px] text-ink-2 tabular">{detail}</span>
-        {change && <span className="text-[13px] font-medium text-ink tabular">{change}</span>}
+        <span className="text-body font-semibold text-ink tabular">{status}</span>
+        <span className="text-meta text-ink-2 tabular">{detail}</span>
+        {change && <span className="text-meta font-medium text-ink tabular">{change}</span>}
       </div>
       {pinFits && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <Suggestion onClick={() => patchItem(planned.id, { pinned: true })}>Pin it to afford it now</Suggestion>
           {pinFits.later.length > 0 && (
-            <span className="text-[12px] text-ink-3 tabular">Pushes back {describeMoves(pinFits.later)}.</span>
+            <span className="text-hint text-ink-3 tabular">Pushes back {describeMoves(pinFits.later)}.</span>
           )}
         </div>
       )}

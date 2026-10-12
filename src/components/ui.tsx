@@ -58,13 +58,13 @@ export function RoomTag({ room }: { room: Room }) {
 export function PriorityTag({ priority }: { priority: Priority }) {
   if (priority === "MUST_HAVE") {
     return (
-      <span className="rounded-[4px] bg-ink px-1.5 py-px text-[11px] leading-4 font-bold tracking-wide text-bg">
+      <span className="rounded-[4px] bg-ink px-1.5 py-px text-label leading-4 font-bold tracking-wide text-bg">
         Must
       </span>
     );
   }
   if (priority === "SOMEDAY") {
-    return <span className="text-[12px] text-ink-3 italic">Someday</span>;
+    return <span className="text-hint text-ink-3 italic">Someday</span>;
   }
   return null;
 }
@@ -139,7 +139,7 @@ export function Segmented<T extends string>({
   size?: "sm" | "md";
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex rounded-[10px] bg-sunken p-[3px]">
+    <div role="radiogroup" aria-label={label} className="flex rounded-control bg-sunken p-[3px]">
       {options.map((o) => (
         <button
           key={o.value}
@@ -149,7 +149,7 @@ export function Segmented<T extends string>({
           onClick={() => onChange(o.value)}
           className={clsx(
             "flex flex-1 items-center justify-center gap-1.5 rounded-[7px] font-medium whitespace-nowrap transition-[background-color,color,box-shadow] duration-150",
-            size === "sm" ? "px-2.5 py-1 text-[13px]" : "px-3 py-1.5 text-sm",
+            size === "sm" ? "px-2.5 py-1 text-meta" : "px-3 py-1.5 text-sm",
             value === o.value
               ? "bg-surface text-ink shadow-[0_1px_2px_rgb(0_0_0/0.1)]"
               : "text-ink-2 hover:text-ink",
@@ -179,7 +179,7 @@ export function Chip({
       aria-pressed={selected}
       onClick={onClick}
       className={clsx(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-medium whitespace-nowrap transition-colors duration-150",
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-meta font-medium whitespace-nowrap transition-colors duration-150",
         selected
           ? "border-accent bg-accent-soft text-accent-text"
           : "border-line bg-surface text-ink-2 hover:border-line-strong hover:text-ink",
@@ -201,7 +201,7 @@ export function Button({
       type="button"
       {...props}
       className={clsx(
-        "inline-flex items-center justify-center gap-1.5 rounded-[10px] px-4 py-2.5 text-sm font-semibold transition-[background-color,color,transform] duration-150 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex items-center justify-center gap-1.5 rounded-control px-4 py-2.5 text-sm font-semibold transition-[background-color,color,transform] duration-150 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50",
         variant === "primary" && "bg-accent text-accent-ink hover:bg-accent-hover",
         variant === "secondary" && "border border-line bg-surface text-ink hover:bg-sunken",
         variant === "ghost" && "text-ink-2 hover:bg-sunken hover:text-ink",
@@ -215,9 +215,9 @@ export function Button({
 export function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <div className="grid gap-2">
-      <span className="text-[13px] font-semibold text-ink-2">{label}</span>
+      <span className="text-meta font-semibold text-ink-2">{label}</span>
       {children}
-      {hint && <span className="text-[12px] text-ink-3">{hint}</span>}
+      {hint && <span className="text-hint text-ink-3">{hint}</span>}
     </div>
   );
 }
@@ -242,7 +242,7 @@ export function GrowingTextarea({
 }
 
 export const inputClass =
-  "w-full rounded-[10px] border border-line bg-surface px-3 py-2.5 text-[15px] text-ink outline-none transition-colors placeholder:text-ink-3 hover:border-line-strong focus:border-accent focus:ring-2 focus:ring-accent/20";
+  "w-full rounded-control border border-line bg-surface px-3 py-2.5 text-body text-ink outline-none transition-colors placeholder:text-ink-3 hover:border-line-strong focus:border-accent focus:ring-2 focus:ring-accent/20";
 
 export function MoneyInput({
   value,
@@ -257,7 +257,7 @@ export function MoneyInput({
 }) {
   return (
     <div className="relative">
-      <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] text-ink-3">£</span>
+      <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-body text-ink-3">£</span>
       <input
         aria-label={label}
         inputMode="decimal"
@@ -276,7 +276,7 @@ export function Suggestion({ onClick, children }: { onClick: () => void; childre
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex min-h-11 max-w-full min-w-0 items-center rounded-full border border-accent/35 bg-accent-soft px-3.5 text-[13px] font-semibold text-accent-text transition-[background-color,transform] duration-150 hover:border-accent active:scale-[0.97]"
+      className="inline-flex min-h-11 max-w-full min-w-0 items-center rounded-full border border-accent/35 bg-accent-soft px-3.5 text-meta font-semibold text-accent-text transition-[background-color,transform] duration-150 hover:border-accent active:scale-[0.97]"
     >
       <span className="truncate">{children}</span>
     </button>
@@ -287,7 +287,7 @@ export function Suggestion({ onClick, children }: { onClick: () => void; childre
 export function SectionHead({ title, children, id }: { title: string; children?: React.ReactNode; id?: string }) {
   return (
     <div className="mb-2 flex items-baseline justify-between gap-3">
-      <h2 id={id} className="text-[17px] font-bold tracking-[-0.01em] text-ink">
+      <h2 id={id} className="text-title font-bold tracking-[-0.01em] text-ink">
         {title}
       </h2>
       {children}

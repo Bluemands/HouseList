@@ -34,10 +34,10 @@ export function SimpleHome({ onAdd, onSettings }: { onAdd: () => void; onSetting
     <div className="grid grid-cols-[minmax(0,1fr)] gap-7">
       <header className="flex items-start justify-between gap-3 pt-1">
         <div>
-          <h1 className="text-[28px] leading-tight font-bold tracking-[-0.025em]">
+          <h1 className="text-headline leading-tight font-bold tracking-[-0.025em]">
             {greeting()}, {me}
           </h1>
-          <p className="mt-1 text-[15px] text-ink-2">
+          <p className="mt-1 text-body text-ink-2">
             {left.length ? `${left.length} to do` : "Nothing left to do"}
             {ticked > 0 && ` · ${ticked} done today`}
           </p>
@@ -60,8 +60,8 @@ export function SimpleHome({ onAdd, onSettings }: { onAdd: () => void; onSetting
           onClick={onAdd}
           className="grid justify-items-center gap-2 rounded-2xl border border-dashed border-line-strong px-6 py-12 text-center"
         >
-          <span className="text-[17px] font-semibold text-ink">The list is empty</span>
-          <span className="text-[15px] text-ink-2">Tap here, or Add below, to write the first thing.</span>
+          <span className="text-title font-semibold text-ink">The list is empty</span>
+          <span className="text-body text-ink-2">Tap here, or Add below, to write the first thing.</span>
         </button>
       ) : (
         groups.map((g) => {
@@ -69,7 +69,7 @@ export function SimpleHome({ onAdd, onSettings }: { onAdd: () => void; onSetting
           return (
             <section key={g.room} aria-labelledby={`room-${g.room}`}>
               <h2 id={`room-${g.room}`} className="flex min-h-10 items-center justify-between gap-3 px-1">
-                <span className="inline-flex items-center gap-2 text-[17px] font-bold text-ink">
+                <span className="inline-flex items-center gap-2 text-title font-bold text-ink">
                   <PaintChip room={g.room} />
                   {ROOM_PAINT[g.room].label}
                 </span>
@@ -77,7 +77,7 @@ export function SimpleHome({ onAdd, onSettings }: { onAdd: () => void; onSetting
                   <PrintButton
                     title={ROOM_PAINT[g.room].label}
                     lines={() => listLines([{ label: null, items: open }])}
-                    className="-mr-2 text-[13px]"
+                    className="-mr-2 text-meta"
                   />
                 )}
               </h2>
@@ -112,7 +112,7 @@ export function SimpleHome({ onAdd, onSettings }: { onAdd: () => void; onSetting
         <button
           type="button"
           onClick={onAdd}
-          className="mx-auto flex h-14 w-full max-w-[520px] items-center justify-center gap-2 rounded-2xl bg-accent text-[17px] font-semibold text-accent-ink shadow-pop transition-transform duration-150 active:scale-[0.98]"
+          className="mx-auto flex h-14 w-full max-w-[520px] items-center justify-center gap-2 rounded-2xl bg-accent text-title font-semibold text-accent-ink shadow-pop transition-transform duration-150 active:scale-[0.98]"
         >
           <Plus size={22} strokeWidth={2.4} /> Add something
         </button>
@@ -137,7 +137,7 @@ function SimpleRow({ item }: { item: ItemDTO }) {
             type="button"
             onClick={() => openItem(item.id)}
             className={clsx(
-              "block w-full text-left text-[17px] leading-snug",
+              "block w-full text-left text-title leading-snug",
               done ? "text-ink-3 line-through decoration-ink-3/60" : "font-medium text-ink",
             )}
           >
@@ -148,7 +148,7 @@ function SimpleRow({ item }: { item: ItemDTO }) {
               type="button"
               onClick={() => setUnfolded((u) => !u)}
               aria-expanded={unfolded}
-              className="mt-0.5 -ml-1 inline-flex min-h-9 items-center gap-1 rounded-lg px-1 text-[14px] text-ink-2 hover:text-ink"
+              className="mt-0.5 -ml-1 inline-flex min-h-9 items-center gap-1 rounded-lg px-1 text-supporting text-ink-2 hover:text-ink"
             >
               {stepsDone} of {item.steps.length} steps
               <ChevronDown size={16} className={clsx("transition-transform", unfolded && "rotate-180")} aria-hidden="true" />
@@ -163,7 +163,7 @@ function SimpleRow({ item }: { item: ItemDTO }) {
                     role="checkbox"
                     aria-checked={step.done}
                     onClick={() => toggleStep(item, step.id)}
-                    className="flex min-h-11 w-full items-center gap-3 text-left text-[15px]"
+                    className="flex min-h-11 w-full items-center gap-3 text-left text-body"
                   >
                     <span
                       aria-hidden="true"

@@ -41,7 +41,7 @@ export function SinceLastTime() {
   return (
     <section aria-label="Since you last looked" className="rounded-2xl border border-line bg-surface p-4">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[15px] text-ink">
+        <p className="text-body text-ink">
           <span className="font-semibold">Since you last looked,</span> {who} {sentence}.
         </p>
         <button
@@ -59,7 +59,7 @@ export function SinceLastTime() {
             <button
               type="button"
               onClick={() => openItem(item.id)}
-              className="flex w-full items-center gap-2.5 rounded-lg py-0.5 text-left text-[14px] hover:text-accent-text"
+              className="flex w-full items-center gap-2.5 rounded-lg py-0.5 text-left text-supporting hover:text-accent-text"
             >
               <PaintChip room={item.room} />
               <span
@@ -72,12 +72,12 @@ export function SinceLastTime() {
                 {item.title}
                 {note && <span className="text-ink-2"> — {note}</span>}
               </span>
-              <span className="shrink-0 text-[12px] font-semibold text-ink-3">{label}</span>
+              <span className="shrink-0 text-hint font-semibold text-ink-3">{label}</span>
             </button>
           </li>
         ))}
       </ul>
-      {more > 0 && <p className="mt-1.5 text-[13px] text-ink-3">and {more} more</p>}
+      {more > 0 && <p className="mt-1.5 text-meta text-ink-3">and {more} more</p>}
     </section>
   );
 }

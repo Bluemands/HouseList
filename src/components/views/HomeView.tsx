@@ -56,10 +56,10 @@ export function HomeView({ go, onSettings }: { go: (r: Route) => void; onSetting
     <div className="grid grid-cols-[minmax(0,1fr)] gap-7">
       <header className="flex items-start justify-between gap-3 pt-1">
         <div>
-          <h1 className="text-[28px] leading-tight font-bold tracking-[-0.025em] text-ink">
+          <h1 className="text-headline leading-tight font-bold tracking-[-0.025em] text-ink">
             {greeting()}, {me}
           </h1>
-          <p className="mt-0.5 text-[14px] text-ink-2">
+          <p className="mt-0.5 text-supporting text-ink-2">
             {dateLine}
             {dayInHouse && dayInHouse > 0 && (
               <>
@@ -97,7 +97,7 @@ export function HomeView({ go, onSettings }: { go: (r: Route) => void; onSetting
             <button
               type="button"
               onClick={() => go({ view: "list" })}
-              className="inline-flex items-center gap-0.5 text-[14px] font-semibold text-accent-text hover:underline"
+              className="inline-flex items-center gap-0.5 text-supporting font-semibold text-accent-text hover:underline"
             >
               All {openCount} <ChevronRight size={16} />
             </button>
@@ -123,7 +123,7 @@ export function HomeView({ go, onSettings }: { go: (r: Route) => void; onSetting
             <button
               type="button"
               onClick={() => go({ view: "rooms" })}
-              className="inline-flex items-center gap-0.5 text-[14px] font-semibold text-accent-text hover:underline"
+              className="inline-flex items-center gap-0.5 text-supporting font-semibold text-accent-text hover:underline"
             >
               All rooms <ChevronRight size={16} />
             </button>
@@ -143,13 +143,13 @@ export function HomeView({ go, onSettings }: { go: (r: Route) => void; onSetting
           <SectionHead id="recent-head" title="Recently done" />
           <ul className="grid gap-2.5">
             {recent.map((item) => (
-              <li key={item.id} className="flex items-center gap-2.5 text-[14px]">
+              <li key={item.id} className="flex items-center gap-2.5 text-supporting">
                 <PaintChip room={item.room} />
                 <span className="min-w-0 flex-1 truncate text-ink-2">
                   <span className="font-semibold text-ink">{item.completedBy ?? "Someone"}</span>{" "}
                   {item.kind === "BUY" ? "bought" : "finished"} {item.title}
                 </span>
-                <span className="shrink-0 text-[12.5px] text-ink-3">{timeAgo(item.completedAt!)}</span>
+                <span className="shrink-0 text-meta text-ink-3">{timeAgo(item.completedAt!)}</span>
               </li>
             ))}
           </ul>
@@ -179,8 +179,8 @@ function MoneyStrip({ plan, onOpen }: { plan: ReturnType<typeof buildPlan>; onOp
         className="group flex items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3.5 text-left transition-colors hover:border-line-strong"
       >
         <span className="grid min-w-0 flex-1 gap-0.5">
-          <span className="text-[15px] font-semibold text-ink">Set up the pot</span>
-          <span className="text-[13px] text-ink-2">
+          <span className="text-body font-semibold text-ink">Set up the pot</span>
+          <span className="text-meta text-ink-2">
             {costsOnList(plan)
               ? `${costsOnList(plan)}. Say what you have to see what's affordable.`
               : "Say what you have to spend, and the plan shows what it covers."}
@@ -218,10 +218,10 @@ function MoneyStrip({ plan, onOpen }: { plan: ReturnType<typeof buildPlan>; onOp
       className="group grid gap-2 rounded-2xl border border-line bg-surface px-4 py-3.5 text-left transition-colors hover:border-line-strong"
     >
       <span className="flex items-baseline gap-x-3 gap-y-0.5 flex-wrap">
-        <span className="text-[17px] font-bold text-ink tabular">
+        <span className="text-title font-bold text-ink tabular">
           <CountingMoney value={plan.pot} /> <span className="font-medium text-ink-2">in the pot</span>
         </span>
-        <span className={clsx("text-[14px] font-semibold tabular", short ? "text-danger" : "text-accent-text")}>
+        <span className={clsx("text-supporting font-semibold tabular", short ? "text-danger" : "text-accent-text")}>
           {status}
         </span>
         <ChevronRight size={18} className="ml-auto self-center text-ink-3 transition-transform group-hover:translate-x-0.5" />
@@ -233,7 +233,7 @@ function MoneyStrip({ plan, onOpen }: { plan: ReturnType<typeof buildPlan>; onOp
         </span>
       )}
       {when && (
-        <span className="text-[12.5px] text-ink-3">
+        <span className="text-meta text-ink-3">
           {plan.mustTotal > 0 && <>Must-haves {formatGBP(plan.mustTotal)} · </>}
           {when}
         </span>
@@ -259,8 +259,8 @@ function EssentialsNudge({ onOpen }: { onOpen: () => void }) {
     <div className="mt-3 flex items-center gap-3 rounded-2xl border border-dashed border-line-strong px-3.5 py-3">
       <PaintFan size={26} />
       <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
-        <span className="block text-[14px] font-semibold text-ink">Just moved in?</span>
-        <span className="block text-[13px] text-ink-2">
+        <span className="block text-supporting font-semibold text-ink">Just moved in?</span>
+        <span className="block text-meta text-ink-2">
           Browse {missing} jobs most people do in the first few months: locks, stopcock, meters…
         </span>
       </button>
@@ -289,13 +289,13 @@ function EmptyNext({ hasItems, onEssentials }: { hasItems: boolean; onEssentials
         {swatches.map((room, i) => (
           <span
             key={room}
-            className="paint-in w-4 rounded-[3px]"
+            className="paint-in w-4 rounded-chip"
             style={{ background: ROOM_PAINT[room].hex, height: [26, 38, 22, 32, 18][i], animationDelay: `${i * 60}ms` }}
           />
         ))}
       </div>
-      <p className="text-[16px] font-semibold text-ink">{hasItems ? "All caught up" : "A blank canvas"}</p>
-      <p className="max-w-[34ch] text-[14px] text-ink-2">
+      <p className="text-title font-semibold text-ink">{hasItems ? "All caught up" : "A blank canvas"}</p>
+      <p className="max-w-[34ch] text-supporting text-ink-2">
         {hasItems
           ? "Nothing left to do. Put the kettle on, or add the next thing above."
           : "Add the first job or thing to buy above. Every room fills in with its paint colour as you go."}
@@ -304,7 +304,7 @@ function EmptyNext({ hasItems, onEssentials }: { hasItems: boolean; onEssentials
         <button
           type="button"
           onClick={onEssentials}
-          className="mt-1 rounded-[10px] bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink hover:bg-accent-hover"
+          className="mt-1 rounded-control bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink hover:bg-accent-hover"
         >
           Start with the new-home essentials
         </button>

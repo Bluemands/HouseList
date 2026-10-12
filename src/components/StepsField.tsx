@@ -243,12 +243,12 @@ export function StepsField({
                     onChange={(e) => update(step.key, { text: e.target.value })}
                     onBlur={() => !step.text.trim() && remove(step.key)}
                     className={clsx(
-                      "min-w-0 flex-1 bg-transparent py-2.5 pl-1 text-[15px] outline-none",
+                      "min-w-0 flex-1 bg-transparent py-2.5 pl-1 text-body outline-none",
                       step.done && "text-ink-3 line-through",
                     )}
                   />
                   {cost != null && !Number.isNaN(cost) && (
-                    <span className="shrink-0 text-[13.5px] text-ink-2 tabular">{formatGBP(cost)}</span>
+                    <span className="shrink-0 text-supporting text-ink-2 tabular">{formatGBP(cost)}</span>
                   )}
                   <button
                     type="button"
@@ -262,7 +262,7 @@ export function StepsField({
                 </div>
 
                 {!isOpen && (link || step.notes.trim()) && (
-                  <div className="-mt-1 flex min-w-0 items-center gap-3 pr-3 pb-2 pl-[58px] text-[12.5px] text-ink-3">
+                  <div className="-mt-1 flex min-w-0 items-center gap-3 pr-3 pb-2 pl-[58px] text-meta text-ink-3">
                     {link && (
                       <a
                         href={link}
@@ -315,7 +315,7 @@ export function StepsField({
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label="Open link"
-                          className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] border border-line text-ink-2 hover:bg-sunken"
+                          className="grid h-11 w-11 shrink-0 place-items-center rounded-control border border-line text-ink-2 hover:bg-sunken"
                         >
                           <ExternalLink size={16} />
                         </a>
@@ -428,7 +428,7 @@ export function LinksField({
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={`Open ${linkLabel(href)}`}
-                    className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] border border-line text-ink-2 hover:bg-sunken"
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-control border border-line text-ink-2 hover:bg-sunken"
                   >
                     <ExternalLink size={16} />
                   </a>

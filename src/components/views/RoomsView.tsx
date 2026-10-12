@@ -8,7 +8,7 @@ import { ROOM_PAINT } from "@/lib/rooms";
 import { affordabilityIndex, buildPlan, compareForList, isOpen, roomStats } from "@/lib/plan";
 import { formatGBP } from "@/lib/format";
 import type { Route } from "@/lib/nav";
-import { SwatchCard, PaintStrip } from "@/components/SwatchCard";
+import { PaintFill, SwatchCard, PaintStrip } from "@/components/SwatchCard";
 import { QuickAdd } from "@/components/QuickAdd";
 import { ItemList, ItemRow } from "@/components/ItemRow";
 import { SectionHead } from "@/components/ui";
@@ -26,8 +26,8 @@ export function RoomsView({ go }: { go: (r: Route) => void }) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
       <header className="pt-1">
-        <h1 className="text-[28px] leading-tight font-bold tracking-[-0.025em]">Rooms</h1>
-        <p className="mt-0.5 text-[14px] text-ink-2">
+        <h1 className="text-headline leading-tight font-bold tracking-[-0.025em]">Rooms</h1>
+        <p className="mt-0.5 text-supporting text-ink-2">
           {active.length === 0
             ? "Every room gets its own paint. Tap one to start its list."
             : `${active.length} of ${stats.length} rooms on the go${finished ? ` · ${finished} all done` : ""}`}
@@ -54,16 +54,17 @@ export function RoomsView({ go }: { go: (r: Route) => void }) {
                   <button
                     type="button"
                     onClick={() => go({ view: "rooms", room: s.room })}
-                    className="flex w-full items-center gap-2.5 rounded-[10px] border border-line bg-surface py-1.5 pr-3 pl-1.5 text-left transition-colors hover:border-line-strong"
+                    className="flex w-full items-center gap-2.5 rounded-control border border-line bg-surface py-1.5 pr-3 pl-1.5 text-left transition-colors hover:border-line-strong"
                   >
                     <span
                       aria-hidden="true"
-                      className="grid h-9 w-9 shrink-0 place-items-end rounded-[6px] p-1 text-[11px] leading-none font-semibold tabular shadow-[inset_0_0_0_1px_var(--chip-edge)]"
-                      style={{ background: ROOM_PAINT[s.room].hex, color: ROOM_PAINT[s.room].ink }}
+                      className="relative grid h-9 w-9 shrink-0 place-items-end p-1 text-label leading-none font-semibold tabular"
+                      style={{ color: ROOM_PAINT[s.room].ink }}
                     >
-                      {ROOM_PAINT[s.room].number.replace("No. ", "")}
+                      <PaintFill room={s.room} className="rounded-[6px] shadow-[inset_0_0_0_1px_var(--chip-edge)]" />
+                      <span className="relative">{ROOM_PAINT[s.room].number.replace("No. ", "")}</span>
                     </span>
-                    <span className="min-w-0 text-[14px] leading-tight font-medium text-ink">{ROOM_PAINT[s.room].label}</span>
+                    <span className="min-w-0 text-supporting leading-tight font-medium text-ink">{ROOM_PAINT[s.room].label}</span>
                   </button>
                 </li>
               ))}
@@ -95,7 +96,7 @@ export function RoomView({ room, go }: { room: Room; go: (r: Route) => void }) {
         <button
           type="button"
           onClick={() => go({ view: "rooms" })}
-          className="inline-flex items-center gap-1 rounded-lg py-1 pr-2 text-[14px] font-semibold text-ink-2 hover:text-ink"
+          className="inline-flex items-center gap-1 rounded-lg py-1 pr-2 text-supporting font-semibold text-ink-2 hover:text-ink"
         >
           <ArrowLeft size={17} /> Rooms
         </button>
@@ -117,14 +118,12 @@ export function RoomView({ room, go }: { room: Room; go: (r: Route) => void }) {
         )}
       </div>
 
-      <header
-        className="-mx-4 grid gap-4 px-5 pt-6 pb-5 sm:mx-0 sm:rounded-[20px]"
-        style={{ background: paint.hex, color: paint.ink }}
-      >
-        <div className="grid gap-1.5">
-          <h1 className="text-[32px] leading-none font-bold tracking-[-0.03em]">{paint.label}</h1>
+      <header className="relative -mx-4 grid gap-4 px-5 pt-6 pb-5 sm:mx-0" style={{ color: paint.ink }}>
+        <PaintFill room={room} className="sm:rounded-room" />
+        <div className="relative grid gap-1.5">
+          <h1 className="text-display leading-none font-bold tracking-[-0.03em]">{paint.label}</h1>
           {layout && (
-            <p className="text-[13px] font-medium tabular">
+            <p className="text-meta font-medium tabular">
               {[
                 FLOOR_LABELS[layout.floor],
                 roomSizeLabel(room),
@@ -136,16 +135,16 @@ export function RoomView({ room, go }: { room: Room; go: (r: Route) => void }) {
             </p>
           )}
         </div>
-        <dl className="flex flex-wrap gap-x-6 gap-y-2 text-[14px]">
+        <dl className="relative flex flex-wrap gap-x-6 gap-y-2 text-supporting">
           <Stat label="To do" value={String(stats.open)} />
           <Stat label="Done" value={String(stats.done)} />
           {stats.openCost > 0 && <Stat label="Still to spend" value={formatGBP(stats.openCost)} />}
           {stats.spent > 0 && <Stat label="Spent" value={formatGBP(stats.spent)} />}
         </dl>
-        <div className="rounded-[4px] bg-surface/85 p-1.5">
+        <div className="relative rounded-[4px] bg-surface/85 p-1.5">
           <PaintStrip stats={stats} tall />
         </div>
-        <p className="text-[12px] font-semibold tabular">
+        <p className="relative text-hint font-semibold tabular">
           {paint.number} · {paint.paint}
         </p>
       </header>
@@ -172,7 +171,7 @@ export function RoomView({ room, go }: { room: Room; go: (r: Route) => void }) {
             ))}
           </ItemList>
         ) : (
-          <p className="rounded-2xl border border-dashed border-line-strong px-5 py-8 text-center text-[14px] text-ink-2">
+          <p className="rounded-2xl border border-dashed border-line-strong px-5 py-8 text-center text-supporting text-ink-2">
             {stats.total === 0 ? `Nothing for the ${paint.label.toLowerCase()} yet.` : "All done in here. Lovely."}
           </p>
         )}
@@ -184,7 +183,7 @@ export function RoomView({ room, go }: { room: Room; go: (r: Route) => void }) {
             type="button"
             onClick={() => setShowDone((s) => !s)}
             aria-expanded={showDone}
-            className="px-1 py-2 text-[14px] font-semibold text-ink-2 hover:text-ink"
+            className="px-1 py-2 text-supporting font-semibold text-ink-2 hover:text-ink"
           >
             {showDone ? "Hide" : "Show"} {done.length} done
           </button>
@@ -204,8 +203,8 @@ export function RoomView({ room, go }: { room: Room; go: (r: Route) => void }) {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[12px] font-medium">{label}</dt>
-      <dd className="text-[18px] font-bold tabular">{value}</dd>
+      <dt className="text-hint font-medium">{label}</dt>
+      <dd className="text-item-lead font-bold tabular">{value}</dd>
     </div>
   );
 }

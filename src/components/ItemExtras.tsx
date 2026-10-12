@@ -79,22 +79,22 @@ export function QuotesField({ item, onChosen }: { item: ItemDTO; onChosen: (item
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2">
-                  <span className="truncate text-[15px] font-semibold text-ink">{q.from}</span>
+                  <span className="truncate text-body font-semibold text-ink">{q.from}</span>
                   {q.amount === lowest && !q.chosen && (
-                    <span className="shrink-0 text-[11px] font-bold tracking-wide text-accent-text">LOWEST</span>
+                    <span className="shrink-0 text-label font-bold tracking-wide text-accent-text">LOWEST</span>
                   )}
                 </div>
-                {q.note && <p className="mt-0.5 text-[13px] text-ink-2">{q.note}</p>}
-                <p className="mt-0.5 text-[12px] text-ink-3">
+                {q.note && <p className="mt-0.5 text-meta text-ink-2">{q.note}</p>}
+                <p className="mt-0.5 text-hint text-ink-3">
                   {q.addedBy} · {timeAgo(q.createdAt)}
                 </p>
               </div>
-              <span className="pt-px text-[15px] font-semibold text-ink tabular">{formatGBP(q.amount)}</span>
+              <span className="pt-px text-body font-semibold text-ink tabular">{formatGBP(q.amount)}</span>
               {q.chosen ? (
                 <button
                   type="button"
                   onClick={() => updateQuote(q.id, { chosen: false })}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[13px] font-bold text-accent-text hover:bg-surface/60"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-meta font-bold text-accent-text hover:bg-surface/60"
                   aria-label={`Unchoose the quote from ${q.from}`}
                 >
                   <Check size={14} strokeWidth={2.6} /> Chosen
@@ -106,7 +106,7 @@ export function QuotesField({ item, onChosen }: { item: ItemDTO; onChosen: (item
                     const updated = await updateQuote(q.id, { chosen: true });
                     if (updated) onChosen(updated);
                   }}
-                  className="shrink-0 rounded-lg border border-line px-2.5 py-1 text-[13px] font-semibold text-ink hover:border-accent hover:text-accent-text"
+                  className="shrink-0 rounded-lg border border-line px-2.5 py-1 text-meta font-semibold text-ink hover:border-accent hover:text-accent-text"
                 >
                   Choose
                 </button>
@@ -155,7 +155,7 @@ export function QuotesField({ item, onChosen }: { item: ItemDTO; onChosen: (item
             </Button>
           </div>
           {error && (
-            <p role="alert" className="text-[13px] font-medium text-danger">
+            <p role="alert" className="text-meta font-medium text-danger">
               {error}
             </p>
           )}
@@ -190,17 +190,17 @@ export function UpdatesField({ item }: { item: ItemDTO }) {
               <span
                 aria-hidden="true"
                 className={clsx(
-                  "grid h-7 w-7 shrink-0 place-items-center rounded-full text-[12px] font-bold",
+                  "grid h-7 w-7 shrink-0 place-items-center rounded-full text-hint font-bold",
                   c.author === me ? "bg-accent-soft text-accent-text" : "bg-sunken text-ink-2",
                 )}
               >
                 {c.author.charAt(0).toUpperCase()}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-[12.5px] text-ink-3">
+                <p className="text-meta text-ink-3">
                   <span className="font-semibold text-ink-2">{c.author}</span> · {timeAgo(c.createdAt)}
                 </p>
-                <p className="text-[15px] leading-snug whitespace-pre-wrap text-ink">{c.text}</p>
+                <p className="text-body leading-snug whitespace-pre-wrap text-ink">{c.text}</p>
               </div>
               {c.author === me && (
                 <button

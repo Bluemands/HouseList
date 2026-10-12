@@ -27,7 +27,8 @@ import {
 import { ROOM_PAINT } from "@/lib/rooms";
 import { addDays, addYears, formatDay, formatGBP, isWebLink, normaliseLink, timeAgo, today, toDayString } from "@/lib/format";
 import { useStore, type SheetRestore } from "@/lib/store";
-import { workerState, type AiJobDTO } from "@/lib/ai";
+import type { AiJobDTO } from "@/lib/ai";
+import { workerState } from "@/lib/worker-state";
 import { parseStep } from "@/lib/parse";
 import { readableLink, siteOf, splitLink, titleFromUrl } from "@/lib/unfurl";
 import { useUnfurl } from "@/lib/useUnfurl";
@@ -582,8 +583,8 @@ function SheetBody({
       className={clsx(
         leaving && "sheet-leaving",
         "sheet m-0 flex max-h-none max-w-none flex-col overflow-hidden bg-surface p-0 text-ink shadow-sheet backdrop:bg-transparent",
-        "inset-x-0 top-auto bottom-0 h-[min(92dvh,860px)] w-full rounded-t-[22px]",
-        "lg:inset-y-0 lg:right-0 lg:left-auto lg:h-dvh lg:w-[460px] lg:rounded-none lg:rounded-l-[22px]",
+        "inset-x-0 top-auto bottom-0 h-[min(92dvh,860px)] w-full rounded-t-sheet",
+        "lg:inset-y-0 lg:right-0 lg:left-auto lg:h-dvh lg:w-[460px] lg:rounded-none lg:rounded-l-sheet",
       )}
     >
       <div {...dragHandlers} className="flex touch-none items-center justify-between gap-2 px-4 pt-3 pb-1">
@@ -594,7 +595,7 @@ function SheetBody({
             aria-pressed={item.pinned}
             onClick={() => patchItem(item.id, { pinned: !item.pinned })}
             className={clsx(
-              "mt-1 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors",
+              "mt-1 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-meta font-semibold transition-colors",
               item.pinned ? "bg-accent-soft text-accent-text" : "text-ink-2 hover:bg-sunken hover:text-ink",
             )}
           >
@@ -626,7 +627,7 @@ function SheetBody({
           placeholder={draft.kind === "BUY" ? "What do you need to buy?" : "What needs doing?"}
           aria-label="Title"
           maxLength={TITLE_MAX}
-          className="w-full resize-none overflow-hidden bg-transparent py-2 text-[22px] leading-tight font-bold tracking-[-0.015em] text-ink outline-none placeholder:text-ink-3"
+          className="w-full resize-none overflow-hidden bg-transparent py-2 text-sheet-title leading-tight font-bold tracking-[-0.015em] text-ink outline-none placeholder:text-ink-3"
         />
         {error && (
           <p role="alert" className="mb-2 text-sm font-medium text-danger">
@@ -677,9 +678,9 @@ function SheetBody({
             }
           >
             {followsSteps ? (
-              <div className="flex items-baseline justify-between gap-3 rounded-[10px] border border-line bg-sunken px-3 py-2.5">
-                <span className="text-[15px] font-semibold text-ink tabular">{formatGBP(fromSteps)}</span>
-                <span className="text-[13px] text-ink-3 tabular">
+              <div className="flex items-baseline justify-between gap-3 rounded-control border border-line bg-sunken px-3 py-2.5">
+                <span className="text-body font-semibold text-ink tabular">{formatGBP(fromSteps)}</span>
+                <span className="text-meta text-ink-3 tabular">
                   {paidSoFar > 0 && draft.status !== "DONE"
                     ? `${formatGBP(paidSoFar)} paid · ${formatGBP(Math.max(0, fromSteps - paidSoFar))} to go`
                     : "Total of the steps"}
@@ -694,7 +695,7 @@ function SheetBody({
             )}
             {gap != null && priorFigure != null && draft.status !== "DONE" && (
               <div className="grid justify-items-start gap-1.5" aria-live="polite">
-                <span className="text-[13px] text-ink-2 tabular">
+                <span className="text-meta text-ink-2 tabular">
                   That&apos;s {formatGBP(Math.abs(gap))} {gap > 0 ? "less" : "more"} than the {priorLabel} of{" "}
                   {formatGBP(priorFigure)}
                   {gap > 0 ? ", so the plan would count only the steps." : "."}
@@ -706,7 +707,7 @@ function SheetBody({
                 )}
               </div>
             )}
-            <label className="flex items-center gap-2.5 py-1 text-[14px] text-ink-2">
+            <label className="flex items-center gap-2.5 py-1 text-supporting text-ink-2">
               <input
                 type="checkbox"
                 checked={draft.isQuote}
@@ -717,7 +718,7 @@ function SheetBody({
             </label>
             {(draft.status === "DONE" || draft.actualPrice) && (
               <div className="grid grid-cols-[auto_1fr] items-center gap-3">
-                <span className="text-[14px] font-medium text-ink">Paid</span>
+                <span className="text-supporting font-medium text-ink">Paid</span>
                 <MoneyInput label="Paid" placeholder="What it actually cost" value={draft.actualPrice} onChange={(v) => set("actualPrice", v)} />
               </div>
             )}
@@ -919,7 +920,7 @@ function SheetBody({
               onAdd={addLink}
             >
               {page.status === "loading" && (placeholderTitle || !draft.estimatedPrice.trim()) && (
-                <span className="text-[12px] text-ink-3" aria-live="polite">
+                <span className="text-hint text-ink-3" aria-live="polite">
                   Looking up that page…
                 </span>
               )}
@@ -966,7 +967,7 @@ function SheetBody({
             <button
               type="button"
               onClick={() => setMore(true)}
-              className="flex items-center gap-2 rounded-[10px] border border-dashed border-line-strong px-3 py-2.5 text-left text-[14px] text-ink-2 hover:border-tick-ring hover:text-ink"
+              className="flex items-center gap-2 rounded-control border border-dashed border-line-strong px-3 py-2.5 text-left text-supporting text-ink-2 hover:border-tick-ring hover:text-ink"
             >
               <Plus size={16} aria-hidden="true" className="shrink-0" />
               <span>
@@ -976,7 +977,7 @@ function SheetBody({
           )}
 
           {item && (
-            <p className="text-[13px] text-ink-3">
+            <p className="text-meta text-ink-3">
               Added by {item.addedBy} {timeAgo(item.createdAt)}
               {item.completedAt && (
                 <>
@@ -1000,7 +1001,7 @@ function SheetBody({
           }}
           className="rise-in grid gap-2 border-t border-line bg-surface px-4 pt-3"
         >
-          <label htmlFor="improve-text" className="text-[13px] font-semibold text-ink-2">
+          <label htmlFor="improve-text" className="text-meta font-semibold text-ink-2">
             What should Claude improve?
           </label>
           <GrowingTextarea
@@ -1028,7 +1029,7 @@ function SheetBody({
               </Chip>
             ))}
           </div>
-          <p className="text-[12px] text-ink-3">
+          <p className="text-hint text-ink-3">
             Claude looks it up, then updates the cost, steps and links. Ticked-off steps and chosen quotes stay as they are, and you
             can undo it.
           </p>

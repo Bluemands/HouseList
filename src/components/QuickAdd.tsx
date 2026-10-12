@@ -11,7 +11,7 @@ import { readableLink, siteOf, splitLink, titleFromUrl } from "@/lib/unfurl";
 import { unfurlLink, useUnfurl } from "@/lib/useUnfurl";
 import { describeDue, formatCost } from "@/lib/format";
 import { useStore } from "@/lib/store";
-import { workerState } from "@/lib/ai";
+import { workerState } from "@/lib/worker-state";
 import { PaintChip } from "@/components/ui";
 
 type Props = {
@@ -198,7 +198,7 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
             aria-describedby="quick-add-help"
             autoComplete="off"
             enterKeyHint="done"
-            className="min-w-0 flex-1 bg-transparent py-2 text-[16px] text-ink outline-none"
+            className="min-w-0 flex-1 bg-transparent py-2 text-field text-ink outline-none"
           />
           {text && worker !== "never" && (
             <button
@@ -234,7 +234,7 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
 
         {parsed && link && (
           // What a pasted link will add as, so the box can stay showing the link.
-          <div className="flex min-w-0 items-center gap-2 border-t border-line px-3.5 pt-2 text-[13px]">
+          <div className="flex min-w-0 items-center gap-2 border-t border-line px-3.5 pt-2 text-meta">
             {page.status === "loading" ? (
               <LoaderCircle size={14} strokeWidth={2.4} className="shrink-0 animate-spin text-ink-3" aria-hidden="true" />
             ) : (
@@ -250,7 +250,7 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
         {parsed && (
           <div
             className={clsx(
-              "chips-pop flex flex-wrap items-center gap-1.5 px-3 py-2 text-[12.5px]",
+              "chips-pop flex flex-wrap items-center gap-1.5 px-3 py-2 text-meta",
               !link && "border-t border-line",
             )}
           >
@@ -321,7 +321,7 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
       <p
         id="quick-add-help"
         className={clsx(
-          "text-[12.5px] text-ink-2",
+          "text-meta text-ink-2",
           showHint
             ? "pointer-events-none absolute inset-x-0 top-full z-20 mt-1.5 rounded-xl border border-line bg-surface px-3 py-2 shadow-pop"
             : "sr-only",

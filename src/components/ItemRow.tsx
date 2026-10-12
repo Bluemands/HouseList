@@ -19,7 +19,7 @@ import {
 import type { ItemDTO } from "@/lib/types";
 import { REPEAT_SHORT, STATUS_LABELS } from "@/lib/types";
 import { describeDue, formatCost, formatGBP, formatMonth, formatMonthYear, timeAgo, today } from "@/lib/format";
-import { workerState } from "@/lib/ai";
+import { workerState } from "@/lib/worker-state";
 import { useStore } from "@/lib/store";
 import { haptic } from "@/lib/haptics";
 import { prefersReducedMotion, project, rubberband, spring, velocityTracker, type Spring, type VelocityTracker } from "@/lib/motion";
@@ -369,7 +369,7 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
         <div
           aria-hidden="true"
           className={clsx(
-            "absolute inset-0 flex items-center px-5 text-[14px] font-semibold",
+            "absolute inset-0 flex items-center px-5 text-supporting font-semibold",
             swipe.dx > 0 ? "justify-start bg-accent text-accent-ink" : "justify-end bg-danger text-white",
           )}
           style={{ opacity: 0.35 + reveal * 0.65 }}
@@ -440,7 +440,7 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
                 <span
                   className={clsx(
                     "min-w-0 flex-1 leading-snug",
-                    lead ? "text-[18px] font-semibold tracking-[-0.01em]" : "text-[15px] font-medium",
+                    lead ? "text-item-lead font-semibold tracking-[-0.01em]" : "text-body font-medium",
                     done ? "text-ink-3 line-through decoration-ink-3/50" : "text-ink",
                   )}
                 >
@@ -456,22 +456,22 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
                 </span>
                 {cost && (
                   <span
-                    className={clsx("shrink-0 pt-px text-[14px] tabular", done ? "text-ink-3" : "font-medium text-ink")}
+                    className={clsx("shrink-0 pt-px text-supporting tabular", done ? "text-ink-3" : "font-medium text-ink")}
                   >
-                    {item.isQuote && !done && <span className="mr-1 text-[11px] font-semibold text-ink-3">QUOTE</span>}
+                    {item.isQuote && !done && <span className="mr-1 text-label font-semibold text-ink-3">QUOTE</span>}
                     {cost}
                   </span>
                 )}
               </span>
   
-              <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-ink-2">
+              <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-meta text-ink-2">
                 {!done && <PriorityTag priority={item.priority} />}
                 {item.kind === "BUY" && (
                   <ShoppingBag size={13} strokeWidth={2} className="text-ink-3" aria-label="To buy" />
                 )}
                 {meta}
                 {!done && monthsAway !== undefined && monthsAway !== 0 && (
-                  <span className="ml-auto text-[12px] text-ink-3">
+                  <span className="ml-auto text-hint text-ink-3">
                     {/* null: the pot can't cover it and there's no monthly saving to wait for. */}
                     {monthsAway !== null ? `Affordable ${formatMonth(monthsAway, false)}` : "Not affordable yet"}
                   </span>
@@ -480,7 +480,7 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
             </button>
             {/* The next step, tickable without opening the item. */}
             {nextStep && (
-              <span className="relative z-10 mt-1.5 flex max-w-full items-center gap-2 text-[13px] text-ink-2">
+              <span className="relative z-10 mt-1.5 flex max-w-full items-center gap-2 text-meta text-ink-2">
                 <button
                   type="button"
                   role="checkbox"

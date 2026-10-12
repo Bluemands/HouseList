@@ -57,7 +57,7 @@ export function PrintButton({
         print(title, list);
       }}
       className={clsx(
-        "inline-flex items-center gap-1.5 rounded-[10px] px-3 py-2 text-[14px] font-semibold text-ink-2 hover:bg-sunken hover:text-ink disabled:opacity-50",
+        "inline-flex items-center gap-1.5 rounded-control px-3 py-2 text-supporting font-semibold text-ink-2 hover:bg-sunken hover:text-ink disabled:opacity-50",
         className,
       )}
     >

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { readBody } from "@/lib/api-route";
-import { PRINT_OUT_DAYS, printOutCreateSchema, type PrintLine, type PrintOutSummary } from "@/lib/printouts";
+import { PRINT_OUT_DAYS, type PrintLine, type PrintOutSummary } from "@/lib/printouts";
+import { printOutCreateSchema } from "@/lib/validation";
 
 const cutoff = () => new Date(Date.now() - PRINT_OUT_DAYS * 24 * 60 * 60 * 1000);
 

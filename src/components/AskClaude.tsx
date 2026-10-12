@@ -5,7 +5,8 @@ import clsx from "clsx";
 import { Check, ExternalLink, Send, Sparkles, TriangleAlert, X } from "lucide-react";
 import { Chappie } from "@/components/Chappie";
 import type { ItemDTO } from "@/lib/types";
-import { workerState, type AiJobDTO, type AiResult } from "@/lib/ai";
+import type { AiJobDTO, AiResult } from "@/lib/ai";
+import { workerState } from "@/lib/worker-state";
 import { useStore } from "@/lib/store";
 import { formatCost, formatGBP, linkLabel, timeAgo } from "@/lib/format";
 import { Button, Field, inputClass } from "@/components/ui";
@@ -28,7 +29,7 @@ function CardAction({ done, onClick, children }: { done?: boolean; onClick: () =
       onClick={onClick}
       aria-pressed={done}
       className={clsx(
-        "inline-flex min-h-11 shrink-0 items-center gap-1.5 justify-self-start rounded-[10px] border px-3 text-[13px] font-semibold transition-colors",
+        "inline-flex min-h-11 shrink-0 items-center gap-1.5 justify-self-start rounded-control border px-3 text-meta font-semibold transition-colors",
         done
           ? "border-accent bg-accent-soft text-accent-text"
           : "border-line bg-surface text-ink hover:border-accent hover:text-accent-text",
@@ -174,7 +175,7 @@ export function AskClaude({
 
   const improve = job.kind === "IMPROVE";
   const asked = job.question ? (
-    <p className="text-[13px] text-ink-2">
+    <p className="text-meta text-ink-2">
       {job.requestedBy} {improve ? "asked for" : "asked"}: <span className="text-ink">“{job.question}”</span>
     </p>
   ) : null;
@@ -198,11 +199,11 @@ export function AskClaude({
           {asked}
           <div className="flex items-start gap-2">
             <div role="status" className="grid min-w-0 flex-1 gap-1 pt-1">
-              <p className="flex items-center gap-2 text-[15px] font-semibold text-ink">
+              <p className="flex items-center gap-2 text-body font-semibold text-ink">
                 <Chappie working={job.status === "RUNNING"} size={22} className={job.status === "RUNNING" ? "text-accent-text" : "text-ink-2"} />
                 {job.status === "RUNNING" ? "Claude's on it…" : "Waiting for Claude…"}
               </p>
-              <p className="text-[13px] text-ink-2">{line}</p>
+              <p className="text-meta text-ink-2">{line}</p>
             </div>
             <Button variant="ghost" onClick={() => dismiss(job)} className="min-h-11 shrink-0 px-3">
               Cancel
@@ -219,8 +220,8 @@ export function AskClaude({
       <Field label="Ask Claude">
         <div className="rise-in grid gap-1.5 rounded-xl border border-line px-3.5 py-3">
           {asked}
-          <p className="text-[15px] font-semibold text-ink">Claude couldn&apos;t answer this time.</p>
-          {job.error && <p className="text-[13px] text-ink-2">{job.error}</p>}
+          <p className="text-body font-semibold text-ink">Claude couldn&apos;t answer this time.</p>
+          {job.error && <p className="text-meta text-ink-2">{job.error}</p>}
           <div className="-mb-1 flex justify-end gap-1">
             <Button variant="ghost" onClick={() => dismiss(job)} className="min-h-11 px-3">
               Dismiss
@@ -243,19 +244,19 @@ export function AskClaude({
       <Field label="Ask Claude">
         <article aria-label="Claude's changes" className="rise-in overflow-hidden rounded-xl border border-accent/35">
           <div className="grid gap-2 px-3.5 pt-3 pb-3.5">
-            <p className="flex items-center gap-1.5 text-[12.5px] text-ink-3">
+            <p className="flex items-center gap-1.5 text-meta text-ink-3">
               <Sparkles size={13} className="text-accent-text" aria-hidden="true" />
               Improved for {job.requestedBy}
               {job.finishedAt && <> · {timeAgo(job.finishedAt)}</>}
             </p>
             {asked}
-            <p className="text-[15px] leading-snug text-ink">{result.summary}</p>
-            <p className="text-[13px] text-ink-2">
+            <p className="text-body leading-snug text-ink">{result.summary}</p>
+            <p className="text-meta text-ink-2">
               Claude has updated this item&apos;s cost, steps and links. Its notes are under Updates.
             </p>
           </div>
           <div className="flex items-center gap-1 border-t border-line bg-sunken/50 px-2 py-1">
-            <p className="min-w-0 flex-1 px-1.5 text-[12px] text-ink-3">Check prices before you buy.</p>
+            <p className="min-w-0 flex-1 px-1.5 text-hint text-ink-3">Check prices before you buy.</p>
             <Button variant="ghost" onClick={() => onUndoImprove(job)} className="min-h-11 shrink-0 px-3">
               Undo
             </Button>
@@ -275,7 +276,7 @@ export function AskClaude({
   const linkAction = (url: string) => {
     const saved = item.links.includes(url) && !applied[`link:${url}`];
     return saved ? (
-      <span className="inline-flex min-h-11 shrink-0 items-center px-1 text-[13px] text-ink-3">Saved</span>
+      <span className="inline-flex min-h-11 shrink-0 items-center px-1 text-meta text-ink-3">Saved</span>
     ) : (
       <CardAction done={!!applied[`link:${url}`]} onClick={() => toggle(job, `link:${url}`, () => onAddLink(url))}>
         {applied[`link:${url}`] ? "Added" : "Add link"}
@@ -287,22 +288,22 @@ export function AskClaude({
     <Field label="Ask Claude">
       <article aria-label="Claude's suggestion" className="rise-in overflow-hidden rounded-xl border border-line">
         <div className="grid gap-2 px-3.5 pt-3 pb-3.5">
-          <p className="flex items-center gap-1.5 text-[12.5px] text-ink-3">
+          <p className="flex items-center gap-1.5 text-meta text-ink-3">
             <Sparkles size={13} className="text-accent-text" aria-hidden="true" />
             {job.kind === "FIND_PRODUCT" ? "Options" : job.kind === "ASK" ? "Answer" : improve ? "Ideas" : "Research"} for{" "}
             {job.requestedBy}
             {job.finishedAt && <> · {timeAgo(job.finishedAt)}</>}
           </p>
           {asked}
-          <p className="text-[15px] leading-snug text-ink">{result.summary}</p>
-          {result.diy && <p className="text-[13px] font-semibold text-ink-2">{DIY_LABELS[result.diy]}</p>}
+          <p className="text-body leading-snug text-ink">{result.summary}</p>
+          {result.diy && <p className="text-meta font-semibold text-ink-2">{DIY_LABELS[result.diy]}</p>}
         </div>
 
         {result.estimate && (
           <section aria-label="Estimate" className="flex items-center gap-3 border-t border-line px-3.5 py-2">
             <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-semibold text-ink tabular">{formatCost(result.estimate.min, result.estimate.max)}</p>
-              <p className="text-[12px] text-ink-3">Typical cost, an estimate</p>
+              <p className="text-body font-semibold text-ink tabular">{formatCost(result.estimate.min, result.estimate.max)}</p>
+              <p className="text-hint text-ink-3">Typical cost, an estimate</p>
             </div>
             {canSetEstimate && (
               <CardAction
@@ -319,13 +320,13 @@ export function AskClaude({
           <section aria-label="Suggested steps" className="grid gap-2 border-t border-line px-3.5 py-3">
             <ol className="grid gap-1.5">
               {result.steps.map((s, i) => (
-                <li key={i} className="flex items-baseline gap-2 text-[14px] text-ink">
-                  <span className="w-4 shrink-0 text-[12px] text-ink-3 tabular">{i + 1}</span>
+                <li key={i} className="flex items-baseline gap-2 text-supporting text-ink">
+                  <span className="w-4 shrink-0 text-hint text-ink-3 tabular">{i + 1}</span>
                   <span className="min-w-0 flex-1">
                     {s.text}
-                    {s.notes && <span className="block text-[12.5px] text-ink-3">{s.notes}</span>}
+                    {s.notes && <span className="block text-meta text-ink-3">{s.notes}</span>}
                   </span>
-                  {s.cost != null && s.cost > 0 && <span className="shrink-0 text-[13px] text-ink-2 tabular">{formatGBP(s.cost)}</span>}
+                  {s.cost != null && s.cost > 0 && <span className="shrink-0 text-meta text-ink-2 tabular">{formatGBP(s.cost)}</span>}
                 </li>
               ))}
             </ol>
@@ -349,15 +350,15 @@ export function AskClaude({
                   <div className="flex items-baseline gap-3">
                     <div className="min-w-0 flex-1">
                       {o.url ? (
-                        <a href={o.url} target="_blank" rel="noopener noreferrer" className="text-[14px] font-semibold text-ink underline decoration-line-strong underline-offset-2 hover:decoration-accent">
+                        <a href={o.url} target="_blank" rel="noopener noreferrer" className="text-supporting font-semibold text-ink underline decoration-line-strong underline-offset-2 hover:decoration-accent">
                           {o.title}
                         </a>
                       ) : (
-                        <span className="text-[14px] font-semibold text-ink">{o.title}</span>
+                        <span className="text-supporting font-semibold text-ink">{o.title}</span>
                       )}
-                      <p className="text-[12.5px] text-ink-3">{o.retailer ?? (o.url ? linkLabel(o.url) : "")}</p>
+                      <p className="text-meta text-ink-3">{o.retailer ?? (o.url ? linkLabel(o.url) : "")}</p>
                     </div>
-                    {o.price != null && <span className="shrink-0 text-[14px] font-semibold text-ink tabular">{formatGBP(o.price)}</span>}
+                    {o.price != null && <span className="shrink-0 text-supporting font-semibold text-ink tabular">{formatGBP(o.price)}</span>}
                   </div>
                   <div className="flex flex-wrap justify-end gap-1.5">
                     {o.url && linkAction(o.url)}
@@ -382,12 +383,12 @@ export function AskClaude({
                     href={l.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-[14px] text-ink hover:text-accent-text"
+                    className="flex min-w-0 flex-1 items-center gap-2 py-1.5 text-supporting text-ink hover:text-accent-text"
                   >
                     <ExternalLink size={14} className="shrink-0 text-ink-3" aria-hidden="true" />
                     <span className="min-w-0">
                       <span className="block truncate">{l.title}</span>
-                      <span className="block truncate text-[12px] text-ink-3">{linkLabel(l.url)}</span>
+                      <span className="block truncate text-hint text-ink-3">{linkLabel(l.url)}</span>
                     </span>
                   </a>
                   {linkAction(l.url)}
@@ -399,10 +400,10 @@ export function AskClaude({
 
         {result.cautions && result.cautions.length > 0 && (
           <section aria-label="Watch out for" className="grid gap-1.5 border-t border-line px-3.5 py-3">
-            <p className="text-[12.5px] font-semibold text-ink-2">Watch out for</p>
+            <p className="text-meta font-semibold text-ink-2">Watch out for</p>
             <ul className="grid gap-1.5">
               {result.cautions.map((c, i) => (
-                <li key={i} className="flex gap-2 text-[14px] leading-snug text-ink">
+                <li key={i} className="flex gap-2 text-supporting leading-snug text-ink">
                   <TriangleAlert size={14} className="mt-0.5 shrink-0 text-ink-3" aria-hidden="true" />
                   {c}
                 </li>
@@ -412,7 +413,7 @@ export function AskClaude({
         )}
 
         <div className="flex items-center gap-1 border-t border-line bg-sunken/50 px-2 py-1">
-          <p className="min-w-0 flex-1 px-1.5 text-[12px] text-ink-3">
+          <p className="min-w-0 flex-1 px-1.5 text-hint text-ink-3">
             {used ? "Added to this item. It saves when you close." : "From Claude. Check prices before you buy."}
           </p>
           <Button variant="ghost" onClick={() => dismiss(job)} className="min-h-11 shrink-0 px-3">

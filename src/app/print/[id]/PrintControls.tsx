@@ -23,14 +23,14 @@ export function PrintControls() {
       <button
         type="button"
         onClick={() => (window.history.length > 1 ? router.back() : router.push("/"))}
-        className="inline-flex items-center gap-1.5 rounded-[10px] px-3 py-2.5 text-sm font-semibold text-ink-2 hover:bg-sunken hover:text-ink"
+        className="inline-flex items-center gap-1.5 rounded-control px-3 py-2.5 text-sm font-semibold text-ink-2 hover:bg-sunken hover:text-ink"
       >
         <ArrowLeft size={16} aria-hidden="true" /> Back to the list
       </button>
       <button
         type="button"
         onClick={() => window.print()}
-        className="inline-flex items-center gap-1.5 rounded-[10px] bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink hover:bg-accent-hover"
+        className="inline-flex items-center gap-1.5 rounded-control bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink hover:bg-accent-hover"
       >
         <Printer size={16} aria-hidden="true" /> Print
       </button>

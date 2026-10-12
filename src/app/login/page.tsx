@@ -35,7 +35,7 @@ function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="grid gap-3">
-      <label htmlFor="pin" className="text-[13px] font-semibold text-ink-2">
+      <label htmlFor="pin" className="text-meta font-semibold text-ink-2">
         Household PIN
       </label>
       <input
@@ -51,7 +51,7 @@ function LoginForm() {
         }}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? "pin-error" : undefined}
-        className={`${inputClass} text-[18px] tracking-[0.25em]`}
+        className={`${inputClass} text-item-lead tracking-[0.25em]`}
       />
       {error && (
         <p id="pin-error" role="alert" className="text-sm font-medium text-danger">
@@ -70,8 +70,8 @@ export default function LoginPage() {
     <main className="grid min-h-dvh place-items-center px-5 py-10">
       <div className="w-full max-w-[360px]">
         <Wordmark className="mb-8" />
-        <h1 className="text-[26px] leading-tight font-bold tracking-[-0.02em]">Welcome home</h1>
-        <p className="mt-1 mb-6 text-[15px] text-ink-2">Jobs, buys and the budget for the house, shared between you.</p>
+        <h1 className="text-headline leading-tight font-bold tracking-[-0.02em]">Welcome home</h1>
+        <p className="mt-1 mb-6 text-body text-ink-2">Jobs, buys and the budget for the house, shared between you.</p>
         <Suspense fallback={<div className="h-[150px]" />}>
           <LoginForm />
         </Suspense>

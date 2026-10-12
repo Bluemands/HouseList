@@ -84,15 +84,15 @@ export function TickBackSheet({ id, leaving, onClose }: { id: string; leaving: b
       aria-label="Tick off from paper"
       className={clsx(
         leaving && "sheet-leaving",
-        "sheet m-0 inset-x-0 top-auto bottom-0 flex h-[min(90dvh,820px)] w-full max-w-none flex-col overflow-hidden rounded-t-[22px] bg-surface p-0 text-ink shadow-sheet lg:inset-y-0 lg:right-0 lg:left-auto lg:h-dvh lg:w-[480px] lg:rounded-none lg:rounded-l-[22px]",
+        "sheet m-0 inset-x-0 top-auto bottom-0 flex h-[min(90dvh,820px)] w-full max-w-none flex-col overflow-hidden rounded-t-sheet bg-surface p-0 text-ink shadow-sheet lg:inset-y-0 lg:right-0 lg:left-auto lg:h-dvh lg:w-[480px] lg:rounded-none lg:rounded-l-sheet",
       )}
     >
       <div {...dragHandlers} className="relative flex touch-none items-start justify-between gap-3 px-5 pt-5 pb-3">
         <span aria-hidden="true" className="absolute top-2 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-line-strong lg:hidden" />
         <div>
-          <h2 className="text-[22px] leading-tight font-bold tracking-[-0.015em]">Tick off from paper</h2>
+          <h2 className="text-sheet-title leading-tight font-bold tracking-[-0.015em]">Tick off from paper</h2>
           {printOut && (
-            <p className="mt-1 text-[14px] text-ink-2">
+            <p className="mt-1 text-supporting text-ink-2">
               {printOut.title} · printed {describeDay(toDayString(new Date(printOut.createdAt)))} by{" "}
               {printOut.createdBy}
             </p>
@@ -110,12 +110,12 @@ export function TickBackSheet({ id, leaving, onClose }: { id: string; leaving: b
 
       <div className="flex-1 overflow-y-auto overscroll-contain px-3 pb-4">
         {error ? (
-          <p className="px-2 py-6 text-[15px] text-ink-2">{error}</p>
+          <p className="px-2 py-6 text-body text-ink-2">{error}</p>
         ) : !printOut ? (
-          <p className="px-2 py-6 text-[15px] text-ink-3">Opening the print-out…</p>
+          <p className="px-2 py-6 text-body text-ink-3">Opening the print-out…</p>
         ) : (
           <>
-            <p className="px-2 pb-2 text-[14px] text-ink-2">
+            <p className="px-2 pb-2 text-supporting text-ink-2">
               {open ? "Tap what you ticked on paper." : "Everything on this print-out is already done or gone."}
             </p>
             <ol className="grid">
@@ -126,7 +126,7 @@ export function TickBackSheet({ id, leaving, onClose }: { id: string; leaving: b
                 const on = state.kind === "done" || picked.has(i);
                 return (
                   <Fragment key={`${line.itemId}-${line.stepId ?? ""}-${i}`}>
-                    {heading && <li className="px-2 pt-4 pb-1 text-[14px] font-bold text-ink">{heading}</li>}
+                    {heading && <li className="px-2 pt-4 pb-1 text-supporting font-bold text-ink">{heading}</li>}
                     <li>
                       <button
                         type="button"
@@ -135,12 +135,12 @@ export function TickBackSheet({ id, leaving, onClose }: { id: string; leaving: b
                         disabled={state.kind !== "open"}
                         onClick={() => toggle(i)}
                         className={clsx(
-                          "flex w-full items-center gap-3 rounded-[10px] px-2 text-left transition-colors",
-                          under ? "min-h-11 pl-9 text-[14px]" : "min-h-12 text-[15px]",
+                          "flex w-full items-center gap-3 rounded-control px-2 text-left transition-colors",
+                          under ? "min-h-11 pl-9 text-supporting" : "min-h-12 text-body",
                           state.kind === "open" && "hover:bg-sunken/60",
                         )}
                       >
-                        <span className="w-7 shrink-0 text-right text-[13px] text-ink-3 tabular">{labels[i]}</span>
+                        <span className="w-7 shrink-0 text-right text-meta text-ink-3 tabular">{labels[i]}</span>
                         <span
                           aria-hidden="true"
                           className={clsx(
@@ -157,7 +157,7 @@ export function TickBackSheet({ id, leaving, onClose }: { id: string; leaving: b
                             {line.text}
                           </span>
                           {state.kind !== "open" && (
-                            <span className="block text-[12.5px] text-ink-3 no-underline">
+                            <span className="block text-meta text-ink-3 no-underline">
                               {state.kind === "gone"
                                 ? "No longer on the list"
                                 : state.by

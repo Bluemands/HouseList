@@ -1,4 +1,3 @@
-import { z } from "zod";
 import type { ItemDTO } from "@/lib/types";
 
 /**
@@ -29,20 +28,6 @@ export type PrintOutSummary = Omit<PrintOutDTO, "lines"> & { count: number };
 
 /** How long a print-out can still be ticked back in. */
 export const PRINT_OUT_DAYS = 30;
-const MAX_LINES = 400;
-
-const lineSchema = z.object({
-  itemId: z.string().min(1).max(40),
-  stepId: z.string().min(1).max(40).nullable().optional(),
-  text: z.string().trim().min(1).max(300),
-  group: z.string().trim().max(80).nullable().optional(),
-});
-
-export const printOutCreateSchema = z.object({
-  title: z.string().trim().min(1).max(80),
-  createdBy: z.string().trim().min(1).max(60),
-  lines: z.array(lineSchema).min(1, "Nothing to print").max(MAX_LINES),
-});
 
 /**
  * An item and, under it, its steps still to do. A finished item isn't printed;
