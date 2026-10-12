@@ -22,6 +22,7 @@ A shared to-do list and budget planner for a new house, for two people. Log ever
 - **Ask Claude** — on any item, one tap for "Research this" (or "Find options" for things to buy), or ask your own question. Claude comes back with a short summary, a typical UK cost range, suggested steps, product options with prices, useful links and things to watch out for (Part P, Gas Safe…). Each part is one tap to use — "Use this estimate", "Add these steps", "Add link", "Log as quote" — and a second tap takes it back. It runs on your own Claude subscription through a small worker on your computer (see [Ask Claude: the worker](#ask-claude-the-worker)), so your partner gets it without a Claude account. A row shows **Suggestion** when an answer is waiting.
 - **Add with Claude** — type a rough line in quick add ("replace bathroom extractor fan #bathroom") and tap the sparkle instead of the arrow. It's added straight away as typed, and when the worker answers, Claude fills in what's empty: the cost range, steps, links, and its summary and cautions in the notes. Nothing you typed is overwritten (if you gave a price, Claude's steps come without costs so your figure stands). The row says *Waiting for Claude* until then. The sparkle only appears once a worker has checked in. The full new-item sheet has the same thing as **Add with Claude** beside *Add*: fill in as much as you know (room, who, when, a note like "DIY, budget about £200") and Claude works from it and fills in the rest.
 - **Improve with Claude** — on any existing item, tap **Improve** at the bottom of the sheet and say what you want ("find a cheaper way", "plan it as DIY", "something under £150 that fits a 60cm gap"), or tap one of the ready-made ideas. Claude researches it and updates the item itself: a new cost, a fresh plan for the steps still to do, and useful links, with its notes posted under Updates. Steps you've ticked off and a chosen quote are never changed. The row says *Improved by Claude* until someone opens it and taps **Keep** or **Undo**; Undo puts back how it was, keeping anything either of you changed since (a step ticked off, say).
+- **Notifications** — turn them on per phone in Settings (Android: the installed app or Chrome; iPhone: only from the app added to the home screen, iOS 16.4+). You hear when the other of you adds, finishes or posts an update on something (a tick undone within a few seconds never buzzes), when Claude answers a question you asked, and at 8am (7am in winter) when something of yours is due; overdue things get a nudge on Mondays. Tapping one opens that item. See [Notifications](#notifications) for the one-off setup.
 - **Floor plan** — the Rooms tab opens on a map of the house, both floors, traced from the estate agent's plan: each room in its own paint, solid where there's work and a pale wash where there's nothing yet, with what's left to do and spend. Tap a room to open it; its page shows its floor and size. Claude gets the room sizes too, with every Ask Claude question and in the connector, so painting, flooring and tiling come back as quantities for that room (litres, m²) rather than guesses. The sizes live in `src/lib/house.ts`: correct them there if you measure.
 - **Compare quotes** — log quotes from tradespeople against a job; the cheapest is flagged, and choosing one sets the job's cost.
 - **Updates** — a short thread on any item ("rang them, waiting for a callback"), with who said it and when.
@@ -192,6 +193,17 @@ Amazon turns servers away, so neither a pasted link nor Claude's web fetch can r
 
 Every lookup spends one Rainforest credit. Answers are kept for six hours, and Claude is asked to keep to a few lookups per question. If a lookup fails (no credits left, say), a pasted link falls back to reading the page as before.
 
+## Notifications
+
+Push notifications need a key pair, set once on Vercel (and in `.env` to try them locally):
+
+1. Run `npx web-push generate-vapid-keys`.
+2. Add both to Vercel → Settings → Environment Variables: `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (the public key) and `VAPID_PRIVATE_KEY` (the private one). Keep the private one private. Changing the pair later stops every phone's notifications until it's turned on again.
+3. Add `CRON_SECRET`, any long random string. Vercel sends it to the daily reminder (`/api/cron/due`, scheduled in `vercel.json`), which turns away anyone without it.
+4. Redeploy, then on each phone open Settings → **Turn on notifications**. A first one arrives straight away to show it works.
+
+Without the keys the Settings switch says the browser can't show notifications and nothing else changes.
+
 ## Project structure
 
 ```
@@ -215,4 +227,4 @@ scripts/
 - Changes appear instantly and save in the background. If a save fails, the change is rolled back and a message says so.
 - Deletes wait out a few-second undo window before they reach the server.
 - No realtime push: the app polls every 15 seconds while it's open and refreshes when you switch back to it, so your partner's changes show up within moments.
-- Out of scope: photo uploads, multiple households, reminders/notifications, a native app.
+- Out of scope: photo uploads, multiple households, a native app.

@@ -154,6 +154,20 @@ model Settings {
   workerSeenAt    DateTime?
 }
 
+// A phone that has turned on notifications. Tagged with whose phone it is,
+// so a change only buzzes the other person's.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  // The push service's address for this phone; unique per browser install.
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  member    String
+  createdAt DateTime @default(now())
+
+  @@index([member])
+}
+
 // A price from someone who'd do the job. Choosing one sets the item's cost.
 model Quote {
   id        String   @id @default(cuid())

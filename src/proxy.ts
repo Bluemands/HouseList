@@ -14,6 +14,8 @@ export async function proxy(request: NextRequest) {
   const isConnector = pathname.startsWith("/api/mcp/");
   // The AI worker has no cookie either; its routes check a bearer token.
   const isWorkerApi = pathname.startsWith("/api/worker/");
+  // Vercel Cron neither; the reminder route checks CRON_SECRET.
+  const isCron = pathname.startsWith("/api/cron/");
 
   const token = request.cookies.get(AUTH_COOKIE)?.value;
   const authed = await isValidAuthToken(token);
@@ -25,7 +27,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (isPublicPath || isAuthApi || isCalendarFeed || isConnector || isWorkerApi) {
+  if (isPublicPath || isAuthApi || isCalendarFeed || isConnector || isWorkerApi || isCron) {
     return NextResponse.next();
   }
 
@@ -39,7 +41,8 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Only the build's own assets skip the PIN. No file-extension rule: it let
-  // "/api/items/x.png" reach an API route without the cookie check.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon|apple-icon|manifest.webmanifest).*)"],
+  // Only the build's own assets skip the PIN (and the service worker, which
+  // the browser re-fetches on its own to check for updates). No file-extension
+  // rule: it let "/api/items/x.png" reach an API route without the cookie check.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon|apple-icon|manifest.webmanifest|sw.js|badge).*)"],
 };

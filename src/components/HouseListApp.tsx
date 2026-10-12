@@ -5,6 +5,7 @@ import clsx from "clsx";
 import { House, LayoutGrid, ListChecks, Plus, Settings, Wallet } from "lucide-react";
 import { useDisplayName } from "@/lib/useDisplayName";
 import { useSheetExit } from "@/lib/useSheetDrag";
+import { refreshPush } from "@/lib/push-client";
 import { StoreProvider, useStore } from "@/lib/store";
 import { useRoute, type Route, type View } from "@/lib/nav";
 import type { ItemDTO, SettingsDTO } from "@/lib/types";
@@ -81,6 +82,34 @@ function Shell({ onSwitchUser }: { onSwitchUser: () => void }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [openItem, editing, settingsOpen, bulk]);
+
+  // Opened from a notification: "?item=…" opens that item (then leaves the
+  // address as it was), and a tap while the app's already open arrives as a
+  // message from the service worker instead.
+  useEffect(() => {
+    function follow(url: URL) {
+      const id = url.searchParams.get("item");
+      if (id) return openItem(id);
+      const view = url.searchParams.get("v");
+      if (view === "list" || view === "rooms" || view === "money") go({ view });
+    }
+    const here = new URL(window.location.href);
+    if (here.searchParams.has("item")) {
+      follow(here);
+      here.searchParams.delete("item");
+      window.history.replaceState(null, "", here.search || here.pathname);
+    }
+    const onMessage = (e: MessageEvent) => {
+      if (e.data?.type === "open") follow(new URL(e.data.url, window.location.origin));
+    };
+    navigator.serviceWorker?.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker?.removeEventListener("message", onMessage);
+  }, [openItem, go]);
+
+  // A phone with notifications on reminds the server whose phone it is.
+  useEffect(() => {
+    if (me) refreshPush(me);
+  }, [me]);
 
   const addDefaults = route.room ? { room: route.room } : undefined;
 

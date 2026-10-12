@@ -10,6 +10,7 @@ import { logout } from "@/lib/api-client";
 import { workerState } from "@/lib/ai";
 import { timeAgo } from "@/lib/format";
 import { Button, Field, Segmented, inputClass } from "@/components/ui";
+import { NotificationsField } from "@/components/NotificationsField";
 
 type Theme = "system" | "light" | "dark";
 
@@ -134,6 +135,8 @@ export function SettingsSheet({ open, onClose, onSwitchUser }: { open: boolean; 
             ]}
           />
         </Field>
+
+        <NotificationsField me={me} />
 
         {settings.members.length > 0 && (
           <Field label="Household">

@@ -217,6 +217,8 @@ export type ItemUpdateResult = {
   potDelta: number;
   spawned: ItemDTO | null;
   removedIds: string[];
+  /** This change is what finished it. */
+  completed: boolean;
 };
 
 /**
@@ -301,7 +303,7 @@ export async function updateItem(
       if (removedIds.length) await tx.item.deleteMany({ where: { id: { in: removedIds } } });
     }
 
-    return { updated, spawned, removedIds, potDelta };
+    return { updated, spawned, removedIds, potDelta, completing };
   });
   if (!result) return null;
 
@@ -310,6 +312,7 @@ export async function updateItem(
     potDelta: result.potDelta,
     spawned: result.spawned ? toItemDTO(result.spawned) : null,
     removedIds: result.removedIds,
+    completed: result.completing,
   };
 }
 

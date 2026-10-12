@@ -13,6 +13,7 @@ import {
   workerSubmitSchema,
 } from "@/lib/ai";
 import { getItem, updateItem } from "@/lib/items-service";
+import { clip, itemUrl, notifyWhenReady } from "@/lib/push";
 
 // The worker hands back Claude's answer (or why there isn't one).
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/worker/jobs/[id]">) {
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/worker/
       where,
       data: { status: "FAILED", error: body.data.error, finishedAt },
     });
+    if (count) tellAsker(id);
     return NextResponse.json({ ok: true, ignored: count === 0 });
   }
 
@@ -53,8 +55,48 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/worker/
     where,
     data: { status: "DONE", result: parsed.data as Prisma.InputJsonValue, error: null, finishedAt },
   });
-  if (count) await fillIn(id, parsed.data);
+  if (count) {
+    await fillIn(id, parsed.data);
+    tellAsker(id);
+  }
   return NextResponse.json({ ok: true, ignored: count === 0 });
+}
+
+/**
+ * Whoever asked hears the answer has landed, worded by what became of it:
+ * filled in, improved, waiting as a suggestion, or not answered at all.
+ */
+function tellAsker(jobId: string) {
+  // Worded once the fill-in above has settled, from what the job became.
+  notifyWhenReady(async () => {
+    const job = await prisma.aiJob.findUnique({
+      where: { id: jobId },
+      select: {
+        status: true,
+        kind: true,
+        autofill: true,
+        undo: true,
+        requestedBy: true,
+        result: true,
+        item: { select: { id: true, title: true } },
+      },
+    });
+    if (!job?.item || !job.requestedBy || job.requestedBy === "Claude") return null;
+    const title = clip(job.item.title, 60);
+    const summary = (job.result as AiResult | null)?.summary;
+    const said =
+      job.status === "FAILED"
+        ? { title: "Claude couldn't answer", body: title }
+        : job.status === "ACCEPTED" && job.autofill
+          ? { title: "Claude filled this in", body: title }
+          : job.kind === "IMPROVE" && job.undo
+            ? { title: "Claude improved this", body: title }
+            : { title: `Claude answered: ${title}`, body: summary ? clip(summary) : "Open it to see the suggestion." };
+    return {
+      message: { ...said, url: itemUrl(job.item.id), tag: `item-${job.item.id}` },
+      who: { to: job.requestedBy },
+    };
+  });
 }
 
 // Added from quick add with "Ask Claude": the answer goes straight into the
