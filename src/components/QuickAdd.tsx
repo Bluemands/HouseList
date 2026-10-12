@@ -180,7 +180,7 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
           focused ? "border-accent shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_18%,transparent)]" : "border-line",
         )}
       >
-        <div className="flex items-center gap-2 py-1.5 pr-1.5 pl-3.5">
+        <div className="flex items-center gap-2 py-1 pr-1 pl-3.5">
           <Plus size={20} strokeWidth={2.25} className="shrink-0 text-accent" aria-hidden="true" />
           <input
             ref={inputRef}
@@ -206,7 +206,7 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
               onClick={addWithClaude}
               aria-label="Add it and ask Claude to fill in the details"
               title="Add it and ask Claude to fill in the details"
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-accent-text transition-colors hover:bg-accent-soft active:scale-90"
+              className="mr-1.5 grid h-11 w-11 shrink-0 place-items-center rounded-xl text-accent-text transition-colors hover:bg-accent-soft active:scale-90"
             >
               <Sparkles size={17} strokeWidth={2.2} />
             </button>
@@ -215,7 +215,7 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
             <button
               type="submit"
               aria-label="Add it"
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent text-accent-ink transition-transform duration-150 hover:bg-accent-hover active:scale-90"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-accent text-accent-ink transition-transform duration-150 hover:bg-accent-hover active:scale-90"
             >
               <ArrowUp size={18} strokeWidth={2.5} />
             </button>
@@ -225,7 +225,7 @@ export function QuickAdd({ defaultRoom, defaultKind, placeholder }: Props) {
               onClick={moreDetails}
               aria-label="Add with all the details"
               title="Add with all the details"
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-ink-3 transition-colors hover:bg-sunken hover:text-ink"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-ink-3 transition-colors hover:bg-sunken hover:text-ink"
             >
               <SlidersHorizontal size={17} strokeWidth={2} />
             </button>

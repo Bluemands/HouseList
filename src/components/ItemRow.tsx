@@ -18,9 +18,11 @@ import {
 } from "lucide-react";
 import type { ItemDTO } from "@/lib/types";
 import { REPEAT_SHORT, STATUS_LABELS } from "@/lib/types";
-import { describeDue, formatCost, formatGBP, formatMonth, formatMonthYear, today } from "@/lib/format";
+import { describeDue, formatCost, formatGBP, formatMonth, formatMonthYear, timeAgo, today } from "@/lib/format";
+import { workerState } from "@/lib/ai";
 import { useStore } from "@/lib/store";
 import { haptic } from "@/lib/haptics";
+import { prefersReducedMotion, project, rubberband, spring, velocityTracker, type Spring, type VelocityTracker } from "@/lib/motion";
 import { doneStepsCost } from "@/lib/pot";
 import { PriorityTag, RoomTag, TickButton } from "@/components/ui";
 import { Chappie } from "@/components/Chappie";
@@ -37,23 +39,55 @@ type Props = {
 
 const SWIPE_COMMIT = 96;
 const SWIPE_MAX = 140;
+// Snappier than scrolling's 0.998: a flick counts, a nudge doesn't.
+const DECELERATION = 0.99;
 
 /**
  * On a phone a row can be swiped: right to finish (or reopen), left to
- * delete. Both land with an undo toast, so a misfire costs nothing.
+ * delete. Both land with an undo toast, so a misfire costs nothing. A quick
+ * flick counts as much as a long drag, and a row that's finished or deleted
+ * carries on off the way it was swiped rather than snapping back.
  */
-function useSwipe(onRight: () => void, onLeft: () => void) {
+function useSwipe(
+  row: React.RefObject<HTMLLIElement | null>,
+  { onRight, onLeft, rightLeaves, leaving }: { onRight: () => void; onLeft: () => void; rightLeaves: boolean; leaving: boolean },
+) {
   const [dx, setDx] = useState(0);
-  const [settling, setSettling] = useState(false);
-  const drag = useRef<{ x: number; y: number; axis: "x" | "y" | null } | null>(null);
+  // Acted on: it's on its way out, so it can't be swiped again.
+  const [spent, setSpent] = useState(false);
+  const [wasLeaving, setWasLeaving] = useState(leaving);
+  if (leaving !== wasLeaving) {
+    setWasLeaving(leaving);
+    // Finished leaving but still listed (done things showing): back to rest.
+    if (!leaving) {
+      setDx(0);
+      setSpent(false);
+    }
+  }
+  const at = useRef(0);
+  const anim = useRef<Spring | null>(null);
+  const drag = useRef<{ x: number; y: number; from: number; axis: "x" | "y" | null; track: VelocityTracker } | null>(null);
   const swiped = useRef(false);
+
+  useEffect(() => () => anim.current?.stop(), []);
+
+  const place = (x: number) => {
+    at.current = x;
+    setDx(x);
+  };
+  const settle = (to: number, velocity: number, options: { precision?: number; onDone?: () => void } = {}) => {
+    anim.current?.stop();
+    anim.current = spring(at.current, to, place, { velocity, response: 0.3, ...options });
+  };
 
   const handlers = {
     onPointerDown: (e: React.PointerEvent) => {
-      if (e.pointerType !== "touch") return;
-      drag.current = { x: e.clientX, y: e.clientY, axis: null };
+      if (e.pointerType !== "touch" || spent) return;
+      // Caught while springing back: carry on from where it is.
+      anim.current?.stop();
+      at.current = dx;
+      drag.current = { x: e.clientX, y: e.clientY, from: dx, axis: null, track: velocityTracker() };
       swiped.current = false;
-      setSettling(false);
     },
     onPointerMove: (e: React.PointerEvent<HTMLElement>) => {
       const d = drag.current;
@@ -70,29 +104,62 @@ function useSwipe(onRight: () => void, onLeft: () => void) {
           }
         } else if (Math.abs(my) > 10) {
           drag.current = null; // a scroll, not a swipe
+          if (at.current) settle(0, 0);
           return;
         }
       }
       if (d.axis === "x") {
         swiped.current = true;
-        const next = Math.max(-SWIPE_MAX, Math.min(SWIPE_MAX, mx));
+        d.track.add(e.clientX);
+        const raw = d.from + mx;
+        // Past the end it gives a little, rather than stopping dead.
+        const over = Math.abs(raw) - SWIPE_MAX;
+        const next = over > 0 ? Math.sign(raw) * (SWIPE_MAX + rubberband(over, e.currentTarget.offsetWidth)) : raw;
         // A tap the moment a swipe would count, so letting go is a decision.
-        if (Math.abs(next) >= SWIPE_COMMIT && Math.abs(dx) < SWIPE_COMMIT) haptic(6);
-        setDx(next);
+        if (Math.abs(next) >= SWIPE_COMMIT && Math.abs(at.current) < SWIPE_COMMIT) haptic(6);
+        place(next);
       }
     },
     onPointerUp: () => {
-      if (!drag.current) return;
+      const d = drag.current;
+      if (!d) return;
       drag.current = null;
-      setSettling(true);
-      if (dx >= SWIPE_COMMIT) onRight();
-      else if (dx <= -SWIPE_COMMIT) onLeft();
-      setDx(0);
+      if (d.axis !== "x") {
+        if (at.current) settle(0, 0);
+        return;
+      }
+      const velocity = d.track.velocity();
+      const x = at.current;
+      // Decide by where the swipe was heading, so a flick back cancels it.
+      const landing = x + project(velocity, DECELERATION);
+      const width = row.current?.offsetWidth ?? 400;
+      if (landing >= SWIPE_COMMIT && x > 0) {
+        onRight();
+        if (!rightLeaves) return settle(0, velocity);
+        setSpent(true);
+        settle(width, velocity, { precision: 2 });
+      } else if (landing <= -SWIPE_COMMIT && x < 0) {
+        setSpent(true);
+        settle(-width, velocity, {
+          precision: 2,
+          // Off screen, then the gap closes, then it goes.
+          onDone: () => {
+            const li = row.current;
+            if (!li) return onLeft();
+            li.animate([{ gridTemplateRows: "1fr", opacity: 1 }, { gridTemplateRows: "0fr", opacity: 0 }], {
+              duration: prefersReducedMotion() ? 0 : 220,
+              easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+              fill: "forwards",
+            }).finished.then(onLeft, onLeft);
+          },
+        });
+      } else {
+        settle(0, velocity);
+      }
     },
     onPointerCancel: () => {
       drag.current = null;
-      setSettling(true);
-      setDx(0);
+      if (at.current) settle(0, 0);
     },
     // A swipe that ends over the row shouldn't also open it.
     onClickCapture: (e: React.MouseEvent) => {
@@ -103,19 +170,23 @@ function useSwipe(onRight: () => void, onLeft: () => void) {
       }
     },
   };
-  return { dx, settling, handlers };
+  return { dx, handlers };
 }
 
 export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Props) {
-  const { toggleDone, toggleStep, openItem, removeItem, justAdded, settling, itemById, jobByItem } = useStore();
+  const { toggleDone, toggleStep, openItem, removeItem, justAdded, settling, itemById, jobByItem, settings } = useStore();
   // Just ticked: the list still holds its place, but the row shows it done.
   const leaving = settling.has(listed.id);
   const item = leaving ? (itemById.get(listed.id) ?? listed) : listed;
   const done = item.status === "DONE";
-  const swipe = useSwipe(
-    () => toggleDone(item),
-    () => removeItem(item),
-  );
+  const rowRef = useRef<HTMLLIElement>(null);
+  const swipe = useSwipe(rowRef, {
+    onRight: () => toggleDone(item),
+    onLeft: () => removeItem(item),
+    // Finishing takes it off the list; reopening leaves it where it is.
+    rightLeaves: !done,
+    leaving,
+  });
   const due = item.dueDate && !done ? describeDue(item.dueDate) : null;
   const stepsDone = item.steps.filter((s) => s.done).length;
   const nextStep = done || select ? undefined : item.steps.find((s) => !s.done);
@@ -139,7 +210,6 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
 
   // A change that lands on a row already showing (saved from the sheet, or
   // made on the other phone) washes it briefly, so it's seen to happen.
-  const rowRef = useRef<HTMLLIElement>(null);
   const updated = useRef(item.updatedAt);
   useEffect(() => {
     if (updated.current === item.updatedAt) return;
@@ -250,8 +320,10 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
       </span>,
     );
   } else if (job?.status === "QUEUED" || job?.status === "RUNNING") {
-    // Out with Claude: Chappie looks about until a worker takes it, then gets to work.
+    // Out with Claude: Chappie waits, still, until a worker takes it, then gets
+    // to work. A worker that's been away is named, so a long wait explains itself.
     const working = job.status === "RUNNING";
+    const worker = workerState(settings.workerSeenAt);
     meta.push(
       <span key="claude" className={clsx("inline-flex items-center gap-1 font-medium", working ? "text-accent-text" : "text-ink-3")}>
         <Chappie working={working} size={16} className="-my-1" />
@@ -261,7 +333,11 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
             : job.kind === "IMPROVE"
               ? "Claude's improving this"
               : "Claude's on it"
-          : "Waiting for Claude"}
+          : worker === "active"
+            ? "Waiting for Claude"
+            : worker === "away"
+              ? `Waiting · worker last on ${timeAgo(settings.workerSeenAt!)}`
+              : "Waiting for a worker"}
       </span>,
     );
   }
@@ -324,10 +400,9 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
       <div className="min-h-0">
         <div
           className={clsx(
-            "group relative flex items-start gap-3 transition-colors duration-150",
+            "row-press group relative flex items-start gap-3 transition-colors duration-150",
             select?.selected ? "bg-accent-soft" : "bg-bg hover:bg-sunken/60",
             lead ? "px-1 py-4" : "px-1 py-3",
-            swipe.settling && "transition-transform duration-200 ease-out",
           )}
           style={swipe.dx ? { transform: `translateX(${swipe.dx}px)` } : undefined}
         >
@@ -338,7 +413,7 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
                 className={clsx(
                   "grid place-items-center rounded-[8px] border-[1.5px] transition-colors",
                   lead ? "h-8 w-8" : "h-[26px] w-[26px]",
-                  select.selected ? "border-accent bg-accent text-accent-ink" : "border-line-strong",
+                  select.selected ? "border-accent bg-accent text-accent-ink" : "border-tick-ring",
                 )}
               >
                 {select.selected && <Check size={lead ? 18 : 15} strokeWidth={2.8} />}
@@ -359,7 +434,7 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
               type="button"
               onClick={() => (select ? select.onToggle() : openItem(item.id))}
               aria-pressed={select ? select.selected : undefined}
-              className="block w-full text-left outline-none after:absolute after:inset-0 after:rounded-[inherit] after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent"
+              className="row-open block w-full text-left outline-none after:absolute after:inset-0 after:rounded-[inherit] after:content-[''] focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-accent"
             >
               <span className="flex items-start gap-2">
                 <span
@@ -412,9 +487,9 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
                   aria-checked={false}
                   aria-label={`Mark step “${nextStep.text}” as done`}
                   onClick={() => toggleStep(item, nextStep.id)}
-                  className="-m-2 grid shrink-0 place-items-center p-2"
+                  className="hit -m-2 grid shrink-0 place-items-center p-2"
                 >
-                  <span className="h-[15px] w-[15px] rounded-[4px] border-[1.5px] border-line-strong transition-colors hover:border-accent" />
+                  <span className="h-[15px] w-[15px] rounded-[4px] border-[1.5px] border-tick-ring transition-colors hover:border-accent" />
                 </button>
                 <span className="min-w-0 truncate">
                   <span className="text-ink-3">Next: </span>

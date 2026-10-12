@@ -7,6 +7,7 @@ import { formatGBP, linkLabel, normaliseLink } from "@/lib/format";
 import { pastedLines } from "@/lib/parse";
 import { readableLink, titleFromUrl } from "@/lib/unfurl";
 import { useUnfurl } from "@/lib/useUnfurl";
+import { prefersReducedMotion, spring, type Spring } from "@/lib/motion";
 import { Button, Field, MoneyInput, Suggestion, inputClass } from "@/components/ui";
 
 export type DraftStep = {
@@ -73,6 +74,17 @@ export function StepsField({
     onChange(steps.map((s) => (s.key === key ? { ...s, ...patch } : s)));
   const remove = (key: string) => onChange(steps.filter((s) => s.key !== key));
 
+  // The step being dragged: where the finger is, and where on the row it took hold.
+  const held = useRef<{ key: string; grab: number; y: number } | null>(null);
+  // Where each row was on screen just before a move, so the others can glide.
+  const before = useRef<Map<string, number> | null>(null);
+  const landing = useRef<{ anim: Spring; row: HTMLElement } | null>(null);
+
+  const rows = () =>
+    new Map(([...(listRef.current?.children ?? [])] as HTMLElement[]).map((el) => [el.dataset.step ?? "", el]));
+  // Where a row sits in the layout, leaving out any shift it's animating by.
+  const layoutTop = (el: HTMLElement) => el.getBoundingClientRect().top - new DOMMatrix(getComputedStyle(el).transform).m42;
+
   function move(key: string, to: number) {
     const list = stepsRef.current;
     const from = list.findIndex((s) => s.key === key);
@@ -80,38 +92,97 @@ export function StepsField({
     const next = [...list];
     const [step] = next.splice(from, 1);
     next.splice(to, 0, step);
+    before.current = new Map([...rows()].map(([k, el]) => [k, el.getBoundingClientRect().top]));
     onChangeRef.current(next);
   }
 
-  // Moving a row re-inserts it in the DOM, which drops focus; put it back.
+  /** Keep the held row under the finger, inside the list. */
+  function follow() {
+    const h = held.current;
+    const row = h && rows().get(h.key);
+    const list = listRef.current;
+    if (!h || !row || !list) return;
+    const box = list.getBoundingClientRect();
+    const top = Math.min(Math.max(h.y - h.grab, box.top), box.bottom - row.offsetHeight);
+    row.style.transform = `translateY(${top - layoutTop(row)}px)`;
+  }
+
   useLayoutEffect(() => {
-    if (!refocus.current) return;
-    listRef.current?.querySelector<HTMLElement>(`[data-grip="${refocus.current}"]`)?.focus();
-    refocus.current = null;
+    // Moving a row re-inserts it in the DOM, which drops focus; put it back.
+    if (refocus.current) {
+      listRef.current?.querySelector<HTMLElement>(`[data-grip="${refocus.current}"]`)?.focus();
+      refocus.current = null;
+    }
+    // Rows that changed places slide from where they were, rather than jumping.
+    const was = before.current;
+    if (!was) return;
+    before.current = null;
+    for (const [key, row] of rows()) {
+      if (key === held.current?.key) continue;
+      const from = was.get(key);
+      if (from == null) continue;
+      row.getAnimations().forEach((a) => a.cancel());
+      const shift = from - layoutTop(row);
+      if (!shift || prefersReducedMotion()) continue;
+      row.animate([{ transform: `translateY(${shift}px)` }, { transform: "none" }], {
+        duration: 200,
+        easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+      });
+    }
+    follow();
   });
 
   function startDrag(e: React.PointerEvent, key: string) {
     if (e.button !== 0) return;
     e.preventDefault();
+    const row = (e.currentTarget as HTMLElement).closest("li");
+    if (!row) return;
+    // Caught while settling: carry on from where it is. Another row still
+    // settling just lands.
+    if (landing.current) {
+      landing.current.anim.stop();
+      if (landing.current.row !== row) landing.current.row.style.transform = "";
+      landing.current = null;
+    }
+    held.current = { key, grab: e.clientY - row.getBoundingClientRect().top, y: e.clientY };
     setDragging(key);
-    // The row under the pointer swaps places as it passes each row's middle.
+    // The row follows the finger, and swaps places as the finger passes
+    // each other row's middle.
     const onMove = (ev: PointerEvent) => {
-      const rows = listRef.current ? ([...listRef.current.children] as HTMLElement[]) : [];
+      if (!held.current) return;
+      held.current.y = ev.clientY;
+      const all = [...rows().values()];
       const from = stepsRef.current.findIndex((s) => s.key === key);
       let to = from;
-      rows.forEach((row, i) => {
-        const r = row.getBoundingClientRect();
-        const middle = r.top + r.height / 2;
+      all.forEach((other, i) => {
+        const middle = layoutTop(other) + other.offsetHeight / 2;
         if (i < from && ev.clientY < middle) to = Math.min(to, i);
         if (i > from && ev.clientY > middle) to = Math.max(to, i);
       });
       move(key, to);
+      follow();
     };
     const onUp = () => {
-      setDragging(null);
+      held.current = null;
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
+      // Let go: it settles into its slot.
+      const el = rows().get(key);
+      if (!el) return setDragging(null);
+      const anim = spring(
+        new DOMMatrix(getComputedStyle(el).transform).m42,
+        0,
+        (y) => (el.style.transform = y ? `translateY(${y}px)` : ""),
+        {
+          response: 0.3,
+          onDone: () => {
+            landing.current = null;
+            setDragging((d) => (d === key ? null : d));
+          },
+        },
+      );
+      landing.current = { anim, row: el };
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -133,6 +204,7 @@ export function StepsField({
             return (
               <li
                 key={step.key}
+                data-step={step.key}
                 className={clsx(
                   "border-b border-line bg-surface last:border-b-0",
                   dragging === step.key && "relative z-10 bg-sunken shadow-pop",
@@ -151,7 +223,7 @@ export function StepsField({
                       move(step.key, index + (e.key === "ArrowUp" ? -1 : 1));
                     }}
                     className={clsx(
-                      "grid h-10 w-7 shrink-0 touch-none place-items-center rounded-md text-ink-3 hover:text-ink",
+                      "hit grid h-10 w-7 shrink-0 touch-none place-items-center rounded-md text-ink-3 hover:text-ink",
                       dragging === step.key ? "cursor-grabbing" : "cursor-grab",
                     )}
                   >
@@ -183,7 +255,7 @@ export function StepsField({
                     aria-expanded={isOpen}
                     aria-label={`Cost, link and details for “${step.text}”`}
                     onClick={() => setOpen(isOpen ? null : step.key)}
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-ink-3 hover:bg-sunken hover:text-ink"
+                    className="hit grid h-8 w-8 shrink-0 place-items-center rounded-lg text-ink-3 hover:bg-sunken hover:text-ink"
                   >
                     <ChevronDown size={16} className={clsx("transition-transform", isOpen && "rotate-180")} />
                   </button>

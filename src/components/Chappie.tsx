@@ -2,10 +2,10 @@ import clsx from "clsx";
 
 /**
  * Claude's stand-in while a question is out: a little visor-faced robot with
- * antenna ears (after Chappie). Waiting for a worker to pick it up, he looks
- * about and twitches an ear now and then; once Claude's working, his ears
- * stand up and the visor scans. Drawn in currentColor, so he takes the
- * colour of the text beside him. Decorative: the words next to him say what's
+ * antenna ears (after Chappie). Waiting for a worker to pick it up, he stands
+ * still, since nothing is happening yet; only once Claude's working do his
+ * ears bob and the visor scan. Drawn in currentColor, so he takes the colour
+ * of the text beside him. Decorative: the words next to him say what's
  * happening.
  */
 export function Chappie({ working = false, size = 16, className }: { working?: boolean; size?: number; className?: string }) {

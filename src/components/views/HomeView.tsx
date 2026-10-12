@@ -156,6 +156,16 @@ export function HomeView({ go, onSettings }: { go: (r: Route) => void; onSetting
   );
 }
 
+/** "£4,530 of costs on the list, plus £22,858 someday", or null with nothing costed. */
+function costsOnList(plan: ReturnType<typeof buildPlan>) {
+  const needed = plan.openTotal - plan.somedayTotal;
+  if (needed > 0 && plan.somedayTotal > 0)
+    return `${formatGBP(needed)} of costs on the list, plus ${formatGBP(plan.somedayTotal)} someday`;
+  if (needed > 0) return `${formatGBP(needed)} of costs on the list`;
+  if (plan.somedayTotal > 0) return `${formatGBP(plan.somedayTotal)} of Someday costs on the list`;
+  return null;
+}
+
 function MoneyStrip({ plan, onOpen }: { plan: ReturnType<typeof buildPlan>; onOpen: () => void }) {
   // Before anyone sets the pot, "£0 · £160 short" is noise: invite it instead.
   if (!plan.tracked) {
@@ -168,8 +178,8 @@ function MoneyStrip({ plan, onOpen }: { plan: ReturnType<typeof buildPlan>; onOp
         <span className="grid min-w-0 flex-1 gap-0.5">
           <span className="text-[15px] font-semibold text-ink">Set up the pot</span>
           <span className="text-[13px] text-ink-2">
-            {plan.openTotal > 0
-              ? `${formatGBP(plan.openTotal)} of costs on the list. Say what you have to see what's affordable.`
+            {costsOnList(plan)
+              ? `${costsOnList(plan)}. Say what you have to see what's affordable.`
               : "Say what you have to spend, and the plan shows what it covers."}
           </span>
         </span>
@@ -187,11 +197,15 @@ function MoneyStrip({ plan, onOpen }: { plan: ReturnType<typeof buildPlan>; onOp
   else if (plan.openTotal > 0) status = "No must-haves waiting";
   else status = "Add costs to see the plan";
 
+  // Someday wishes don't hold up "all clear"; they're named instead.
+  const someday = plan.somedayTotal > 0 ? `, Someday aside` : "";
   let when: string | null = null;
-  if (plan.openTotal > 0) {
-    if (plan.allClearIn === 0) when = "Everything affordable now";
-    else if (plan.allClearIn === null) when = "Set a monthly saving to see when the rest is affordable";
-    else when = `All clear by ${formatMonth(plan.allClearIn)}`;
+  if (plan.openTotal - plan.somedayTotal > 0) {
+    if (plan.clearIn === 0) when = `Everything affordable now${someday}`;
+    else if (plan.clearIn === null) when = "Set a monthly saving to see when the rest is affordable";
+    else when = `All clear by ${formatMonth(plan.clearIn)}${someday}`;
+  } else if (plan.somedayTotal > 0) {
+    when = `Only Someday things left: ${formatGBP(plan.somedayTotal)}`;
   }
 
   return (

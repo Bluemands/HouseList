@@ -277,3 +277,20 @@ describe("stage payments", () => {
     expect(s.months.at(-1)).toEqual({ key: "2026-10", total: 400 });
   });
 });
+
+describe("Someday in the plan", () => {
+  it("keeps unpinned Someday out of the clear-by date, but in the plan", () => {
+    const items = [
+      item({ priority: "MUST_HAVE", estimatedPrice: 300 }),
+      item({ priority: "SOMEDAY", estimatedPrice: 20000 }),
+      item({ priority: "SOMEDAY", estimatedPrice: 100, pinned: true }),
+    ];
+    const plan = buildPlan(items, settings(0, 100));
+    expect(plan.openTotal).toBe(20400);
+    expect(plan.somedayTotal).toBe(20000);
+    // The pinned wish counts: 300 + 100 at £100 a month.
+    expect(plan.clearIn).toBe(4);
+    expect(plan.allClearIn).toBe(204);
+    expect(plan.entries).toHaveLength(3);
+  });
+});

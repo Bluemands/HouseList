@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import clsx from "clsx";
 import { CalendarPlus, Check, Copy, Download, Eye, EyeOff, ListPlus, Lock, X } from "lucide-react";
 import { ESSENTIALS } from "@/lib/essentials";
 import { useStore } from "@/lib/store";
-import { useSheetDrag } from "@/lib/useSheetDrag";
+import { useSheetDrag, useSheetExit } from "@/lib/useSheetDrag";
 import { logout } from "@/lib/api-client";
 import { workerState } from "@/lib/ai";
 import { timeAgo } from "@/lib/format";
@@ -44,18 +45,19 @@ export function SettingsSheet({ open, onClose, onSwitchUser }: { open: boolean; 
   const [movedIn, setMovedIn] = useState(settings.movedInOn ?? "");
   const ref = useRef<HTMLDialogElement>(null);
   const dragHandlers = useSheetDrag(onClose);
+  const { shown, leaving } = useSheetExit(open || null);
 
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
-    if (open && !d.open) {
+    if (shown && !d.open) {
       setTheme(readTheme());
       setMovedIn(settings.movedInOn ?? "");
       setOrigin(window.location.origin);
       d.showModal();
     }
-    if (!open && d.open) d.close();
-  }, [open, settings.movedInOn]);
+    if (!shown && d.open) d.close();
+  }, [shown, settings.movedInOn]);
 
   async function copy(which: "calendar" | "connector", path: string) {
     try {
@@ -69,16 +71,21 @@ export function SettingsSheet({ open, onClose, onSwitchUser }: { open: boolean; 
     <dialog
       ref={ref}
       onClose={onClose}
+      // Escape closes the way the button does, so it slides away too.
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
       aria-labelledby="settings-title"
-      className="sheet m-0 inset-x-0 top-auto bottom-0 max-h-[90dvh] w-full max-w-none overflow-y-auto rounded-t-[22px] bg-surface p-0 text-ink shadow-sheet lg:inset-y-0 lg:right-0 lg:left-auto lg:h-dvh lg:max-h-none lg:w-[420px] lg:rounded-none lg:rounded-l-[22px]"
+      className={clsx(leaving && "sheet-leaving", "sheet m-0 inset-x-0 top-auto bottom-0 max-h-[90dvh] w-full max-w-none overflow-y-auto rounded-t-[22px] bg-surface p-0 text-ink shadow-sheet lg:inset-y-0 lg:right-0 lg:left-auto lg:h-dvh lg:max-h-none lg:w-[420px] lg:rounded-none lg:rounded-l-[22px]")}
     >
       <div {...dragHandlers} className="relative flex touch-none items-center justify-between px-5 pt-5">
         <span aria-hidden="true" className="absolute top-2 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-line-strong lg:hidden" />
         <h2 id="settings-title" className="text-[20px] font-bold">
           Settings
         </h2>
-        <button type="button" onClick={onClose} aria-label="Close" className="grid h-9 w-9 place-items-center rounded-full hover:bg-sunken">
+        <button type="button" onClick={onClose} aria-label="Close" className="hit grid h-9 w-9 place-items-center rounded-full hover:bg-sunken">
           <X size={19} />
         </button>
       </div>

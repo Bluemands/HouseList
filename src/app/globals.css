@@ -9,6 +9,8 @@
   --sunken: #ebe7df;
   --line: #e2ddd3;
   --line-strong: #cbc4b6;
+  /* The empty tick's ring: the lightest that still holds 3:1 on every row ground. */
+  --tick-ring: #898277;
   --ink: #211f1b;
   --ink-2: #57524a;
   --ink-3: #6f695e;
@@ -38,6 +40,7 @@
     --sunken: #262420;
     --line: #2e2c28;
     --line-strong: #45413b;
+    --tick-ring: #807a70;
     --ink: #efebe4;
     --ink-2: #b9b2a6;
     --ink-3: #9a9387;
@@ -63,6 +66,7 @@
   --sunken: #262420;
   --line: #2e2c28;
   --line-strong: #45413b;
+  --tick-ring: #807a70;
   --ink: #efebe4;
   --ink-2: #b9b2a6;
   --ink-3: #9a9387;
@@ -87,6 +91,7 @@
   --color-sunken: var(--sunken);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
+  --color-tick-ring: var(--tick-ring);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
@@ -279,6 +284,56 @@ dialog.sheet[open]::backdrop {
   }
 }
 
+/* Closing leaves the way it came in: down on a phone, out to the side on
+   desktop. Held on screen for SHEET_EXIT_MS in useSheetDrag.ts. */
+@keyframes sheet-down {
+  to {
+    transform: translateY(100%);
+  }
+}
+@keyframes panel-out {
+  to {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+dialog.sheet.sheet-leaving[open] {
+  pointer-events: none;
+  animation: sheet-down 240ms var(--ease-out-expo) forwards;
+}
+dialog.sheet.sheet-leaving[open]::backdrop {
+  pointer-events: none;
+  animation: fade-out 240ms ease-out forwards;
+}
+@media (min-width: 1024px) {
+  dialog.sheet.sheet-leaving[open] {
+    animation: panel-out 200ms var(--ease-out-expo) forwards;
+  }
+}
+
+/* A small control with a fingertip-sized target: the tappable area grows to
+   at least 44px around it, while the drawn control keeps its size. */
+.hit {
+  position: relative;
+}
+.hit::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc((100% - 44px) / 2));
+}
+
+/* A row lights up under the finger, a beat late so a scroll doesn't flash
+   every row it passes. */
+.row-press:has(.row-open:active) {
+  background-color: var(--sunken);
+  transition: background-color 0s 60ms;
+}
+
 @keyframes toast-in {
   from {
     opacity: 0;
@@ -335,38 +390,7 @@ dialog.sheet[open]::backdrop {
   transition: opacity 200ms var(--ease-out-expo);
 }
 
-/* Waiting: a slow look about, a blink, an ear that twitches now and then. */
-@keyframes chappie-glance {
-  0%, 24%, 84%, 100% { transform: none; }
-  32%, 48% { transform: translateX(-1.5px); }
-  58%, 76% { transform: translateX(1.5px); }
-}
-@keyframes chappie-blink {
-  0%, 88%, 96%, 100% { transform: none; }
-  92% { transform: scaleY(0.15); }
-}
-@keyframes chappie-twitch-l {
-  0%, 58%, 74%, 100% { transform: none; }
-  63% { transform: rotate(-18deg); }
-  68% { transform: rotate(6deg); }
-}
-@keyframes chappie-twitch-r {
-  0%, 58%, 74%, 100% { transform: none; }
-  63% { transform: rotate(18deg); }
-  68% { transform: rotate(-6deg); }
-}
-.chappie-waiting .chappie-eyes {
-  animation: chappie-glance 3.6s ease-in-out infinite;
-}
-.chappie-waiting .chappie-eye {
-  animation: chappie-blink 3.6s ease-in-out infinite;
-}
-.chappie-waiting .chappie-ear-l {
-  animation: chappie-twitch-l 3.6s ease-in-out infinite;
-}
-.chappie-waiting .chappie-ear-r {
-  animation: chappie-twitch-r 3.6s 1.8s ease-in-out infinite;
-}
+/* Waiting: still. Nothing is happening yet, so nothing moves. */
 .chappie-waiting .chappie-scan {
   opacity: 0;
 }

@@ -15,8 +15,8 @@ import {
   type Room,
 } from "@/lib/types";
 import { ROOM_PAINT } from "@/lib/rooms";
-import { affordabilityIndex, buildPlan, compareForList, isOpen, matchesSearch, planCost } from "@/lib/plan";
-import { formatGBP, today } from "@/lib/format";
+import { affordabilityIndex, buildPlan, compareForList, isOpen, isSomeday, matchesSearch, planCost } from "@/lib/plan";
+import { formatGBP, formatGBPShort, today } from "@/lib/format";
 import { QuickAdd } from "@/components/QuickAdd";
 import { ItemList, ItemRow } from "@/components/ItemRow";
 import { Chip, PaintChip, Segmented } from "@/components/ui";
@@ -185,7 +185,8 @@ export function ListView() {
     TASK: items.filter((i) => isOpen(i) && i.kind === "TASK").length,
     BUY: items.filter((i) => isOpen(i) && i.kind === "BUY").length,
   };
-  const openTotal = open.reduce((s, i) => s + planCost(i), 0);
+  const openTotal = open.filter((i) => !isSomeday(i)).reduce((s, i) => s + planCost(i), 0);
+  const somedayTotal = open.filter(isSomeday).reduce((s, i) => s + planCost(i), 0);
   const tripSpent =
     tripDone.reduce((s, i) => s + (i.actualPrice ?? i.estimatedPrice ?? 0), 0) +
     tripSupplies.reduce((s, st) => s + (st.cost ?? 0), 0);
@@ -198,6 +199,7 @@ export function ListView() {
         <div className="flex items-center gap-3 pb-1">
           <p className="text-[14px] text-ink-2 tabular">
             {open.length} open{openTotal > 0 && <> · {formatGBP(openTotal)}</>}
+            {somedayTotal > 0 && <span className="text-ink-3"> + {formatGBPShort(somedayTotal)} someday</span>}
           </p>
           {open.length > 1 && !selecting && (
             <button

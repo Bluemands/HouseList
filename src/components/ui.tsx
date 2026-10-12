@@ -104,7 +104,7 @@ export function TickButton({
           "grid place-items-center rounded-full border-[1.5px] transition-colors duration-150",
           done
             ? "tick-fill border-transparent"
-            : "border-line-strong group-hover/tick:border-accent group-hover/tick:bg-accent-soft",
+            : "border-tick-ring group-hover/tick:border-accent group-hover/tick:bg-accent-soft",
         )}
         style={done ? { background: paint.hex } : undefined}
       >

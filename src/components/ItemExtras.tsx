@@ -115,7 +115,7 @@ export function QuotesField({ item, onChosen }: { item: ItemDTO; onChosen: (item
                 type="button"
                 aria-label={`Remove the quote from ${q.from}`}
                 onClick={() => remove(q)}
-                className="-mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-lg text-ink-3 hover:bg-sunken hover:text-ink"
+                className="hit -mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-lg text-ink-3 hover:bg-sunken hover:text-ink"
               >
                 <X size={14} />
               </button>
@@ -207,7 +207,7 @@ export function UpdatesField({ item }: { item: ItemDTO }) {
                   type="button"
                   aria-label="Delete this update"
                   onClick={() => deleteComment(c.id)}
-                  className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-ink-3 opacity-60 hover:bg-sunken hover:text-ink hover:opacity-100"
+                  className="hit grid h-7 w-7 shrink-0 place-items-center rounded-lg text-ink-3 hover:bg-sunken hover:text-ink"
                 >
                   <X size={14} />
                 </button>

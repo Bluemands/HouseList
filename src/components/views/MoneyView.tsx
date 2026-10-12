@@ -17,8 +17,9 @@ export function MoneyView() {
   const rooms = useMemo(
     () =>
       roomStats(items)
-        .filter((r) => r.openCost > 0)
-        .sort((a, b) => b.openCost - a.openCost),
+        .map((r) => ({ ...r, needed: r.openCost - r.somedayCost }))
+        .filter((r) => r.needed > 0)
+        .sort((a, b) => b.needed - a.needed),
     [items],
   );
 
@@ -93,6 +94,11 @@ export function MoneyView() {
         <section aria-labelledby="rooms-money-head">
           <SectionHead id="rooms-money-head" title="Still to spend, by room" />
           <RoomBars rooms={rooms} />
+          {plan.somedayTotal > 0 && (
+            <p className="mt-2 px-1 text-[13px] text-ink-3">
+              Plus {formatGBP(plan.somedayTotal)} of Someday things, left out above.
+            </p>
+          )}
         </section>
       )}
 
@@ -168,7 +174,13 @@ function PotPanel() {
   const [value, setValue] = useState("");
 
   function start(field: "pot" | "monthly") {
-    setValue(String(field === "pot" ? settings.budgetAvailable : settings.monthlySaving || ""));
+    setValue(
+      field === "pot"
+        ? settings.potTracked
+          ? String(settings.budgetAvailable)
+          : ""
+        : String(settings.monthlySaving || ""),
+    );
     setEditing(field);
   }
 
@@ -209,6 +221,11 @@ function PotPanel() {
             <MoneyInput label="Money in the pot" value={value} onChange={setValue} />
             <Button type="submit">Save</Button>
           </form>
+        ) : !settings.potTracked ? (
+          // Not set yet: a big "£0" would read as "you have nothing".
+          <Button onClick={() => start("pot")} className="mt-0.5 justify-self-start px-3 py-2">
+            <Plus size={15} /> Set the pot
+          </Button>
         ) : (
           <button type="button" onClick={() => start("pot")} className="group flex items-center gap-2 text-left">
             <span
@@ -273,20 +290,20 @@ function PotPanel() {
 }
 
 /** Horizontal bars, one per room, coloured by the room's own paint and named. */
-function RoomBars({ rooms }: { rooms: ReturnType<typeof roomStats> }) {
-  const max = Math.max(...rooms.map((r) => r.openCost));
+function RoomBars({ rooms }: { rooms: (ReturnType<typeof roomStats>[number] & { needed: number })[] }) {
+  const max = Math.max(...rooms.map((r) => r.needed));
   return (
     <ul className="grid gap-2.5 rounded-2xl border border-line bg-surface p-4">
       {rooms.map((r) => (
         <li key={r.room} className="grid grid-cols-[minmax(0,7.5rem)_1fr_auto] items-center gap-3 text-[13.5px]">
           <span className="truncate text-ink-2">{ROOM_PAINT[r.room].label}</span>
-          <span className="h-3 overflow-hidden" title={`${ROOM_PAINT[r.room].label}: ${formatGBP(r.openCost)}`}>
+          <span className="h-3 overflow-hidden" title={`${ROOM_PAINT[r.room].label}: ${formatGBP(r.needed)}`}>
             <span
               className="block h-full rounded-r-[4px] transition-[width] duration-500 ease-out"
-              style={{ width: `${Math.max(2, (r.openCost / max) * 100)}%`, background: ROOM_PAINT[r.room].hex }}
+              style={{ width: `${Math.max(2, (r.needed / max) * 100)}%`, background: ROOM_PAINT[r.room].hex }}
             />
           </span>
-          <span className="font-semibold text-ink tabular">{formatGBP(r.openCost)}</span>
+          <span className="font-semibold text-ink tabular">{formatGBP(r.needed)}</span>
         </li>
       ))}
     </ul>

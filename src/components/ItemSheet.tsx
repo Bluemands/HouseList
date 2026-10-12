@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
-import { Copy, Hammer, Pin, ShoppingBag, Sparkles, Trash2, X } from "lucide-react";
+import { Copy, Hammer, Pin, Plus, ShoppingBag, Sparkles, Trash2, X } from "lucide-react";
 import {
   PRIORITIES,
   PRIORITY_LABELS,
@@ -31,7 +31,7 @@ import { workerState, type AiJobDTO } from "@/lib/ai";
 import { parseStep } from "@/lib/parse";
 import { readableLink, siteOf, splitLink, titleFromUrl } from "@/lib/unfurl";
 import { useUnfurl } from "@/lib/useUnfurl";
-import { useSheetDrag } from "@/lib/useSheetDrag";
+import { useSheetDrag, useSheetExit } from "@/lib/useSheetDrag";
 import type { ItemUpdateInput } from "@/lib/validation";
 import { Button, Chip, Field, GrowingTextarea, MoneyInput, PaintChip, Segmented, Suggestion, inputClass } from "@/components/ui";
 import { QuotesField, UpdatesField } from "@/components/ItemExtras";
@@ -111,18 +111,31 @@ export function ItemSheet() {
   useEffect(() => {
     if (gone) closeItem();
   }, [gone, closeItem]);
-  if (!editing || gone) return null;
-  return <SheetBody key={editing.id} item={item} defaults={editing.defaults} restore={editing.restore} />;
+  const open = useMemo(() => (editing && !gone ? { editing, item } : null), [editing, item, gone]);
+  const { shown, leaving, opening } = useSheetExit(open);
+  if (!shown) return null;
+  const sheet = shown.editing;
+  return (
+    <SheetBody
+      key={`${opening}:${sheet.id}`}
+      item={shown.item}
+      defaults={sheet.defaults}
+      restore={sheet.restore}
+      leaving={leaving}
+    />
+  );
 }
 
 function SheetBody({
   item,
   defaults,
   restore,
+  leaving,
 }: {
   item?: ItemDTO;
   defaults?: Partial<ItemDTO>;
   restore?: SheetRestore;
+  leaving: boolean;
 }) {
   const { closeItem, openItem, addItem, patchItem, removeItem, askClaude, undoImprove, toast, settings, items, me, jobByItem } =
     useStore();
@@ -151,6 +164,10 @@ function SheetBody({
   // Where focus was when the sheet opened, to hand it back on close.
   const [opener] = useState(() => (typeof document === "undefined" ? null : document.activeElement));
   const [customWho, setCustomWho] = useState(false);
+  // The less-used parts of an item show once they have something in them;
+  // until then they wait behind one "More" row, so the sheet leads with what
+  // most items need.
+  const [more, setMore] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const roomRailRef = useRef<HTMLDivElement>(null);
@@ -532,6 +549,18 @@ function SheetBody({
     { label: "Next week", day: nextMonday() },
   ];
   const statusLabels = STATUS_LABELS[draft.kind];
+  const showRepeats = more || !!draft.repeat;
+  const showQuotes = more || !!item?.quotes.length;
+  const showUpdates = more || !!item?.comments.length;
+  const showLinks = more || draft.links.length > 0;
+  const showProject = more || !!draft.project.trim();
+  const hidden = [
+    !showRepeats && "repeats",
+    item && !showQuotes && "quotes",
+    item && !showUpdates && "updates",
+    !showLinks && "links",
+    !showProject && "project",
+  ].filter((h): h is string => !!h);
 
   return (
     <dialog
@@ -539,15 +568,17 @@ function SheetBody({
       aria-label={isNew ? "New item" : `Edit ${item!.title}`}
       onCancel={(e) => {
         e.preventDefault();
+        if (leaving) return;
         if (improving) setImproving(false);
         else if (isNew && !draft.title.trim()) closeItem();
         else save();
       }}
       onClick={(e) => {
         // Tapping the dimmed backdrop saves and closes.
-        if (e.target === e.currentTarget) save();
+        if (e.target === e.currentTarget && !leaving) save();
       }}
       className={clsx(
+        leaving && "sheet-leaving",
         "sheet m-0 flex max-h-none max-w-none flex-col overflow-hidden bg-surface p-0 text-ink shadow-sheet backdrop:bg-transparent",
         "inset-x-0 top-auto bottom-0 h-[min(92dvh,860px)] w-full rounded-t-[22px]",
         "lg:inset-y-0 lg:right-0 lg:left-auto lg:h-dvh lg:w-[460px] lg:rounded-none lg:rounded-l-[22px]",
@@ -575,7 +606,7 @@ function SheetBody({
           type="button"
           onClick={dismiss}
           aria-label="Close"
-          className="mt-1 grid h-9 w-9 place-items-center rounded-full text-ink-2 hover:bg-sunken"
+          className="hit mt-1 grid h-9 w-9 place-items-center rounded-full text-ink-2 hover:bg-sunken"
         >
           <X size={19} />
         </button>
@@ -629,94 +660,6 @@ function SheetBody({
               onChange={(v) => set("priority", v)}
               options={PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] }))}
             />
-          </Field>
-
-          <Field label="Room">
-            <div ref={roomRailRef} className="rail -mx-5 flex gap-1.5 overflow-x-auto px-5 pb-1">
-              {ROOMS.map((room) => (
-                <Chip key={room} selected={draft.room === room} onClick={() => set("room", room)}>
-                  <PaintChip room={room} />
-                  {ROOM_PAINT[room].label}
-                </Chip>
-              ))}
-            </div>
-          </Field>
-
-          <Field label="Who's on it">
-            <div className="flex flex-wrap gap-1.5">
-              {people.map((p) => (
-                <Chip
-                  key={p}
-                  selected={draft.assignee === p}
-                  onClick={() => {
-                    setCustomWho(false);
-                    set("assignee", draft.assignee === p ? "" : p);
-                  }}
-                >
-                  {p === me ? `${p} (you)` : p}
-                </Chip>
-              ))}
-              <Chip
-                selected={customWho || !isPerson}
-                onClick={() => {
-                  setCustomWho(true);
-                  if (isPerson) set("assignee", "");
-                }}
-              >
-                Someone else
-              </Chip>
-            </div>
-            {(customWho || !isPerson) && (
-              <input
-                autoFocus={customWho}
-                value={draft.assignee}
-                onChange={(e) => set("assignee", e.target.value)}
-                placeholder="e.g. Electrician, Dad, Gary the plasterer"
-                aria-label="Who's doing it"
-                maxLength={60}
-                className={inputClass}
-              />
-            )}
-          </Field>
-
-          <Field label="When">
-            <div className="flex flex-wrap gap-1.5">
-              {dueChips.map((c) => (
-                <Chip key={c.label} selected={draft.dueDate === c.day} onClick={() => set("dueDate", draft.dueDate === c.day ? "" : c.day)}>
-                  {c.label}
-                </Chip>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={draft.dueDate}
-                onChange={(e) => set("dueDate", e.target.value)}
-                aria-label="Due date"
-                className={clsx(inputClass, "tabular")}
-              />
-              {draft.dueDate && (
-                <Button variant="ghost" onClick={() => set("dueDate", "")} className="shrink-0">
-                  Clear
-                </Button>
-              )}
-            </div>
-          </Field>
-
-          <Field
-            label="Repeats"
-            hint={draft.repeat ? "Ticking it off schedules the next one, counted from the day it's done." : undefined}
-          >
-            <div className="flex flex-wrap gap-1.5">
-              <Chip selected={!draft.repeat} onClick={() => set("repeat", null)}>
-                Never
-              </Chip>
-              {REPEATS.map((r) => (
-                <Chip key={r} selected={draft.repeat === r} onClick={() => set("repeat", r)}>
-                  {REPEAT_SHORT[r]}
-                </Chip>
-              ))}
-            </div>
           </Field>
 
           <Field
@@ -815,6 +758,86 @@ function SheetBody({
             </Field>
           )}
 
+          <Field label="Room">
+            <div ref={roomRailRef} className="rail -mx-5 flex gap-1.5 overflow-x-auto px-5 pb-1">
+              {ROOMS.map((room) => (
+                <Chip key={room} selected={draft.room === room} onClick={() => set("room", room)}>
+                  <PaintChip room={room} />
+                  {ROOM_PAINT[room].label}
+                </Chip>
+              ))}
+            </div>
+          </Field>
+
+          <Field label="Who's on it">
+            <div className="flex flex-wrap gap-1.5">
+              {people.map((p) => (
+                <Chip
+                  key={p}
+                  selected={draft.assignee === p}
+                  onClick={() => {
+                    setCustomWho(false);
+                    set("assignee", draft.assignee === p ? "" : p);
+                  }}
+                >
+                  {p === me ? `${p} (you)` : p}
+                </Chip>
+              ))}
+              <Chip
+                selected={customWho || !isPerson}
+                onClick={() => {
+                  setCustomWho(true);
+                  if (isPerson) set("assignee", "");
+                }}
+              >
+                Someone else
+              </Chip>
+            </div>
+            {(customWho || !isPerson) && (
+              <input
+                autoFocus={customWho}
+                value={draft.assignee}
+                onChange={(e) => set("assignee", e.target.value)}
+                placeholder="e.g. Electrician, Dad, Gary the plasterer"
+                aria-label="Who's doing it"
+                maxLength={60}
+                className={inputClass}
+              />
+            )}
+          </Field>
+
+          <Field label="When">
+            <div className="flex flex-wrap gap-1.5">
+              {dueChips.map((c) => (
+                <Chip key={c.label} selected={draft.dueDate === c.day} onClick={() => set("dueDate", draft.dueDate === c.day ? "" : c.day)}>
+                  {c.label}
+                </Chip>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={draft.dueDate}
+                onChange={(e) => set("dueDate", e.target.value)}
+                aria-label="Due date"
+                className={clsx(inputClass, "tabular")}
+              />
+              {draft.dueDate && (
+                <Button variant="ghost" onClick={() => set("dueDate", "")} className="shrink-0">
+                  Clear
+                </Button>
+              )}
+            </div>
+          </Field>
+
+          <StepsField
+            steps={draft.steps}
+            onChange={(steps) => set("steps", steps)}
+            newStep={newStep}
+            onNewStep={setNewStep}
+            onAdd={addStep}
+          />
+
           {item && (
             <AskClaude
               item={item}
@@ -826,7 +849,38 @@ function SheetBody({
             />
           )}
 
-          {item && (
+          <Field label="Notes">
+            <GrowingTextarea
+              value={draft.notes}
+              onChange={(e) => set("notes", e.target.value)}
+              placeholder="Measurements, colours, who quoted what…"
+              aria-label="Notes"
+              maxLength={4000}
+              className={inputClass}
+            />
+          </Field>
+
+          {showRepeats && (
+            <>
+            <Field
+              label="Repeats"
+              hint={draft.repeat ? "Ticking it off schedules the next one, counted from the day it's done." : undefined}
+            >
+              <div className="flex flex-wrap gap-1.5">
+                <Chip selected={!draft.repeat} onClick={() => set("repeat", null)}>
+                  Never
+                </Chip>
+                {REPEATS.map((r) => (
+                  <Chip key={r} selected={draft.repeat === r} onClick={() => set("repeat", r)}>
+                    {REPEAT_SHORT[r]}
+                  </Chip>
+                ))}
+              </div>
+            </Field>
+            </>
+          )}
+
+          {item && showQuotes && (
             <QuotesField
               item={item}
               onChosen={(u) => {
@@ -842,71 +896,73 @@ function SheetBody({
             />
           )}
 
-          <StepsField
-            steps={draft.steps}
-            onChange={(steps) => set("steps", steps)}
-            newStep={newStep}
-            onNewStep={setNewStep}
-            onAdd={addStep}
-          />
+          {item && showUpdates && <UpdatesField item={item} />}
 
-          {item && <UpdatesField item={item} />}
+          {showLinks && (
+            <>
+            <LinksField
+              links={draft.links}
+              onChange={(links) => set("links", links)}
+              newLink={newLink}
+              onNewLink={setNewLink}
+              onAdd={addLink}
+            >
+              {page.status === "loading" && (placeholderTitle || !draft.estimatedPrice.trim()) && (
+                <span className="text-[12px] text-ink-3" aria-live="polite">
+                  Looking up that page…
+                </span>
+              )}
+              {(offerPrice != null || offerTitle) && (
+                <div className="flex min-w-0 flex-wrap gap-1.5" aria-live="polite">
+                  {offerPrice != null && (
+                    <Suggestion onClick={() => set("estimatedPrice", String(offerPrice))}>
+                      Use {formatGBP(offerPrice)} from {shop}
+                    </Suggestion>
+                  )}
+                  {offerTitle && (
+                    <Suggestion onClick={() => set("title", offerTitle.slice(0, TITLE_MAX))}>
+                      Name it “{offerTitle}”
+                    </Suggestion>
+                  )}
+                </div>
+              )}
+            </LinksField>
+            </>
+          )}
 
-          <LinksField
-            links={draft.links}
-            onChange={(links) => set("links", links)}
-            newLink={newLink}
-            onNewLink={setNewLink}
-            onAdd={addLink}
-          >
-            {page.status === "loading" && (placeholderTitle || !draft.estimatedPrice.trim()) && (
-              <span className="text-[12px] text-ink-3" aria-live="polite">
-                Looking up that page…
+          {showProject && (
+            <>
+            <Field label="Project" hint="Optional — group things like “Kitchen reno”.">
+              <input
+                value={draft.project}
+                onChange={(e) => set("project", e.target.value)}
+                list="projects"
+                placeholder="None"
+                aria-label="Project"
+                maxLength={60}
+                className={inputClass}
+              />
+              <datalist id="projects">
+                {projects.map((p) => (
+                  <option key={p} value={p} />
+                ))}
+              </datalist>
+            </Field>
+            </>
+          )}
+
+          {hidden.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setMore(true)}
+              className="flex items-center gap-2 rounded-[10px] border border-dashed border-line-strong px-3 py-2.5 text-left text-[14px] text-ink-2 hover:border-tick-ring hover:text-ink"
+            >
+              <Plus size={16} aria-hidden="true" className="shrink-0" />
+              <span>
+                More: <span className="text-ink-3">{hidden.join(", ")}</span>
               </span>
-            )}
-            {(offerPrice != null || offerTitle) && (
-              <div className="flex min-w-0 flex-wrap gap-1.5" aria-live="polite">
-                {offerPrice != null && (
-                  <Suggestion onClick={() => set("estimatedPrice", String(offerPrice))}>
-                    Use {formatGBP(offerPrice)} from {shop}
-                  </Suggestion>
-                )}
-                {offerTitle && (
-                  <Suggestion onClick={() => set("title", offerTitle.slice(0, TITLE_MAX))}>
-                    Name it “{offerTitle}”
-                  </Suggestion>
-                )}
-              </div>
-            )}
-          </LinksField>
-
-          <Field label="Notes">
-            <GrowingTextarea
-              value={draft.notes}
-              onChange={(e) => set("notes", e.target.value)}
-              placeholder="Measurements, colours, who quoted what…"
-              aria-label="Notes"
-              maxLength={4000}
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label="Project" hint="Optional — group things like “Kitchen reno”.">
-            <input
-              value={draft.project}
-              onChange={(e) => set("project", e.target.value)}
-              list="projects"
-              placeholder="None"
-              aria-label="Project"
-              maxLength={60}
-              className={inputClass}
-            />
-            <datalist id="projects">
-              {projects.map((p) => (
-                <option key={p} value={p} />
-              ))}
-            </datalist>
-          </Field>
+            </button>
+          )}
 
           {item && (
             <p className="text-[13px] text-ink-3">

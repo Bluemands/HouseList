@@ -48,7 +48,7 @@ export function SinceLastTime() {
           type="button"
           aria-label="Got it"
           onClick={() => setDismissed(true)}
-          className="-mt-1 -mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink-3 hover:bg-sunken hover:text-ink"
+          className="hit -mt-1 -mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink-3 hover:bg-sunken hover:text-ink"
         >
           <X size={16} />
         </button>

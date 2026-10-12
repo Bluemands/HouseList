@@ -7,6 +7,7 @@ colors:
   sunken: "#ebe7df"
   line: "#e2ddd3"
   line-strong: "#cbc4b6"
+  tick-ring: "#898277"
   ink: "#211f1b"
   ink-2: "#57524a"
   ink-3: "#6f695e"
@@ -22,6 +23,7 @@ colors:
   night-sunken: "#262420"
   night-line: "#2e2c28"
   night-line-strong: "#45413b"
+  night-tick-ring: "#807a70"
   night-ink: "#efebe4"
   night-ink-2: "#b9b2a6"
   night-ink-3: "#9a9387"
@@ -232,7 +234,9 @@ Sixteen paints, one per room, each with a computed ink (dark ink #211f1b or whit
 - **Limestone** (limestone / night-ground): the page ground and the theme colour of the browser chrome. Rows sit directly on it.
 - **Surface** (surface / night-surface): raised containers only: swatch cards, the money strip, quick-add, inputs, the item sheet, the tab bar (at 92% with blur).
 - **Sunken** (sunken / night-sunken): hover fill on rows and ghost controls, the active rail item, the segmented control track, parsed chips in quick-add.
-- **Line** (line, line-strong): hairline row dividers and card borders; line-strong for empty tick circles, dashed empty states and input hover.
+- **Line** (line, line-strong): hairline row dividers and card borders; line-strong for dashed empty states and input hover.
+- **Tick ring** (tick-ring / night-tick-ring): the edge of an empty tick circle, a selection square and a row's next-step box. The lightest tone that still holds 3:1 against every ground a row can sit on (limestone, surface, sunken, green-soft), because it's the outline that says "you can press this".
+- **Warn** (warn, warn-soft): amber for "already on the list" in quick add and the offline banner. Never priority, never a room.
 - **Ink** (ink, ink-2, ink-3): titles and figures; meta lines and secondary labels; hints, placeholders, done items and "Someday".
 - **Danger** (danger, danger-soft): overdue dates, "short for must-haves", late counts on swatch cards, destructive ghost buttons and error toasts. Never used for priority.
 
@@ -324,7 +328,9 @@ Softly rounded, with radius growing with the size of the thing. Paint cells are 
 ### Item Row (signature)
 A hairline row directly on the ground: a round tick target on the left (26px, 32px on the lead row, inside a 44px hit area), the title, a right-aligned tabular cost (with a small "QUOTE" qualifier for quotes, and ranges as "£450–600"), and a 13px meta line: priority, room tag (paint chip plus name), due date (danger when overdue), person, steps done, and "Affordable Jun 2027" right-aligned when the pot does not yet cover it. Done rows go ink-3 with a soft strikethrough. Hover fills sunken at 60%.
 
-Ticking a row in an open list does not remove it on the spot: for one second the list holds the house as it was just before the tick, so the row keeps its place while its circle floods and its title strikes through, then the row folds away (its grid row collapses to nothing) and the list re-sorts against the new pot. Nothing reshuffles under the finger. On phones a row swipes right to finish and left to delete; the action icon underneath pops (scale 1.1) and the phone gives a light tap at the moment letting go would count.
+Ticking a row in an open list does not remove it on the spot: for one second the list holds the house as it was just before the tick, so the row keeps its place while its circle floods and its title strikes through, then the row folds away (its grid row collapses to nothing) and the list re-sorts against the new pot. Nothing reshuffles under the finger. On phones a row swipes right to finish and left to delete; the action icon underneath pops (scale 1.1) and the phone gives a light tap at the moment letting go would count. A quick flick counts as much as a long drag, and a flick back cancels. A finished or deleted row carries on off the way it was swiped (a deleted one then closes its gap) rather than snapping back; reopening a done row springs back, since the row stays. Past 140px the swipe rubber-bands. A row lights sunken under the finger 60ms after touch, late enough that a scroll doesn't flash every row it passes. Small controls in and around rows (the next-step box, remove icons, close buttons) keep their drawn size but get a 44px tap area (`.hit`).
+
+Money totals leave unpinned Someday out: "£4,530 of costs on the list, plus £22,858 someday", "10 open · £4,530 + £23k someday", and Money's by-room bars note the Someday sum underneath. Someday items still sit, last, in the plan itself. An unset pot shows a "Set the pot" button, never a £0.
 
 ### Tick (signature)
 An empty circle with a line-strong edge; on hover it tints green-soft and previews a faint green tick. Finishing floods the circle with the room's paint (scale 0.6 to 1.12 to 1, 320ms) and draws the tick in the paint's ink (260ms, 80ms delay).
@@ -339,15 +345,17 @@ The house from above, traced from the estate agent's plan as a schematic: both f
 A room's page opens on a full-bleed block of its paint, with the room name in display type, a 13px line under it giving its floor and size where the floor plan has one, To do / Done / Still to spend / Spent stats in tabular figures, the tall strip on an 85% surface inset, and the paint number and name at the foot.
 
 ### Item Sheet
-A native dialog that rises as a bottom sheet on phones (92dvh max, 22px top corners, drag handle, 340ms rise) and slides in as a 460px right side panel on desktop (22px left corners, 260ms). Closing, tapping the backdrop or pulling the sheet down by its top bar saves; there is no cancel-and-lose path. Every bottom sheet (item, settings, bulk add) follows the finger when pulled down by its handle: a pull past 110px or a quick flick dismisses it, anything less springs back.
+A native dialog that rises as a bottom sheet on phones (92dvh max, 22px top corners, drag handle, 340ms rise) and slides in as a 460px right side panel on desktop (22px left corners, 260ms). Closing, tapping the backdrop or pulling the sheet down by its top bar saves; there is no cancel-and-lose path. Every bottom sheet (item, settings, bulk add) leaves the way it came: it slides back down (out to the side on desktop) while the backdrop fades, however it was closed. Pulled down by its handle it follows the finger and can be caught mid-flight; on release, where the flick was heading decides it (past 110px projected dismisses, anything less springs back), and the spring carries the finger's speed. Pulled up, it rubber-bands.
+
+The sheet leads with what most items need: title, type and status, priority, then cost and where it sits in the plan, then room, who, when, steps, Ask Claude and notes. Repeats, quotes, updates, links and project show once they have something in them; until then they wait behind one dashed "More" row naming them.
 
 ### Toasts
 Ink pills (limestone text) that rise 8px into view above the tab bar, carrying the message and an "Undo" action in green-soft bold. Errors use a danger fill. They replace every confirmation dialog. While a sheet is open the toasts render inside it (a modal sheet makes everything outside it inert), so an undo or an error raised from a sheet is always visible and tappable.
 
 ### Motion
-One easing (`cubic-bezier(0.16, 1, 0.3, 1)`) for tick flood and draw, row arrive (420ms, from 6px above with a green-soft flash), row leave (320ms fold after a 620ms pause), sheet up and panel in, toast in (240ms) and out (160ms, 6px down), and paint-in. Under reduced motion every animation and transition collapses to 1ms and loops run once, so state still changes without movement.
+One easing (`cubic-bezier(0.16, 1, 0.3, 1)`) for tick flood and draw, row arrive (420ms, from 6px above with a green-soft flash), row leave (320ms fold after a 620ms pause), sheet up and panel in, toast in (240ms) and out (160ms, 6px down), sheet down and panel out (240ms / 200ms), and paint-in. Anything a finger drives (sheet pulls, row swipes, reordering steps) runs on springs instead (`src/lib/motion.ts`, after Apple's fluid-interface rules): critically damped, starting from wherever the thing is on screen, carrying the finger's release speed, and choosing commit or cancel from where a flick was heading. Dragged steps follow the finger and the others glide out of the way. Under reduced motion every animation and transition collapses to 1ms, springs jump to their end and loops run once, so state still changes without movement. Haptic ticks use the vibration API on Android and a switch-checkbox tick on iPhone (Safari 18+).
 
-**Chappie (signature).** Whenever a question is out with Claude, a small visor-faced robot with antenna ears (after the film's Chappie) stands beside the words, drawn in currentColor: 16px in a row's meta line, 22px in the sheet's Ask Claude panel. Waiting for a worker to pick it up, in ink-3, he looks about, blinks and twitches an ear on a 3.6s loop. Once Claude is working, in green text, his ears bob and the visor scans (0.55s). When the answer lands while the row is on screen, the "Suggestion" tag pops in on a green-soft wash (900ms), once.
+**Chappie (signature).** Whenever a question is out with Claude, a small visor-faced robot with antenna ears (after the film's Chappie) stands beside the words, drawn in currentColor: 16px in a row's meta line, 22px in the sheet's Ask Claude panel. Waiting for a worker to pick it up, in ink-3, he stands still, because nothing is happening yet; if the worker hasn't checked in lately the row says so ("Waiting · worker last on 22h ago", or "Waiting for a worker" if none ever has). Once Claude is working, in green text, his ears bob and the visor scans (0.55s). When the answer lands while the row is on screen, the "Suggestion" tag pops in on a green-soft wash (900ms), once.
 
 **Change feedback.** A row whose item changes while it's showing (saved from the sheet, or arriving from the other phone) washes green-soft and fades over 1.4s. The pot figure on Home and Money counts to its new value over 600ms (whole pounds stay whole). Quick add's parsed chips pop in (200ms, from 0.88 scale) as each is understood, and an Ask Claude panel rises 4px into view when it changes state.
 

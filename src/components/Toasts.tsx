@@ -122,7 +122,7 @@ export function Toasts() {
                 type="button"
                 aria-label="Dismiss"
                 onClick={() => dismissToast(t.id)}
-                className="grid h-8 w-8 shrink-0 place-items-center rounded-lg opacity-70 hover:bg-white/10 hover:opacity-100"
+                className="hit grid h-8 w-8 shrink-0 place-items-center rounded-lg opacity-70 hover:bg-white/10 hover:opacity-100"
               >
                 <X size={16} />
               </button>

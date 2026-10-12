@@ -15,6 +15,13 @@ export function planCost(item: ItemDTO): number {
   return Math.max(0, Math.max(item.estimateMax ?? 0, item.estimatedPrice ?? 0) - doneStepsCost(item.steps));
 }
 
+/**
+ * A "Someday" wish nobody has pinned: it stays in the plan, last, but it's
+ * kept out of "costs on the list" so a dream doesn't make today look
+ * unaffordable.
+ */
+export const isSomeday = (item: ItemDTO) => item.priority === "SOMEDAY" && !item.pinned;
+
 /** What a finished item actually cost. */
 export function spentCost(item: ItemDTO): number {
   return item.actualPrice ?? item.estimatedPrice ?? 0;
@@ -66,10 +73,14 @@ export type Plan = {
   monthly: number;
   mustTotal: number;
   openTotal: number;
+  /** The part of openTotal that's unpinned Someday. */
+  somedayTotal: number;
   /** Pot minus every open must-have. Negative = short. */
   mustSpare: number;
   /** Months until every open costed item is affordable; null if never. */
   allClearIn: number | null;
+  /** The same, leaving Someday aside. */
+  clearIn: number | null;
   affordableNowCount: number;
 };
 
@@ -89,6 +100,7 @@ export function buildPlan(items: ItemDTO[], settings: SettingsDTO): Plan {
 
   const mustTotal = costed.filter((i) => i.priority === "MUST_HAVE").reduce((s, i) => s + planCost(i), 0);
   const last = entries.at(-1);
+  const lastNeeded = entries.findLast((e) => !isSomeday(e.item));
   return {
     entries,
     tracked: settings.potTracked,
@@ -96,8 +108,10 @@ export function buildPlan(items: ItemDTO[], settings: SettingsDTO): Plan {
     monthly,
     mustTotal,
     openTotal: cumulative,
+    somedayTotal: costed.filter(isSomeday).reduce((s, i) => s + planCost(i), 0),
     mustSpare: pot - mustTotal,
     allClearIn: last ? last.monthsAway : 0,
+    clearIn: lastNeeded ? lastNeeded.monthsAway : 0,
     affordableNowCount: entries.filter((e) => e.monthsAway === 0).length,
   };
 }
@@ -258,6 +272,8 @@ export type RoomStats = {
   done: number;
   total: number;
   openCost: number;
+  /** The part of openCost that's unpinned Someday. */
+  somedayCost: number;
   spent: number;
   overdue: number;
 };
@@ -265,7 +281,7 @@ export type RoomStats = {
 export function roomStats(items: ItemDTO[]): RoomStats[] {
   const now = today();
   const map = new Map<Room, RoomStats>(
-    ROOMS.map((room) => [room, { room, open: 0, done: 0, total: 0, openCost: 0, spent: 0, overdue: 0 }]),
+    ROOMS.map((room) => [room, { room, open: 0, done: 0, total: 0, openCost: 0, somedayCost: 0, spent: 0, overdue: 0 }]),
   );
   for (const item of items) {
     const r = map.get(item.room)!;
@@ -273,6 +289,7 @@ export function roomStats(items: ItemDTO[]): RoomStats[] {
     if (isOpen(item)) {
       r.open += 1;
       r.openCost += planCost(item);
+      if (isSomeday(item)) r.somedayCost += planCost(item);
       r.spent += doneStepsCost(item.steps);
       if (item.dueDate && item.dueDate < now) r.overdue += 1;
     } else {

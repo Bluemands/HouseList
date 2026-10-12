@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { House, LayoutGrid, ListChecks, Plus, Settings, Wallet } from "lucide-react";
 import { useDisplayName } from "@/lib/useDisplayName";
+import { useSheetExit } from "@/lib/useSheetDrag";
 import { StoreProvider, useStore } from "@/lib/store";
 import { useRoute, type Route, type View } from "@/lib/nav";
 import type { ItemDTO, SettingsDTO } from "@/lib/types";
@@ -62,6 +63,7 @@ function Shell({ onSwitchUser }: { onSwitchUser: () => void }) {
   const { route, go } = useRoute();
   const { openItem, me, editing, bulk, closeBulk } = useStore();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const bulkSheet = useSheetExit(bulk);
 
   // "n" to add from anywhere on a keyboard.
   useEffect(() => {
@@ -157,7 +159,14 @@ function Shell({ onSwitchUser }: { onSwitchUser: () => void }) {
       </nav>
 
       <ItemSheet />
-      {bulk && <BulkAddSheet key={bulk.title} {...bulk} onClose={closeBulk} />}
+      {bulkSheet.shown && (
+        <BulkAddSheet
+          key={`${bulkSheet.opening}:${bulkSheet.shown.title}`}
+          {...bulkSheet.shown}
+          leaving={bulkSheet.leaving}
+          onClose={closeBulk}
+        />
+      )}
       <SettingsSheet
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}

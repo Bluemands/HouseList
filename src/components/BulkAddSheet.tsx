@@ -21,11 +21,13 @@ export function BulkAddSheet({
   title,
   intro,
   candidates,
+  leaving,
   onClose,
 }: {
   title: string;
   intro?: string;
   candidates: BulkCandidate[];
+  leaving: boolean;
   onClose: () => void;
 }) {
   const { addItems, items } = useStore();
@@ -70,7 +72,10 @@ export function BulkAddSheet({
       }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
       aria-label={title}
-      className="sheet m-0 inset-x-0 top-auto bottom-0 flex h-[min(90dvh,820px)] w-full max-w-none flex-col overflow-hidden rounded-t-[22px] bg-surface p-0 text-ink shadow-sheet lg:inset-y-0 lg:right-0 lg:left-auto lg:h-dvh lg:w-[480px] lg:rounded-none lg:rounded-l-[22px]"
+      className={clsx(
+        leaving && "sheet-leaving",
+        "sheet m-0 inset-x-0 top-auto bottom-0 flex h-[min(90dvh,820px)] w-full max-w-none flex-col overflow-hidden rounded-t-[22px] bg-surface p-0 text-ink shadow-sheet lg:inset-y-0 lg:right-0 lg:left-auto lg:h-dvh lg:w-[480px] lg:rounded-none lg:rounded-l-[22px]",
+      )}
     >
       <div {...dragHandlers} className="relative flex touch-none items-start justify-between gap-3 px-5 pt-5 pb-3">
         <span aria-hidden="true" className="absolute top-2 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-line-strong lg:hidden" />
@@ -78,7 +83,7 @@ export function BulkAddSheet({
           <h2 className="text-[20px] font-bold tracking-[-0.01em]">{title}</h2>
           {intro && <p className="mt-1 text-[14px] text-ink-2">{intro}</p>}
         </div>
-        <button type="button" onClick={onClose} aria-label="Close" className="grid h-9 w-9 shrink-0 place-items-center rounded-full hover:bg-sunken">
+        <button type="button" onClick={onClose} aria-label="Close" className="hit grid h-9 w-9 shrink-0 place-items-center rounded-full hover:bg-sunken">
           <X size={19} />
         </button>
       </div>
