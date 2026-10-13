@@ -29,6 +29,7 @@ import {
   parseClaudeOutput,
   parseEnvFile,
   priceServerConfig,
+  wantsEmail,
 } from "./ai-worker-lib.mjs";
 
 const JOB_TIMEOUT_MS = 5 * 60_000;
@@ -107,9 +108,10 @@ let current = null;
 
 /**
  * Run claude on one prompt in an empty folder; resolves to its stdout. With
- * `amazon`, it also gets the app's Amazon price tools.
+ * `amazon`, it also gets the app's Amazon price tools; with `gmail`, it can
+ * read the Gmail of the account this computer's Claude Code is signed in to.
  */
-function runClaude(prompt, { amazon = false } = {}) {
+function runClaude(prompt, { amazon = false, gmail = false } = {}) {
   return new Promise((resolve, reject) => {
     // An empty working folder, so there's nothing of this computer's for it to see.
     const cwd = mkdtempSync(join(tmpdir(), "house-list-ai-"));
@@ -118,7 +120,7 @@ function runClaude(prompt, { amazon = false } = {}) {
     const configDir = amazon ? mkdtempSync(join(tmpdir(), "house-list-mcp-")) : null;
     const mcpConfig = configDir ? join(configDir, "mcp.json") : null;
     if (mcpConfig) writeFileSync(mcpConfig, JSON.stringify(priceServerConfig(baseUrl, token)), { mode: 0o600 });
-    const argv = claudeArgs({ model, mcpConfig });
+    const argv = claudeArgs({ model, mcpConfig, gmail });
     // A stub script (for testing) runs under this Node; anything else directly.
     const [command, args] = /\.(mjs|cjs|js)$/i.test(claudeBin)
       ? [process.execPath, [claudeBin, ...argv]]
@@ -179,11 +181,13 @@ let working = null;
 async function handle(claim) {
   const { job, item } = claim;
   working = job.id;
-  log(`Researching “${item.title}” (${job.kind.toLowerCase().replace(/_/g, " ")})…`);
+  // Only when they've asked for something to be looked up in their email.
+  const gmail = wantsEmail(claim);
+  log(`Researching “${item.title}” (${job.kind.toLowerCase().replace(/_/g, " ")}${gmail ? ", reading Gmail" : ""})…`);
   const started = Date.now();
   let outcome;
   try {
-    outcome = parseClaudeOutput(await runClaude(buildPrompt(claim), { amazon: !!claim.amazon }));
+    outcome = parseClaudeOutput(await runClaude(buildPrompt({ ...claim, gmail }), { amazon: !!claim.amazon, gmail }));
   } catch (err) {
     outcome = { ok: false, error: err.message };
   }

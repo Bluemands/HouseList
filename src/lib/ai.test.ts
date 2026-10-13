@@ -13,6 +13,7 @@ import {
   workerSubmitSchema,
 } from "@/lib/ai";
 import {
+  GMAIL_TOOLS,
   PRICE_SERVER,
   PRICE_TOOLS,
   RESULT_JSON_SCHEMA,
@@ -22,6 +23,7 @@ import {
   parseClaudeOutput,
   parseEnvFile,
   priceServerConfig,
+  wantsEmail,
 } from "../../scripts/ai-worker-lib.mjs";
 
 describe("aiResultSchema", () => {
@@ -162,6 +164,30 @@ describe("buildPrompt", () => {
     expect(buildPrompt(claim)).not.toContain("get_amazon_product");
     expect(buildPrompt({ ...claim, amazon: true })).toContain("get_amazon_product");
   });
+
+  it("mentions Gmail only when it's on", () => {
+    expect(buildPrompt(claim)).not.toContain("Gmail search");
+    const prompt = buildPrompt({ ...claim, gmail: true });
+    expect(prompt).toContain(GMAIL_TOOLS[0]);
+    expect(prompt).toMatch(/nothing from them goes into a web search or a URL/);
+  });
+});
+
+describe("wantsEmail", () => {
+  const job = { id: "j1", kind: "RESEARCH_ITEM", question: null };
+  const item = { title: "Return EE broadband box", notes: null, steps: [] };
+
+  it("is on when the notes, title, a step or the question ask for email", () => {
+    expect(wantsEmail({ job, item: { ...item, notes: "Use Gmail connector to get EE broadband return details" } })).toBe(true);
+    expect(wantsEmail({ job, item: { ...item, title: "Find the EE email" } })).toBe(true);
+    expect(wantsEmail({ job, item: { ...item, steps: [{ text: "Check inbox for the label", notes: null }] } })).toBe(true);
+    expect(wantsEmail({ job: { ...job, question: "What did the e-mail say?" }, item })).toBe(true);
+  });
+
+  it("is off otherwise", () => {
+    expect(wantsEmail({ job, item })).toBe(false);
+    expect(wantsEmail({ job, item: { ...item, notes: "Mailbox by the gate" } })).toBe(false);
+  });
 });
 
 describe("claudeArgs", () => {
@@ -202,6 +228,27 @@ describe("claudeArgs", () => {
   it("keeps safe mode when there's no price server", () => {
     expect(args).toContain("--safe-mode");
     expect(args).not.toContain("--setting-sources");
+  });
+
+  it("lets it read Gmail, and only read it, when asked", () => {
+    const withGmail = claudeArgs({ gmail: true });
+    const of = (flag: string) => withGmail[withGmail.indexOf(flag) + 1];
+    expect(of("--allowedTools")).toBe(["WebSearch", "WebFetch", ...GMAIL_TOOLS].join(","));
+    expect(GMAIL_TOOLS.every((t) => /__(search_threads|get_thread|get_message)$/.test(t))).toBe(true);
+    expect(of("--disallowedTools")).toContain("mcp__claude_ai_Gmail__send_message");
+    expect(of("--disallowedTools")).toContain("mcp__claude_ai_Gmail__forward");
+    expect(of("--permission-mode")).toBe("dontAsk");
+    // claude.ai connectors need these off; the rest of the isolation is spelled out.
+    expect(withGmail).not.toContain("--strict-mcp-config");
+    expect(withGmail).not.toContain("--safe-mode");
+    expect(of("--setting-sources")).toBe("project");
+    expect(withGmail).toContain("--disable-slash-commands");
+  });
+
+  it("can have the price server and Gmail together", () => {
+    const both = claudeArgs({ mcpConfig: "/tmp/x/mcp.json", gmail: true });
+    expect(both[both.indexOf("--allowedTools") + 1]).toBe(["WebSearch", "WebFetch", ...PRICE_TOOLS, ...GMAIL_TOOLS].join(","));
+    expect(both[both.indexOf("--mcp-config") + 1]).toBe("/tmp/x/mcp.json");
   });
 });
 
