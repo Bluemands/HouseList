@@ -30,6 +30,7 @@ vi.mock("@/lib/prisma", () => {
           steps,
           quotes: [],
           comments: [],
+          photos: [],
           dueDate: null,
           warrantyUntil: null,
           createdAt: (data.createdAt as Date | undefined) ?? now,

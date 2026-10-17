@@ -20,7 +20,8 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   try {
     res = await fetch(url, {
       ...init,
-      headers: init?.body ? { "Content-Type": "application/json" } : undefined,
+      // A FormData body (a photo) sets its own multipart type.
+      headers: typeof init?.body === "string" ? { "Content-Type": "application/json" } : undefined,
     });
   } catch {
     throw new ApiError("You're offline — that didn't save", 0);
@@ -72,6 +73,18 @@ export const deleteQuote = (quoteId: string) => itemCall(`/api/quotes/${quoteId}
 export const addComment = (itemId: string, text: string, author: string) =>
   itemCall(`/api/items/${itemId}/comments`, "POST", { text, author });
 export const deleteComment = (commentId: string) => itemCall(`/api/comments/${commentId}`, "DELETE");
+
+export async function addPhoto(itemId: string, photo: { full: Blob; thumb: Blob; width: number; height: number }, addedBy: string) {
+  const form = new FormData();
+  form.set("full", photo.full, "full.jpg");
+  form.set("thumb", photo.thumb, "thumb.jpg");
+  form.set("width", String(photo.width));
+  form.set("height", String(photo.height));
+  form.set("addedBy", addedBy);
+  const data = await request<{ item: ItemDTO }>(`/api/items/${itemId}/photos`, { method: "POST", body: form });
+  return data.item;
+}
+export const deletePhoto = (photoId: string) => itemCall(`/api/photos/${photoId}`, "DELETE");
 
 /** A product page's name and price, or null when it can't be read (often: shops block servers). */
 export async function unfurl(url: string): Promise<Unfurled | null> {

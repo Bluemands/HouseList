@@ -38,6 +38,7 @@ import { PrintButton } from "@/components/PrintButton";
 import type { ItemUpdateInput } from "@/lib/validation";
 import { Button, Chip, Field, GrowingTextarea, MoneyInput, PaintChip, Segmented, Suggestion, inputClass } from "@/components/ui";
 import { QuotesField, UpdatesField } from "@/components/ItemExtras";
+import { PhotosField } from "@/components/Photos";
 import { AskClaude } from "@/components/AskClaude";
 import { PlanNote } from "@/components/PlanNote";
 import { LinksField, StepsField, parseMoney, type DraftStep } from "@/components/StepsField";
@@ -555,9 +556,11 @@ function SheetBody({
   const showRepeats = more || !!draft.repeat;
   const showQuotes = more || !!item?.quotes.length;
   const showUpdates = more || !!item?.comments.length;
+  const showPhotos = more || !!item?.photos.length;
   const showLinks = more || draft.links.length > 0;
   const showProject = more || !!draft.project.trim();
   const hidden = [
+    item && !showPhotos && "photos",
     !showRepeats && "repeats",
     item && !showQuotes && "quotes",
     item && !showUpdates && "updates",
@@ -871,6 +874,12 @@ function SheetBody({
               className={inputClass}
             />
           </Field>
+
+          {item && showPhotos && (
+            <Field label="Photos">
+              <PhotosField item={item} />
+            </Field>
+          )}
 
           {showRepeats && (
             <>

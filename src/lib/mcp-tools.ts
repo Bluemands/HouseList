@@ -73,6 +73,7 @@ export function summarise(item: ItemDTO, afford: Map<string, number | null> = ne
     nextStep: next?.text,
     quotes: item.quotes.length || null,
     updates: item.comments.length || null,
+    photos: item.photos.length || null,
     affordable: isOpen(item) ? affordLabel(afford.get(item.id)) : undefined,
     addedBy: item.addedBy,
     completedBy: item.completedBy,
@@ -92,6 +93,8 @@ export function detail(item: ItemDTO, afford: Map<string, number | null> = new M
     steps: item.steps.map((s) => compact(s)),
     quotes: item.quotes.map((q) => compact(q)),
     comments: item.comments,
+    // The images are behind the app's PIN, out of Claude's reach; just how many.
+    photos: item.photos.length || undefined,
   });
 }
 

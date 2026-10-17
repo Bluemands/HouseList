@@ -51,3 +51,6 @@ next-env.d.ts
 
 # Impeccable design-review screenshots
 /.impeccable/review/
+
+# photos saved locally in dev (src/lib/photo-store.ts)
+/.photos

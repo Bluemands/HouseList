@@ -11,6 +11,7 @@ import { listLines } from "@/lib/printouts";
 import { PaintChip, TickButton } from "@/components/ui";
 import { PrintButton } from "@/components/PrintButton";
 import { RecentPrintOuts } from "@/components/RecentPrintOuts";
+import { PhotoThumb } from "@/components/PhotoThumb";
 
 /**
  * The simple layout: the house as one paper-like checklist, room by room, in
@@ -181,6 +182,12 @@ function SimpleRow({ item }: { item: ItemDTO }) {
             </ul>
           )}
         </div>
+        {item.photos[0] && (
+          // The title already opens it; this is a bigger place to tap, not another stop for a screen reader.
+          <button type="button" tabIndex={-1} aria-hidden="true" onClick={() => openItem(item.id)} className="shrink-0">
+            <PhotoThumb photo={item.photos[0]} className={clsx("h-12 w-12 rounded-[8px] bg-sunken", done && "opacity-60")} />
+          </button>
+        )}
       </div>
     </li>
   );

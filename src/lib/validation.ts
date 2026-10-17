@@ -101,6 +101,13 @@ export const commentCreateSchema = z.object({
   author: z.string().trim().min(1).max(60),
 });
 
+// The rest of a photo upload; the images are checked as they arrive.
+export const photoCreateSchema = z.object({
+  width: z.coerce.number().int().min(1).max(8192),
+  height: z.coerce.number().int().min(1).max(8192),
+  addedBy: z.string().trim().min(1).max(60),
+});
+
 export const settingsUpdateSchema = z.object({
   budgetAvailable: z
     .number({ error: "Enter a number" })

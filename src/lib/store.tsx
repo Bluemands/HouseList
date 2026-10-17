@@ -9,6 +9,7 @@ import { nextOccurrence } from "@/lib/types";
 import { costToConfirm, settlePot } from "@/lib/pot";
 import { ROOM_PAINT } from "@/lib/rooms";
 import { haptic } from "@/lib/haptics";
+import { preparePhoto } from "@/lib/photo-resize";
 import type { ItemCreateInput, ItemUpdateInput, SettingsUpdateInput } from "@/lib/validation";
 import type { BulkCandidate } from "@/components/BulkAddSheet";
 import type { AiJobDTO, AiJobUpdate } from "@/lib/ai";
@@ -57,6 +58,10 @@ type Store = {
   deleteQuote: (quoteId: string) => Promise<ItemDTO | null>;
   addComment: (itemId: string, text: string) => Promise<ItemDTO | null>;
   deleteComment: (commentId: string) => Promise<ItemDTO | null>;
+  /** Shrinks a chosen photo on the phone, then adds it. */
+  addPhoto: (itemId: string, file: File) => Promise<ItemDTO | null>;
+  /** Gone at once, back with one tap; only deleted for good once the undo has passed. */
+  deletePhoto: (item: ItemDTO, photo: ItemDTO["photos"][number]) => void;
   /** Private calendar subscription path for due dates. */
   calendarPath: string;
   /** Private path of Claude's connector (the MCP server). */
@@ -334,6 +339,7 @@ export function StoreProvider({
         pinned: input.pinned ?? false,
         quotes: [],
         comments: [],
+        photos: [],
         links: input.links ?? [],
         potCharge: null,
         notes: (input.notes as string | null | undefined) ?? null,
@@ -515,6 +521,58 @@ export function StoreProvider({
   );
   const deleteComment = useCallback<Store["deleteComment"]>((id) => itemAction(() => api.deleteComment(id)), [itemAction]);
 
+  const addPhoto = useCallback<Store["addPhoto"]>(
+    async (itemId, file) => {
+      let photo: Awaited<ReturnType<typeof preparePhoto>>;
+      try {
+        photo = await preparePhoto(file);
+      } catch {
+        toast({ message: "That photo couldn't be opened. Try a JPEG or PNG?", tone: "error" });
+        return null;
+      }
+      return itemAction(() => api.addPhoto(itemId, photo, me));
+    },
+    [itemAction, me, toast],
+  );
+
+  const deletePhoto = useCallback<Store["deletePhoto"]>(
+    (item, photo) => {
+      const key = `photo:${photo.id}`;
+      setItems((list) =>
+        list.map((i) => (i.id === item.id ? { ...i, photos: i.photos.filter((p) => p.id !== photo.id) } : i)),
+      );
+      const timer = window.setTimeout(async () => {
+        pendingDeletes.current.delete(key);
+        try {
+          const updated = await track(() => api.deletePhoto(photo.id));
+          // No item back means it had already gone (the other phone deleted it too).
+          if (updated) setItems((list) => list.map((i) => (i.id === updated.id ? updated : i)));
+        } catch (err) {
+          fail(err);
+        }
+      }, UNDO_MS);
+      pendingDeletes.current.set(key, timer);
+      toast({
+        message: "Removed the photo",
+        action: {
+          label: "Undo",
+          run: () => {
+            window.clearTimeout(timer);
+            pendingDeletes.current.delete(key);
+            setItems((list) =>
+              list.map((i) =>
+                i.id === item.id && !i.photos.some((p) => p.id === photo.id)
+                  ? { ...i, photos: [...i.photos, photo].sort((a, b) => a.createdAt.localeCompare(b.createdAt)) }
+                  : i,
+              ),
+            );
+          },
+        },
+      });
+    },
+    [toast, fail],
+  );
+
   const addItems = useCallback<Store["addItems"]>(
     async (inputs) => {
       try {
@@ -692,6 +750,8 @@ export function StoreProvider({
       deleteQuote,
       addComment,
       deleteComment,
+      addPhoto,
+      deletePhoto,
       calendarPath,
       connectorPath,
       workerToken,
@@ -719,7 +779,7 @@ export function StoreProvider({
       openBulk: setBulk,
       closeBulk: () => setBulk(null),
     }),
-    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, calendarPath, connectorPath, workerToken, jobs, jobByItem, askClaude, undoImprove, updateJob, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, holdToast, toasts, editing, justAdded, bulk],
+    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, addPhoto, deletePhoto, calendarPath, connectorPath, workerToken, jobs, jobByItem, askClaude, undoImprove, updateJob, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, holdToast, toasts, editing, justAdded, bulk],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

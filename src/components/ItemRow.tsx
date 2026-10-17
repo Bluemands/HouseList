@@ -26,6 +26,7 @@ import { prefersReducedMotion, project, rubberband, spring, velocityTracker, typ
 import { doneStepsCost } from "@/lib/pot";
 import { PriorityTag, RoomTag, TickButton } from "@/components/ui";
 import { Chappie } from "@/components/Chappie";
+import { PhotoThumb } from "@/components/PhotoThumb";
 
 type Props = {
   item: ItemDTO;
@@ -501,6 +502,9 @@ export function ItemRow({ item: listed, monthsAway, hideRoom, lead, select }: Pr
               </span>
             )}
           </div>
+          {item.photos[0] && (
+            <PhotoThumb photo={item.photos[0]} className={clsx("h-11 w-11 shrink-0 rounded-[8px] bg-sunken", done && "opacity-60")} />
+          )}
         </div>
       </div>
     </li>

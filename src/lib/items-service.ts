@@ -13,6 +13,7 @@ import { ITEM_INCLUDE, estimateFromSteps, fromDay, getSettings, isMember, stepRo
 import { nextOccurrence, type ItemDTO } from "@/lib/types";
 import { settlePot } from "@/lib/pot";
 import { today as ukToday } from "@/lib/format";
+import { removePhotos } from "@/lib/photo-store";
 
 // The rules every write follows, whoever makes it: the app's own API routes
 // and the Claude connector (src/lib/mcp) both come through here, so the pot,
@@ -317,8 +318,11 @@ export async function updateItem(
 }
 
 export async function deleteItem(id: string) {
+  const photos = await prisma.photo.findMany({ where: { itemId: id }, select: { id: true } });
   // deleteMany so a double delete (both of you at once, or an undo race) is a no-op.
   const { count } = await prisma.item.deleteMany({ where: { id } });
+  // The rows went with the item; their images are in blob storage.
+  await removePhotos(photos.map((p) => p.id));
   return count > 0;
 }
 

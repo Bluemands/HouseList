@@ -34,6 +34,7 @@ function item(over: Partial<ItemDTO>): ItemDTO {
     pinned: false,
     quotes: [],
     comments: [],
+    photos: [],
     ...over,
   } as ItemDTO;
 }

@@ -38,6 +38,7 @@ function item(over: Partial<ItemDTO>): ItemDTO {
     steps: [],
     quotes: [],
     comments: [],
+    photos: [],
     ...over,
   };
 }

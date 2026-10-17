@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { AiJob, Comment, Item, Quote, Settings, Step } from "@/generated/prisma/client";
+import type { AiJob, Comment, Item, Photo, Quote, Settings, Step } from "@/generated/prisma/client";
 import { stepCostsKey, stepsTotal, type ItemDTO, type SettingsDTO } from "@/lib/types";
 import { OPEN_JOB_STATUSES, aiResultSchema, type AiJobDTO } from "@/lib/ai";
 
@@ -36,12 +36,12 @@ export function estimateFromSteps(steps: StepInput[] | undefined, before?: { cos
 }
 
 /** Everything an item carries, for every query that returns one. */
-export const ITEM_INCLUDE = { steps: true, quotes: true, comments: true } as const;
+export const ITEM_INCLUDE = { steps: true, quotes: true, comments: true, photos: true } as const;
 
-type FullItem = Item & { steps: Step[]; quotes?: Quote[]; comments?: Comment[] };
+type FullItem = Item & { steps: Step[]; quotes?: Quote[]; comments?: Comment[]; photos?: Photo[] };
 
 export function toItemDTO(item: FullItem): ItemDTO {
-  const { quotes = [], comments = [], ...rest } = item;
+  const { quotes = [], comments = [], photos = [], ...rest } = item;
   return {
     ...rest,
     dueDate: toDay(item.dueDate),
@@ -75,6 +75,9 @@ export function toItemDTO(item: FullItem): ItemDTO {
     comments: [...comments]
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
       .map(({ id, author, text, createdAt }) => ({ id, author, text, createdAt: createdAt.toISOString() })),
+    photos: [...photos]
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .map(({ id, width, height, addedBy, createdAt }) => ({ id, width, height, addedBy, createdAt: createdAt.toISOString() })),
   };
 }
 

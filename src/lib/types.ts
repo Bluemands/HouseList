@@ -102,6 +102,21 @@ export type CommentDTO = {
   createdAt: string;
 };
 
+export type PhotoDTO = {
+  id: string;
+  /** The full-size copy's pixels. */
+  width: number;
+  height: number;
+  addedBy: string;
+  createdAt: string;
+};
+
+/** Plenty for a product, before and after, and the quote on paper. */
+export const PHOTOS_MAX = 24;
+
+/** Where the app shows a photo from: the small copy for lists, or the full one. */
+export const photoSrc = (id: string, size: "full" | "thumb") => `/api/photos/${id}?size=${size}`;
+
 export type StepDTO = {
   id: string;
   text: string;
@@ -207,6 +222,7 @@ export type ItemDTO = {
   steps: StepDTO[];
   quotes: QuoteDTO[];
   comments: CommentDTO[];
+  photos: PhotoDTO[];
 };
 
 /** An item that isn't saved yet, for the plan to place: added now, so last in its tier. */
@@ -241,6 +257,7 @@ export function unsavedItem(id: string, title = ""): ItemDTO {
     steps: [],
     quotes: [],
     comments: [],
+    photos: [],
   };
 }
 

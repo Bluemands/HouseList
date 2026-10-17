@@ -103,6 +103,7 @@ model Item {
   steps    Step[]
   quotes   Quote[]
   comments Comment[]
+  photos   Photo[]
   aiJobs   AiJob[]
 
   @@index([status])
@@ -204,6 +205,23 @@ model Comment {
   itemId    String
   author    String
   text      String
+  createdAt DateTime @default(now())
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+}
+
+// A photo of the thing or the job: the product, the wall before, the quote
+// on paper. The image itself lives in blob storage under the photo's id (see
+// lib/photo-store.ts), as a full-size copy and a small one for lists.
+model Photo {
+  id        String   @id
+  itemId    String
+  // The full-size copy's pixels, so it can be laid out before it loads.
+  width     Int
+  height    Int
+  addedBy   String
   createdAt DateTime @default(now())
 
   item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)

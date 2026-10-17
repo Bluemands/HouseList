@@ -28,6 +28,7 @@ A shared to-do list and budget planner for a new house, for two people. Log ever
 - **Floor plan** — the Rooms tab opens on a map of the house, both floors, traced from the estate agent's plan: each room in its own paint, solid where there's work and a pale wash where there's nothing yet, with what's left to do and spend. Tap a room to open it; its page shows its floor and size. Claude gets the room sizes too, with every Ask Claude question and in the connector, so painting, flooring and tiling come back as quantities for that room (litres, m²) rather than guesses. The sizes live in `src/lib/house.ts`: correct them there if you measure.
 - **Compare quotes** — log quotes from tradespeople against a job; the cheapest is flagged, and choosing one sets the job's cost.
 - **Updates** — a short thread on any item ("rang them, waiting for a callback"), with who said it and when.
+- **Photos** — the product, the wall before, the quote on paper. Each phone shrinks a photo before sending it, the first one shows on the item's row, and tapping one opens it full size to swipe through.
 - **Duplicate** anything — the same job in another room, or again next year.
 - **Pin to the top** — anything you've decided is next leads Up next and its list group.
 - **Swipe on your phone** — right to finish, left to delete.
@@ -205,6 +206,16 @@ Push notifications need a key pair, set once on Vercel (and in `.env` to try the
 4. Redeploy, then on each phone open Settings → **Turn on notifications**. A first one arrives straight away to show it works.
 
 Without the keys the Settings switch says the browser can't show notifications and nothing else changes.
+
+## Photos
+
+Photos are kept in a Vercel Blob store, which is free on the Hobby plan (about 1 GB, and photos are shrunk to a few hundred KB each, so a few thousand fit). Set it up once:
+
+1. Vercel → your project → **Storage** → **Create** → **Blob**. If it asks, choose **Private**: every image goes out through the app, behind the PIN.
+2. Connect it to the project for all environments. That adds `BLOB_READ_WRITE_TOKEN` for you.
+3. Redeploy.
+
+Until then, adding a photo on the live app says photos aren't set up yet. Locally, without the token, photos are saved in `.photos/`. Over the free allowance, Vercel doesn't charge on Hobby; it stops Blob until the month is out.
 
 ## Project structure
 

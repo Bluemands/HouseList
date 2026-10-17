@@ -10,10 +10,11 @@ import { useSheetDrag, useSheetExit } from "@/lib/useSheetDrag";
 import { stepLines } from "@/lib/printouts";
 import { Button, Chip, GrowingTextarea, PaintChip, inputClass } from "@/components/ui";
 import { PrintButton } from "@/components/PrintButton";
+import { PhotosField } from "@/components/Photos";
 
 /**
- * One thing, in the simple layout: what it's called, where, notes and its
- * steps. Nothing else; the money, plan and Claude live in the full layout.
+ * One thing, in the simple layout: what it's called, where, its steps,
+ * photos and notes. Nothing else; the money, plan and Claude live in the full layout.
  * Closing saves, as in the full sheet.
  */
 export function SimpleItemSheet() {
@@ -201,6 +202,11 @@ function Body({ item, leaving }: { item: ItemDTO; leaving: boolean }) {
               className="-ml-3 justify-self-start"
             />
           )}
+        </section>
+
+        <section className="grid gap-2">
+          <h3 className="text-supporting font-semibold text-ink-2">Photos</h3>
+          <PhotosField item={item} />
         </section>
 
         <section className="grid gap-2">
