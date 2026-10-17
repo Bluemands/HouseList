@@ -16,7 +16,9 @@ const LOCAL_DIR = path.join(process.cwd(), ".photos");
 const localPath = (id: string, size: PhotoSize) => path.join(LOCAL_DIR, id, `${size}.jpg`);
 
 function inBlobStore() {
-  if (process.env.BLOB_READ_WRITE_TOKEN) return true;
+  // A store connected on Vercel gives either a read-write token, or just its
+  // id, and the SDK signs in with the deployment's own OIDC token.
+  if (process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID) return true;
   if (process.env.NODE_ENV === "production") {
     throw new Error("Photos aren't set up yet: connect a Blob store to the project on Vercel");
   }
