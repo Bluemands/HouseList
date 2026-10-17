@@ -1,6 +1,6 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { del, get, put } from "@vercel/blob";
+import { copy, del, get, put } from "@vercel/blob";
 
 // Where photos' images live. On Vercel that's a private Blob store (free on
 // the Hobby plan): nothing in it can be opened without the app's PIN cookie,
@@ -54,6 +54,20 @@ export async function readPhoto(id: string, size: PhotoSize): Promise<ReadableSt
   } catch {
     return null;
   }
+}
+
+/** A second copy of a photo's images under another id, so each can be deleted without the other. */
+export async function copyPhoto(from: string, to: string) {
+  if (inBlobStore()) {
+    await Promise.all(
+      PHOTO_SIZES.map((size) =>
+        copy(blobPath(from, size), blobPath(to, size), { access: "private", contentType: "image/jpeg", addRandomSuffix: false }),
+      ),
+    );
+    return;
+  }
+  await mkdir(path.join(LOCAL_DIR, to), { recursive: true });
+  await Promise.all(PHOTO_SIZES.map((size) => copyFile(localPath(from, size), localPath(to, size))));
 }
 
 /** Removes photos' images. Best effort: a leftover image is only wasted space. */

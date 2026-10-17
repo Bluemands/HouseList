@@ -109,10 +109,20 @@ typography:
     fontSize: "11px"
     fontWeight: 600
     letterSpacing: "0.02em"
+  piece-title:
+    fontFamily: "Figtree, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "22px"
+    fontWeight: 600
+    lineHeight: 1.375
+  piece-meta:
+    fontFamily: "Figtree, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "18px"
+    fontWeight: 400
 rounded:
   paint-cell: "2px"
   chip: "3px"
   pill: "4px"
+  thumb: "8px"
   control: "10px"
   card: "14px"
   panel: "16px"
@@ -196,6 +206,39 @@ components:
     textColor: "{colors.ink}"
     rounded: "{rounded.sheet}"
     width: "460px"
+  board-cover:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.card}"
+    width: "168px"
+  band-pill:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink-2}"
+    rounded: "{rounded.full}"
+    padding: "4px 12px"
+  piece-print:
+    backgroundColor: "{colors.surface}"
+    rounded: "{rounded.pill}"
+    padding: "6px"
+  piece-card:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    typography: "{typography.piece-title}"
+    rounded: "{rounded.card}"
+  piece-note:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    typography: "{typography.piece-title}"
+    rounded: "{rounded.pill}"
+    padding: "14px 16px"
+  piece-swatch:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.chip}"
+  photo-thumb:
+    backgroundColor: "{colors.sunken}"
+    rounded: "{rounded.thumb}"
+    size: "44px"
 ---
 
 # Design System: The House List
@@ -217,6 +260,7 @@ Light and dark are both first-class. Dark swaps limestone for a warm near-black 
 - Hairline rows on the ground, not cards; cards are reserved for swatches, the money strip and the quick-add box.
 - Priority is typographic: an inked "Must" pill, a muted italic "Someday", nothing for the default.
 - Undo toasts instead of confirmation dialogs.
+- Planning boards are a wall in three bands (Ideas, Maybe, Decided) washed in the board's room paint; deciding is moving a piece rightwards.
 - Bottom tab bar with a central add button on phones; left rail and a right side panel on desktop.
 
 ## Colors
@@ -228,7 +272,7 @@ A neutral, warm limestone system with one green voice and a deck of sixteen room
 - **Front Door Green Soft** (front-door-green-soft): the tint behind selected chips, the hover fill of an empty tick circle, the flash a freshly added row arrives on, and text selection.
 
 ### Tertiary: the room paints
-Sixteen paints, one per room, each with a computed ink (dark ink #211f1b or white, whichever contrasts better; every pairing clears 4.5:1). Plaster (Whole house), Hall Stone (Hallway), Moss (Sitting room), Sage (Kitchen), Billiard (Games room), Mousehole (Understair cupboard), Skylight (Landing), Lavender (Spare room 1), Apricot (Spare room 2), Midnight (Master bedroom), Seafoam (Bathroom 1), Tile Blue (Bathroom 2), Fern (Back garden), Lichen (Front garden), Slate (Driveway), Rafter (Attic). They appear only as: the square paint chip beside a room name, the top panel of a swatch card, the painted cells of a progress strip, a ticked circle, and the full-bleed header of a room page.
+Sixteen paints, one per room, each with a computed ink (dark ink #211f1b or white, whichever contrasts better; every pairing clears 4.5:1). Plaster (Whole house), Hall Stone (Hallway), Moss (Sitting room), Sage (Kitchen), Billiard (Games room), Mousehole (Understair cupboard), Skylight (Landing), Lavender (Spare room 1), Apricot (Spare room 2), Midnight (Master bedroom), Seafoam (Bathroom 1), Tile Blue (Bathroom 2), Fern (Back garden), Lichen (Front garden), Slate (Driveway), Rafter (Attic). They appear only as: the square paint chip beside a room name, the top panel of a swatch card, the painted cells of a progress strip, a ticked circle, the full-bleed header of a room page, the top panel of a board cover, and the band washes of a planning board (the paint mixed into the ground at 7%, 18% and 32% for Ideas, Maybe and Decided; ink at 2%, 4% and 7% for a board that isn't one room's).
 
 ### Neutral
 - **Limestone** (limestone / night-ground): the page ground and the theme colour of the browser chrome. Rows sit directly on it.
@@ -241,7 +285,7 @@ Sixteen paints, one per room, each with a computed ink (dark ink #211f1b or whit
 - **Danger** (danger, danger-soft): overdue dates, "short for must-haves", late counts on swatch cards, destructive ghost buttons and error toasts. Never used for priority.
 
 ### Named Rules
-**The Paint Is The Only Colour Rule.** Saturated colour on any screen comes from a room paint or from Front Door Green. Nothing else gets a hue: not priority, not kind, not person.
+**The Paint Is The Only Colour Rule.** Saturated colour on any screen comes from a room paint or from Front Door Green. Nothing else gets a hue: not priority, not kind, not person. What the household brings in is content, not interface: photos, and a swatch picked from a hex on a board, keep their own colours.
 
 **The Green Means Press Rule.** Front Door Green marks what you can act on or what is selected. A paint never marks an action, and green never marks a room.
 
@@ -265,11 +309,14 @@ Sixteen paints, one per room, each with a computed ink (dark ink #211f1b or whit
 - **Body** (500, 15px, line-height 1.375): row titles and input text. Supporting sentences run 14px regular in ink-2.
 - **Meta** (400, 13px; 12-12.5px for hints): the line under a row title: room tag, due date, assignee, steps, affordability month.
 - **Label** (600-700, 11px): paint number and name on a swatch, the "Must" pill, tab-bar labels.
+- **Piece title / piece meta** (600 at 22px, 400 at 18px, in board units): type on planning-board pieces, set a step up because a phone opens the board at about 0.72 zoom, so they read on screen at the body and meta sizes. A swatch's paint number is 17px, a photo caption 20px 500, a note 22px 500.
 
 ### Named Rules
 **The Tabular Pound Rule.** Every money figure, count and date-like number is set in tabular figures, so prices align down the right edge of a list.
 
 **The One Family Rule.** Figtree is the only typeface. Emphasis is weight (500, 600, 700) and size, never a second family.
+
+**The Read-At-Zoom Rule.** Anything drawn on the board canvas is sized for the zoom it opens at, not for 1:1: pick the board-unit size that lands on the app's 15/13/12 ramp at about 0.72.
 
 **The Typographic Priority Rule.** Priority is shown by type, never colour: "Must" is an inked pill (ink ground, limestone text, 11px bold); "Someday" is 12px italic in ink-3; the default ("Would like") shows nothing.
 
@@ -281,21 +328,23 @@ At 1024px the shell becomes a two-column grid: a 240px sticky left rail (wordmar
 
 In the Everything list the filter bar and group heads are sticky on the limestone ground so you always know which group you are in. The painted room header bleeds to the screen edges on phones and becomes a rounded block from 640px.
 
+Boards appear as a horizontal row of 168px cover cards (a four-column grid on desktop; the first seven plus a dashed New board card) on Home, on each room's page (that room's boards) and as "Our boards" on the simple list; with none, a single dashed prompt row stands in. A board itself is a full-screen layer, not a page in the column: a top bar, the canvas, and a thumb bar. The canvas is three 480-unit bands side by side (1440 units wide); pieces sit at least 60 units down, below the band names, and snap to a 20-unit grid. A phone opens on Ideas at (width - 44) / 480 zoom (about 0.72 on a 390px phone, never under 0.5) so a finger's width of Maybe shows at the right edge; from 1024px it opens fitted to all three bands. Zoom runs 0.2 to 2.
+
 ## Elevation & Depth
 
 Flat by default, tonal by structure. Rows have no surface at all; raised containers are separated by a 1px line border and the slightly lighter surface tone, not by shadow. Shadows appear only on things that float above the page or respond to touch.
 
 ### Shadow Vocabulary
 - **Sheet** (`0 -12px 40px rgb(33 31 27 / 0.16)`; dark `0 -12px 40px rgb(0 0 0 / 0.5)`): the item sheet and settings sheet, over a 42% warm-black backdrop.
-- **Pop** (`0 10px 30px rgb(33 31 27 / 0.14), 0 2px 6px rgb(33 31 27 / 0.08)`; darker in dark mode): toasts, the tab-bar add button, and a swatch card on hover (with a 2px lift).
+- **Pop** (`0 10px 30px rgb(33 31 27 / 0.14), 0 2px 6px rgb(33 31 27 / 0.08)`; darker in dark mode): toasts, the tab-bar add button, a swatch card or board cover on hover (with a 2px lift), and a board piece while it is carried (with 1.03 scale).
 - **Paint edge** (`inset 0 0 0 1px rgb(0 0 0 / 0.08)`): the inner edge on a paint chip so pale paints hold against limestone.
 
 ### Named Rules
-**The Float-Only Shadow Rule.** A shadow means the element is floating (sheet, toast, add button) or being hovered. Resting cards and rows never carry one.
+**The Float-Only Shadow Rule.** A shadow means the element is floating (sheet, toast, add button, a piece in the hand) or being hovered. Resting cards, rows and board pieces never carry one.
 
 ## Shapes
 
-Softly rounded, with radius growing with the size of the thing. Paint cells are 2px, paint chips 3px (deliberately square, like a chip cut from a card), the "Must" pill 4px, buttons, inputs and segmented controls 10px, swatch cards and toasts 14px, the quick-add box and money strip 16px, the painted room header 20px, sheets 22px on their leading edge. Tick targets and filter chips are full circles and pills. Empty states use a dashed line-strong border instead of an illustration.
+Softly rounded, with radius growing with the size of the thing. Paint cells are 2px, paint chips 3px (deliberately square, like a chip cut from a card), the "Must" pill 4px, buttons, inputs and segmented controls 10px, swatch cards and toasts 14px, the quick-add box and money strip 16px, the painted room header 20px, sheets 22px on their leading edge. Photo thumbnails on rows are 8px. Board pieces keep the chart's family: photos are prints (4px, a 6px surface edge round the picture), shop links and list items are 14px cards, notes 4px squares, swatches 3px paint chips; none are tilted. Tick targets, filter chips and band-name pills are full circles and pills. Empty states use a dashed line-strong border instead of an illustration.
 
 ## Components
 
@@ -357,11 +406,28 @@ A per-phone alternative to the whole app for whoever wants a paper list, not a p
 ### Print-outs
 **The paper:** A4, black on white whatever the theme. Title at 22pt bold, "Printed Mon 12 Oct by Connor · 3 things", a 26mm QR code captioned "Done? Scan to tick these off in the app", a 1.5pt rule, then group headings at 12pt bold and 10mm rows (a grey tabular number, a 5mm square box, the text, a dotted writing line); steps indent 9mm with 4mm boxes and lettered numbers (2a, 2b). On screen the sheet sits on the ground with Back and a green Print above it. **Tick back** is a bottom sheet listing the print-out as printed, same numbers, with tappable square boxes; anything done or deleted since is greyed and says so, and one green "Mark 3 done" commits with a single undo toast.
 
+### Planning Board (signature)
+A wall sorted left to right. Three bands, Ideas, Maybe and Decided, each washed in the board's paint (stronger towards Decided) and split by hairlines; their names float pinned at the top as surface pills (14px bold, Decided in ink, the others ink-2) with a tabular 13px count in ink-3, and stay put while the board slides under them. An empty band carries one 19px ink-3 hint line.
+
+**Pieces** are surface on a hairline, with no tilt and no resting shadow: a photo is a print with an optional caption; a shop link is a card with its picture, a two-line title, the site in ink-3 and a tabular price; a list item is the live item as a card with its picture, a large tick (ticking it ticks the list) and cost, naming its room only when it isn't the board's; a note is a square of text; a swatch is a paint chip over its name and paint number (or hex). An item gone from the list becomes a dashed, struck-through ghost card. A picked piece gets a 2px green outline offset 3px and a round 16px resize corner (surface fill, green ring, 44px hit area), both scaled by one over the zoom so they keep their screen size at any zoom.
+
+**Gestures.** One finger pans, two pinch-zoom; a finger held 320ms on an unpicked piece picks it up, and a picked piece drags at once. While a piece is carried it lifts (pop shadow, 1.03 scale, 180ms), a faint dot grid fades in (20 units, ink at 18%, 160ms), and carrying within 48px of an edge slides the board. Let go, it snaps to the grid. Wheel pans, ctrl or trackpad pinch zooms at the pointer; arrow keys move a picked piece one cell and Escape lets go. Dropping into Decided swells the band's paint once (900ms) with a light haptic, and a toast offers "Add to list".
+
+**Bars.** Top: back, the board name (17px bold) over its room tag and count, a small Board/List segmented control, and See all. Bottom at the thumb: a surface bar of five 56px icon-over-label buttons, Photo · Link · Item · Note · Colour, swapped while a piece is picked for its actions: move to each other band (arrows), Open or To list, Edit, Remove (danger), Done. **List** shows the same board as three plain hairline lists by band, each row with a 44px thumbnail, a band select and its actions.
+
+The board opens as a layer that slides in from the side (28px, 300ms) and leaves the same way (200ms), over a plain ground.
+
+### Board Cover
+Built like a swatch card: a 14px surface card whose 96px top panel is the board's paint (sunken for a board that isn't one room's), carrying up to three flat 52px tiles overlapping by 8px (4px corners, a 2px surface edge): pictures first, then colours, then notes, leaving off a swatch in the board's own paint. Below: the name (14px semibold) and "6 things · 1 decided" in tabular meta. Hover lifts 2px with the pop shadow. The New board card and the empty-row prompt are dashed line-strong, darkening to tick-ring on hover.
+
+### Photos
+In the item sheet, photos are 10px square tiles in four columns with a dashed Add tile at the end. Tapping one opens a full-screen viewer on a warm near-black (#0d0c0b): one photo per screen, swiped with scroll-snap, "2 of 5" and close over a top fade, round arrow buttons on a fine pointer. An item's first photo shows as a 44px thumbnail (48px in the simple list) at the end of its row, 8px corners on sunken, faded to 60% when done.
+
 ### Toasts
 Ink pills (limestone text) that rise 8px into view above the tab bar, carrying the message and an "Undo" action in green-soft bold. Errors use a danger fill. They replace every confirmation dialog. While a sheet is open the toasts render inside it (a modal sheet makes everything outside it inert), so an undo or an error raised from a sheet is always visible and tappable.
 
 ### Motion
-One easing (`cubic-bezier(0.16, 1, 0.3, 1)`) for tick flood and draw, row arrive (420ms, from 6px above with a green-soft flash), row leave (320ms fold after a 620ms pause), sheet up and panel in, toast in (240ms) and out (160ms, 6px down), sheet down and panel out (240ms / 200ms), and paint-in. Anything a finger drives (sheet pulls, row swipes, reordering steps) runs on springs instead (`src/lib/motion.ts`, after Apple's fluid-interface rules): critically damped, starting from wherever the thing is on screen, carrying the finger's release speed, and choosing commit or cancel from where a flick was heading. Dragged steps follow the finger and the others glide out of the way. Under reduced motion every animation and transition collapses to 1ms, springs jump to their end and loops run once, so state still changes without movement. Haptic ticks use the vibration API on Android and a switch-checkbox tick on iPhone (Safari 18+).
+One easing (`cubic-bezier(0.16, 1, 0.3, 1)`) for tick flood and draw, row arrive (420ms, from 6px above with a green-soft flash), row leave (320ms fold after a 620ms pause), sheet up and panel in, toast in (240ms) and out (160ms, 6px down), sheet down and panel out (240ms / 200ms), paint-in, the board layer in (300ms) and the Decided band's swell (900ms). Anything a finger drives (sheet pulls, row swipes, reordering steps) runs on springs instead (`src/lib/motion.ts`, after Apple's fluid-interface rules): critically damped, starting from wherever the thing is on screen, carrying the finger's release speed, and choosing commit or cancel from where a flick was heading. Dragged steps follow the finger and the others glide out of the way. Under reduced motion every animation and transition collapses to 1ms, springs jump to their end and loops run once, so state still changes without movement. Haptic ticks use the vibration API on Android and a switch-checkbox tick on iPhone (Safari 18+).
 
 **Chappie (signature).** Whenever a question is out with Claude, a small visor-faced robot with antenna ears (after the film's Chappie) stands beside the words, drawn in currentColor: 16px in a row's meta line, 22px in the sheet's Ask Claude panel. Waiting for a worker to pick it up, in ink-3, he stands still, because nothing is happening yet; if the worker hasn't checked in lately the row says so ("Waiting · worker last on 22h ago", or "Waiting for a worker" if none ever has). Once Claude is working, in green text, his ears bob and the visor scans (0.55s). When the answer lands while the row is on screen, the "Suggestion" tag pops in on a green-soft wash (900ms), once.
 
@@ -378,6 +444,7 @@ One easing (`cubic-bezier(0.16, 1, 0.3, 1)`) for tick flood and draw, row arrive
 - **Do** offer undo in a toast after ticking, deleting or changing the pot, instead of asking first.
 - **Do** design both themes; check the dark ground (night-ground) against every new token.
 - **Do** honour reduced motion by collapsing animation rather than removing state changes.
+- **Do** size anything on the board canvas for the zoom it opens at, and keep selection chrome at screen size with one over the zoom.
 
 ### Don't:
 - **Don't** colour priority, item kind or people; priority is the inked "Must" pill, italic "Someday", or nothing.
@@ -386,3 +453,4 @@ One easing (`cubic-bezier(0.16, 1, 0.3, 1)`) for tick flood and draw, row arrive
 - **Don't** add a confirmation dialog where an undo toast will do.
 - **Don't** bring in a second typeface or a monospace for numbers.
 - **Don't** use a room paint as a button fill or a link colour, and don't use the green to mark a room.
+- **Don't** tilt board pieces, give them resting shadows, or add pens, arrows or shapes to a board; a board holds photos, links, list items, notes and swatches.

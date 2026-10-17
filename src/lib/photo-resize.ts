@@ -8,8 +8,8 @@ const THUMB_EDGE = 320; // the shorter side, as thumbnails are cropped square
 
 export type PreparedPhoto = { full: Blob; thumb: Blob; width: number; height: number };
 
-/** Both copies of a chosen photo, as JPEGs, upright (the browser applies the camera's rotation). */
-export async function preparePhoto(file: File): Promise<PreparedPhoto> {
+/** Both copies of a chosen photo (or a fetched picture), as JPEGs, upright (the browser applies the camera's rotation). */
+export async function preparePhoto(file: Blob): Promise<PreparedPhoto> {
   const url = URL.createObjectURL(file);
   try {
     const img = new Image();

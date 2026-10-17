@@ -13,6 +13,8 @@ import zlib from "node:zlib";
 const MAX_REDIRECTS = 4;
 const TIMEOUT_MS = 6_000;
 const MAX_BYTES = 1_500_000;
+// A product photo for a board is shrunk on the phone; this only bounds the download.
+const MAX_IMAGE_BYTES = 8_000_000;
 
 const blocked = new BlockList();
 for (const [net, prefix] of [
@@ -117,16 +119,21 @@ const HEADERS = {
 
 type Hop = { status: number; location: string | null; contentType: string; body: Buffer };
 
-function request(url: URL, signal: AbortSignal): Promise<Hop> {
+/** What a request will take: a page (its head is enough, so it's cut short) or a whole image. */
+type Want = { accept: RegExp; header: string; max: number; whole: boolean };
+const PAGE: Want = { accept: /^(text\/html|application\/xhtml\+xml)/i, header: HEADERS.Accept, max: MAX_BYTES, whole: false };
+const IMAGE: Want = { accept: /^image\/(jpeg|png|webp|gif|avif)/i, header: "image/avif,image/webp,image/*;q=0.8", max: MAX_IMAGE_BYTES, whole: true };
+
+function request(url: URL, signal: AbortSignal, want: Want = PAGE): Promise<Hop> {
   return new Promise((resolve, reject) => {
     const req = (url.protocol === "https:" ? https : http).request(
       url,
-      { method: "GET", headers: HEADERS, lookup: safeLookup, signal, agent: false },
+      { method: "GET", headers: { ...HEADERS, Accept: want.header }, lookup: safeLookup, signal, agent: false },
       (res) => {
         const status = res.statusCode ?? 0;
         const location = typeof res.headers.location === "string" ? res.headers.location : null;
         const contentType = String(res.headers["content-type"] ?? "");
-        if ((status >= 300 && status < 400) || status >= 400 || !/^(text\/html|application\/xhtml\+xml)/i.test(contentType)) {
+        if ((status >= 300 && status < 400) || status >= 400 || !want.accept.test(contentType)) {
           res.resume();
           return resolve({ status, location, contentType, body: Buffer.alloc(0) });
         }
@@ -143,17 +150,22 @@ function request(url: URL, signal: AbortSignal): Promise<Hop> {
         let size = 0;
         const done = () => resolve({ status, location, contentType, body: Buffer.concat(chunks) });
         stream.on("data", (chunk: Buffer) => {
+          // An image cut short is broken, so one that's too big is refused.
+          if (want.whole && size + chunk.length > want.max) {
+            req.destroy();
+            return reject(new UnreadablePage("That picture is too big"));
+          }
           // Enough for the <head> and any product data; stop reading the rest.
-          const room = MAX_BYTES - size;
+          const room = want.max - size;
           chunks.push(chunk.length > room ? chunk.subarray(0, room) : chunk);
           size += Math.min(chunk.length, room);
-          if (size >= MAX_BYTES) {
+          if (size >= want.max) {
             done();
             req.destroy();
           }
         });
         // A connection cut short still leaves whatever <head> arrived.
-        const cut = (err: Error) => (size ? done() : reject(err));
+        const cut = (err: Error) => (size && !want.whole ? done() : reject(err));
         stream.on("end", done);
         stream.on("error", cut);
         res.on("error", cut);
@@ -174,15 +186,16 @@ function decode(body: Buffer, contentType: string): string {
   }
 }
 
-/** The page's HTML and the address it finally came from, or UnreadablePage. */
-export async function fetchPage(raw: string): Promise<{ html: string; url: string }> {
+/** One request and its redirects, each hop checked like the first, ending at a 2xx. */
+async function fetchChecked(raw: string, want: Want): Promise<{ res: Hop; url: URL }> {
   let url = checkUrl(raw);
   const signal = AbortSignal.timeout(TIMEOUT_MS);
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     let res: Hop;
     try {
-      res = await request(url, signal);
+      res = await request(url, signal, want);
     } catch (err) {
+      if (err instanceof UnreadablePage) throw err;
       const refused = (err as { code?: string }).code === "EPRIVATE";
       throw new UnreadablePage(refused ? "That address is private" : "Couldn't reach that page", refused);
     }
@@ -193,10 +206,23 @@ export async function fetchPage(raw: string): Promise<{ html: string; url: strin
       continue;
     }
     if (res.status >= 400) throw new UnreadablePage(`That shop said no (${res.status})`);
-    if (!res.body.length) throw new UnreadablePage("That link isn't a web page");
-    return { html: decode(res.body, res.contentType), url: url.href };
+    return { res, url };
   }
   throw new UnreadablePage("Too many redirects");
+}
+
+/** The page's HTML and the address it finally came from, or UnreadablePage. */
+export async function fetchPage(raw: string): Promise<{ html: string; url: string }> {
+  const { res, url } = await fetchChecked(raw, PAGE);
+  if (!res.body.length) throw new UnreadablePage("That link isn't a web page");
+  return { html: decode(res.body, res.contentType), url: url.href };
+}
+
+/** A picture from a product page, whole, or UnreadablePage. */
+export async function fetchImage(raw: string): Promise<{ bytes: Buffer; contentType: string }> {
+  const { res } = await fetchChecked(raw, IMAGE);
+  if (!res.body.length) throw new UnreadablePage("That link isn't a picture");
+  return { bytes: res.body, contentType: res.contentType.split(";")[0].trim() };
 }
 
 /**

@@ -11,6 +11,7 @@ import { listLines } from "@/lib/printouts";
 import { PaintChip, TickButton } from "@/components/ui";
 import { PrintButton } from "@/components/PrintButton";
 import { RecentPrintOuts } from "@/components/RecentPrintOuts";
+import { BoardsRail } from "@/components/board/BoardsRail";
 import { PhotoThumb } from "@/components/PhotoThumb";
 
 /**
@@ -54,6 +55,8 @@ export function SimpleHome({ onAdd, onSettings }: { onAdd: () => void; onSetting
       </header>
 
       <RecentPrintOuts />
+
+      <BoardsRail title="Our boards" />
 
       {groups.length === 0 ? (
         <button

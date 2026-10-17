@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useDisplayName } from "@/lib/useDisplayName";
 import { useSheetExit } from "@/lib/useSheetDrag";
 import { refreshPush } from "@/lib/push-client";
 import { saveLayout, type Layout } from "@/lib/layout";
 import { TickBackContext } from "@/components/RecentPrintOuts";
+import { BoardNavContext } from "@/lib/board-nav";
+import type { BoardTarget } from "@/components/board/BoardLayer";
 import { StoreProvider, useStore } from "@/lib/store";
 import { useRoute } from "@/lib/nav";
 import type { ItemDTO, SettingsDTO } from "@/lib/types";
 import type { AiJobDTO } from "@/lib/ai";
+import type { BoardDTO } from "@/lib/boards";
 import { NameGate } from "@/components/NameGate";
 import { SettingsSheet } from "@/components/SettingsSheet";
 import { Toasts } from "@/components/Toasts";
@@ -22,11 +25,13 @@ const FullLayout = dynamic(() => import("@/components/FullLayout").then((m) => m
 const SimpleLayout = dynamic(() => import("@/components/SimpleLayout").then((m) => m.SimpleLayout));
 const BulkAddSheet = dynamic(() => import("@/components/BulkAddSheet").then((m) => m.BulkAddSheet));
 const TickBackSheet = dynamic(() => import("@/components/TickBackSheet").then((m) => m.TickBackSheet));
+const BoardLayer = dynamic(() => import("@/components/board/BoardLayer").then((m) => m.BoardLayer));
 
 type Props = {
   initialItems: ItemDTO[];
   initialSettings: SettingsDTO;
   initialJobs: AiJobDTO[];
+  initialBoards: BoardDTO[];
   calendarPath: string;
   connectorPath: string;
   workerToken: string;
@@ -37,6 +42,7 @@ export function HouseListApp({
   initialItems,
   initialSettings,
   initialJobs,
+  initialBoards,
   calendarPath,
   connectorPath,
   workerToken,
@@ -54,6 +60,7 @@ export function HouseListApp({
       initialItems={initialItems}
       initialSettings={initialSettings}
       initialJobs={initialJobs}
+      initialBoards={initialBoards}
       me={name}
       calendarPath={calendarPath}
       connectorPath={connectorPath}
@@ -87,7 +94,23 @@ function Shell({
   // A print-out being ticked back in, by id.
   const [tickBack, setTickBack] = useState<string | null>(null);
   const tickSheet = useSheetExit(tickBack);
+  // The boards, drawn over either layout. Opening one adds a history entry,
+  // so a phone's back button closes it.
+  const [boardTarget, setBoardTarget] = useState<BoardTarget | null>(null);
+  const boardLayer = useSheetExit(boardTarget);
   const simple = layout === "simple";
+
+  const openBoards = useCallback((target: BoardTarget) => {
+    window.history.pushState({ boards: true }, "", window.location.href);
+    setBoardTarget(target);
+  }, []);
+
+  useEffect(() => {
+    if (!boardTarget) return;
+    const onPop = () => setBoardTarget(null);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [boardTarget]);
 
   // "n" to add from anywhere on a keyboard.
   useEffect(() => {
@@ -157,6 +180,14 @@ function Shell({
           onClose={() => setTickBack(null)}
         />
       )}
+      {boardLayer.shown && (
+        <BoardLayer
+          key={boardLayer.opening}
+          target={boardLayer.shown}
+          leaving={boardLayer.leaving}
+          onClose={() => (window.history.state?.boards ? window.history.back() : setBoardTarget(null))}
+        />
+      )}
       <SettingsSheet
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
@@ -174,12 +205,14 @@ function Shell({
 
   return (
     <TickBackContext.Provider value={setTickBack}>
+      <BoardNavContext.Provider value={openBoards}>
       {simple ? (
         <SimpleLayout onSettings={() => setSettingsOpen(true)} />
       ) : (
         <FullLayout route={route} go={go} onSettings={() => setSettingsOpen(true)} />
       )}
       {shared}
+      </BoardNavContext.Provider>
     </TickBackContext.Provider>
   );
 }

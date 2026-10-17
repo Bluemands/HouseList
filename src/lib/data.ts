@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
-import type { AiJob, Comment, Item, Photo, Quote, Settings, Step } from "@/generated/prisma/client";
+import type { AiJob, Board, BoardPiece, Comment, Item, Photo, Quote, Settings, Step } from "@/generated/prisma/client";
 import { stepCostsKey, stepsTotal, type ItemDTO, type SettingsDTO } from "@/lib/types";
 import { OPEN_JOB_STATUSES, aiResultSchema, type AiJobDTO } from "@/lib/ai";
+import type { BoardDTO, PieceDTO } from "@/lib/boards";
 
 const toDay = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
@@ -81,6 +82,31 @@ export function toItemDTO(item: FullItem): ItemDTO {
   };
 }
 
+export function toPieceDTO(piece: BoardPiece): PieceDTO {
+  const { id, boardId, kind, x, y, w, h, z, imageId, aspect, itemId, url, title, price, site, text, color, addedBy } = piece;
+  return {
+    ...{ id, boardId, kind, x, y, w, h, z, imageId, aspect, itemId, url, title, price, site, text, color, addedBy },
+    createdAt: piece.createdAt.toISOString(),
+  };
+}
+
+export function toBoardDTO(board: Board & { pieces: BoardPiece[] }): BoardDTO {
+  return {
+    id: board.id,
+    name: board.name,
+    room: board.room,
+    createdBy: board.createdBy,
+    createdAt: board.createdAt.toISOString(),
+    updatedAt: board.updatedAt.toISOString(),
+    pieces: board.pieces.map(toPieceDTO),
+  };
+}
+
+export async function getBoards(): Promise<BoardDTO[]> {
+  const boards = await prisma.board.findMany({ include: { pieces: true }, orderBy: { updatedAt: "desc" } });
+  return boards.map(toBoardDTO);
+}
+
 export function toSettingsDTO(settings: Settings): SettingsDTO {
   return {
     budgetAvailable: settings.budgetAvailable,
@@ -132,12 +158,13 @@ export function getSettings() {
   return prisma.settings.upsert({ where: { id: 1 }, update: {}, create: { id: 1 } });
 }
 
-export async function getState(): Promise<{ items: ItemDTO[]; settings: SettingsDTO; jobs: AiJobDTO[] }> {
+export async function getState(): Promise<{ items: ItemDTO[]; settings: SettingsDTO; jobs: AiJobDTO[]; boards: BoardDTO[] }> {
   // Sequential, not Promise.all: concurrent queries over the same adapter
   // pool have triggered "prepared statement" protocol errors against the
   // local Prisma Postgres dev server.
   const items = await prisma.item.findMany({ include: ITEM_INCLUDE, orderBy: { createdAt: "desc" } });
   const settings = await getSettings();
   const jobs = await getOpenJobs();
-  return { items: items.map(toItemDTO), settings: toSettingsDTO(settings), jobs };
+  const boards = await getBoards();
+  return { items: items.map(toItemDTO), settings: toSettingsDTO(settings), jobs, boards };
 }

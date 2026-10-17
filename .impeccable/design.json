@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-09T19:16:13.226Z",
+  "generatedAt": "2026-10-17T12:00:00.000Z",
   "title": "Design System: The House List",
   "extensions": {
     "colorMeta": {
@@ -777,6 +777,14 @@
       "label": {
         "displayName": "Label",
         "purpose": "Paint number and name on swatches, the Must pill (700), tab-bar labels."
+      },
+      "piece-title": {
+        "displayName": "Piece title",
+        "purpose": "Titles and notes on planning-board pieces, in board units; reads as the 15px body size at the ~0.72 zoom a phone opens on."
+      },
+      "piece-meta": {
+        "displayName": "Piece meta",
+        "purpose": "Site, price and room lines on board pieces, in board units; reads as 13px meta on a phone."
       }
     },
     "shadows": [
@@ -790,7 +798,7 @@
         "name": "pop",
         "value": "0 10px 30px rgb(33 31 27 / 0.14), 0 2px 6px rgb(33 31 27 / 0.08)",
         "dark": "0 10px 30px rgb(0 0 0 / 0.45), 0 2px 6px rgb(0 0 0 / 0.3)",
-        "purpose": "Toasts, the tab-bar add button, swatch card hover (with a 2px lift)."
+        "purpose": "Toasts, the tab-bar add button, swatch card and board cover hover (with a 2px lift), and a board piece while it is carried (with 1.03 scale)."
       },
       {
         "name": "paint-edge",
@@ -853,6 +861,31 @@
         "name": "reduced-motion",
         "value": "all animation and transition durations 1ms, delays 0",
         "purpose": "prefers-reduced-motion: reduce."
+      },
+      {
+        "name": "board-in",
+        "value": "300ms ease-out-expo; translateX(28px) + opacity 0 -> none; leaves 200ms ease-in the same way",
+        "purpose": "A planning board slides in from the side like going into a room."
+      },
+      {
+        "name": "piece-lift",
+        "value": "180ms ease-out-expo; box-shadow pop, scale 1.03",
+        "purpose": "A board piece picked up into the hand."
+      },
+      {
+        "name": "board-grid",
+        "value": "160ms ease-out opacity; 20-unit dot grid, ink at 18%",
+        "purpose": "The snap grid, shown only while a piece is carried."
+      },
+      {
+        "name": "band-pulse",
+        "value": "900ms ease-out-expo; the band's paint at 30% swells to full once",
+        "purpose": "A piece dropped into Decided."
+      },
+      {
+        "name": "long-press",
+        "value": "320ms hold",
+        "purpose": "Picks up an unpicked board piece; a picked piece drags at once."
       }
     ],
     "breakpoints": [
@@ -915,7 +948,7 @@
       "kind": "input",
       "refersTo": "quick-add",
       "description": "Capture box on Home and room pages; parses room, cost, date and person into chips as you type.",
-      "html": "<div class=\"ds-qa\"><div class=\"ds-qa-row\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg><input class=\"ds-qa-input\" value=\"fix bathroom tap £40 tomorrow\" aria-label=\"Add something\"></div><div class=\"ds-qa-chips\"><span class=\"ds-qa-chip\"><span class=\"ds-paint\" style=\"--paint:#94c7bd\"></span>Bathroom 1</span><span class=\"ds-qa-chip ds-tab\">£40</span><span class=\"ds-qa-chip\">Tomorrow</span></div></div>",
+      "html": "<div class=\"ds-qa\"><div class=\"ds-qa-row\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.25\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg><input class=\"ds-qa-input\" value=\"fix bathroom tap \u00a340 tomorrow\" aria-label=\"Add something\"></div><div class=\"ds-qa-chips\"><span class=\"ds-qa-chip\"><span class=\"ds-paint\" style=\"--paint:#94c7bd\"></span>Bathroom 1</span><span class=\"ds-qa-chip ds-tab\">\u00a340</span><span class=\"ds-qa-chip\">Tomorrow</span></div></div>",
       "css": ".ds-qa{border:1px solid var(--line,#e2ddd3);border-radius:16px;background:var(--surface,#fbfaf7);font-family:Figtree,ui-sans-serif,system-ui,sans-serif;transition:border-color 150ms,box-shadow 150ms}.ds-qa:hover{border-color:var(--line-strong,#cbc4b6)}.ds-qa:focus-within{border-color:var(--accent,#2c6a55);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent,#2c6a55) 18%,transparent)}.ds-qa-row{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 14px;color:var(--accent,#2c6a55)}.ds-qa-input{flex:1;border:0;background:transparent;outline:none;font:400 16px Figtree,ui-sans-serif,system-ui,sans-serif;color:var(--ink,#211f1b);padding:8px 0}.ds-qa-chips{display:flex;flex-wrap:wrap;gap:6px;border-top:1px solid var(--line,#e2ddd3);padding:8px 12px;font-size:12.5px}.ds-qa-chip{display:inline-flex;align-items:center;gap:6px;border-radius:9999px;background:var(--sunken,#ebe7df);color:var(--ink,#211f1b);font-weight:600;padding:4px 10px}.ds-tab{font-variant-numeric:tabular-nums}.ds-paint{display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--paint);box-shadow:inset 0 0 0 1px rgb(0 0 0/.08)}"
     },
     {
@@ -923,7 +956,7 @@
       "kind": "custom",
       "refersTo": "",
       "description": "Hairline row on the ground: paint-flood tick, title, tabular cost, typographic priority and a meta line.",
-      "html": "<ul class=\"ds-list\"><li class=\"ds-row\"><button class=\"ds-tick\" role=\"checkbox\" aria-checked=\"false\" aria-label=\"Mark done\"></button><div class=\"ds-body\"><div class=\"ds-top\"><span class=\"ds-title\">Fix bathroom tap</span><span class=\"ds-cost\">£40</span></div><div class=\"ds-meta\"><span class=\"ds-must\">Must</span><span class=\"ds-room\"><span class=\"ds-paint\" style=\"--paint:#94c7bd\"></span>Bathroom 1</span><span>Tomorrow</span></div></div></li><li class=\"ds-row\"><button class=\"ds-tick ds-done\" role=\"checkbox\" aria-checked=\"true\" aria-label=\"Mark not done\" style=\"--paint:#9db39a\"><svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"#211f1b\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3.5 8.5l3 3 6-7\"/></svg></button><div class=\"ds-body\"><div class=\"ds-top\"><span class=\"ds-title ds-struck\">Order kitchen tiles</span><span class=\"ds-cost ds-dim\">£320</span></div><div class=\"ds-meta\"><span class=\"ds-room\"><span class=\"ds-paint\" style=\"--paint:#9db39a\"></span>Kitchen</span></div></div></li><li class=\"ds-row\"><button class=\"ds-tick\" role=\"checkbox\" aria-checked=\"false\" aria-label=\"Mark done\"></button><div class=\"ds-body\"><div class=\"ds-top\"><span class=\"ds-title\">Window seat cushions</span><span class=\"ds-cost\">£80–120</span></div><div class=\"ds-meta\"><span class=\"ds-someday\">Someday</span><span class=\"ds-room\"><span class=\"ds-paint\" style=\"--paint:#a9c3d3\"></span>Landing</span></div></div></li></ul>",
+      "html": "<ul class=\"ds-list\"><li class=\"ds-row\"><button class=\"ds-tick\" role=\"checkbox\" aria-checked=\"false\" aria-label=\"Mark done\"></button><div class=\"ds-body\"><div class=\"ds-top\"><span class=\"ds-title\">Fix bathroom tap</span><span class=\"ds-cost\">\u00a340</span></div><div class=\"ds-meta\"><span class=\"ds-must\">Must</span><span class=\"ds-room\"><span class=\"ds-paint\" style=\"--paint:#94c7bd\"></span>Bathroom 1</span><span>Tomorrow</span></div></div></li><li class=\"ds-row\"><button class=\"ds-tick ds-done\" role=\"checkbox\" aria-checked=\"true\" aria-label=\"Mark not done\" style=\"--paint:#9db39a\"><svg viewBox=\"0 0 16 16\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"#211f1b\" stroke-width=\"2.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3.5 8.5l3 3 6-7\"/></svg></button><div class=\"ds-body\"><div class=\"ds-top\"><span class=\"ds-title ds-struck\">Order kitchen tiles</span><span class=\"ds-cost ds-dim\">\u00a3320</span></div><div class=\"ds-meta\"><span class=\"ds-room\"><span class=\"ds-paint\" style=\"--paint:#9db39a\"></span>Kitchen</span></div></div></li><li class=\"ds-row\"><button class=\"ds-tick\" role=\"checkbox\" aria-checked=\"false\" aria-label=\"Mark done\"></button><div class=\"ds-body\"><div class=\"ds-top\"><span class=\"ds-title\">Window seat cushions</span><span class=\"ds-cost\">\u00a380\u2013120</span></div><div class=\"ds-meta\"><span class=\"ds-someday\">Someday</span><span class=\"ds-room\"><span class=\"ds-paint\" style=\"--paint:#a9c3d3\"></span>Landing</span></div></div></li></ul>",
       "css": ".ds-list{list-style:none;margin:0;padding:0;border-top:1px solid var(--line,#e2ddd3);font-family:Figtree,ui-sans-serif,system-ui,sans-serif}.ds-row{display:flex;gap:12px;align-items:flex-start;padding:12px 4px;border-bottom:1px solid var(--line,#e2ddd3);transition:background-color 150ms}.ds-row:hover{background:color-mix(in srgb,var(--sunken,#ebe7df) 60%,transparent)}.ds-tick{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line-strong,#cbc4b6);background:transparent;display:grid;place-items:center;padding:0;cursor:pointer;flex:none;transition:background-color 150ms,border-color 150ms}.ds-tick:hover{border-color:var(--accent,#2c6a55);background:var(--accent-soft,#dceae3)}.ds-tick.ds-done{background:var(--paint);border-color:transparent}.ds-tick:focus-visible{outline:2px solid var(--accent,#2c6a55);outline-offset:2px}.ds-body{flex:1;min-width:0}.ds-top{display:flex;gap:8px}.ds-title{flex:1;font-size:15px;font-weight:500;line-height:1.375;color:var(--ink,#211f1b)}.ds-struck{color:var(--ink-3,#6f695e);text-decoration:line-through}.ds-cost{font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink,#211f1b)}.ds-dim{color:var(--ink-3,#6f695e);font-weight:400}.ds-meta{margin-top:4px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;font-size:13px;color:var(--ink-2,#57524a)}.ds-must{border-radius:4px;background:var(--ink,#211f1b);color:var(--bg,#f3f0ea);padding:1px 6px;font-size:11px;line-height:16px;font-weight:700;letter-spacing:.025em}.ds-someday{font-size:12px;font-style:italic;color:var(--ink-3,#6f695e)}.ds-room{display:inline-flex;align-items:center;gap:6px}.ds-paint{display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--paint);box-shadow:inset 0 0 0 1px rgb(0 0 0/.08)}"
     },
     {
@@ -931,7 +964,7 @@
       "kind": "card",
       "refersTo": "swatch-card",
       "description": "A room as a paint card: painted panel with number and name, open count and cost, and a strip that paints in per finished job.",
-      "html": "<button class=\"ds-swatch\" style=\"--paint:#9db39a;--paint-ink:#211f1b\"><span class=\"ds-sw-top\"><span class=\"ds-sw-name\"><span class=\"ds-tab\">No. 04</span>Sage</span></span><span class=\"ds-sw-body\"><span class=\"ds-sw-room\">Kitchen</span><span class=\"ds-sw-line ds-tab\">3 to do · £1.2k</span><span class=\"ds-strip\"><i class=\"ds-on\"></i><i class=\"ds-on\"></i><i></i><i></i><i></i></span></span></button>",
+      "html": "<button class=\"ds-swatch\" style=\"--paint:#9db39a;--paint-ink:#211f1b\"><span class=\"ds-sw-top\"><span class=\"ds-sw-name\"><span class=\"ds-tab\">No. 04</span>Sage</span></span><span class=\"ds-sw-body\"><span class=\"ds-sw-room\">Kitchen</span><span class=\"ds-sw-line ds-tab\">3 to do \u00b7 \u00a31.2k</span><span class=\"ds-strip\"><i class=\"ds-on\"></i><i class=\"ds-on\"></i><i></i><i></i><i></i></span></span></button>",
       "css": ".ds-swatch{display:flex;flex-direction:column;width:148px;overflow:hidden;border:1px solid var(--line,#e2ddd3);border-radius:14px;background:var(--surface,#fbfaf7);padding:0;text-align:left;cursor:pointer;font-family:Figtree,ui-sans-serif,system-ui,sans-serif;transition:transform 200ms ease-out,box-shadow 200ms ease-out}.ds-swatch:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgb(33 31 27/.14),0 2px 6px rgb(33 31 27/.08)}.ds-swatch:focus-visible{outline:2px solid var(--accent,#2c6a55);outline-offset:2px}.ds-sw-top{display:flex;align-items:flex-end;height:68px;padding:10px;background:var(--paint);color:var(--paint-ink)}.ds-sw-name{display:grid;font-size:11px;line-height:1.25;font-weight:600;letter-spacing:.02em}.ds-sw-body{display:grid;gap:6px;padding:10px}.ds-sw-room{font-size:14px;font-weight:600;color:var(--ink,#211f1b)}.ds-sw-line{font-size:12.5px;color:var(--ink-2,#57524a)}.ds-tab{font-variant-numeric:tabular-nums}.ds-strip{display:flex;gap:2px;height:6px}.ds-strip i{flex:1;border-radius:2px;background:var(--line,#e2ddd3)}.ds-strip i.ds-on{background:var(--paint)}"
     },
     {
@@ -949,6 +982,22 @@
       "description": "Phone navigation: four tabs with a central green add button.",
       "html": "<nav class=\"ds-tabs\" aria-label=\"Main\"><button class=\"ds-tabbtn\" aria-current=\"page\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.3\" stroke-linejoin=\"round\"><path d=\"M3 10.5 12 3l9 7.5V21H3z\"/></svg>Home</button><button class=\"ds-tabbtn\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linecap=\"round\"><path d=\"M13 5h8M13 12h8M13 19h8M3 6l2 2 4-4M3 17l2 2 4-4\"/></svg>List</button><span class=\"ds-tabmid\"><button class=\"ds-add\" aria-label=\"Add something\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg></button></span><button class=\"ds-tabbtn\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/></svg>Rooms</button><button class=\"ds-tabbtn\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.9\" stroke-linejoin=\"round\"><path d=\"M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V5\"/><path d=\"M16 14h.01\"/></svg>Money</button></nav>",
       "css": ".ds-tabs{display:grid;grid-template-columns:repeat(5,1fr);align-items:center;max-width:520px;padding:0 8px;border-top:1px solid var(--line,#e2ddd3);background:color-mix(in srgb,var(--surface,#fbfaf7) 92%,transparent);backdrop-filter:blur(16px);font-family:Figtree,ui-sans-serif,system-ui,sans-serif}.ds-tabbtn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 0;border:0;background:transparent;font-size:11px;font-weight:600;color:var(--ink-3,#6f695e);cursor:pointer;transition:color 150ms}.ds-tabbtn:hover,.ds-tabbtn[aria-current=page]{color:var(--ink,#211f1b)}.ds-tabbtn:focus-visible,.ds-add:focus-visible{outline:2px solid var(--accent,#2c6a55);outline-offset:2px}.ds-tabmid{display:grid;place-items:center}.ds-add{display:grid;place-items:center;width:48px;height:48px;border:0;border-radius:16px;background:var(--accent,#2c6a55);color:var(--accent-ink,#fff);box-shadow:0 10px 30px rgb(33 31 27/.14),0 2px 6px rgb(33 31 27/.08);cursor:pointer;transition:transform 150ms}.ds-add:active{transform:scale(.9)}"
+    },
+    {
+      "name": "Board Cover",
+      "kind": "card",
+      "refersTo": "board-cover",
+      "description": "A planning board's card: its room paint on top with up to three flat tiles, then name and progress.",
+      "html": "<button class=\"ds-board-cover\"><span class=\"ds-board-cover-top\"><span class=\"ds-board-tile\" style=\"background:#9db39a\"></span><span class=\"ds-board-tile ds-board-tile-note\">Open shelves, not wall units</span></span><span class=\"ds-board-cover-body\"><span class=\"ds-board-cover-name\">Kitchen ideas</span><span class=\"ds-board-cover-meta\">6 things \u00b7 1 decided</span></span></button>",
+      "css": ".ds-board-cover { display: flex; flex-direction: column; width: 168px; overflow: hidden; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); text-align: left; padding: 0; font: inherit; cursor: pointer; transition: transform 200ms ease-out, box-shadow 200ms ease-out; } .ds-board-cover:hover { transform: translateY(-2px); box-shadow: var(--shadow-pop); } .ds-board-cover:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; } .ds-board-cover-top { display: flex; align-items: center; height: 96px; padding: 0 12px; background: #9db39a; } .ds-board-tile { display: block; width: 52px; height: 52px; flex-shrink: 0; border-radius: 4px; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--chip-edge); } .ds-board-tile + .ds-board-tile { margin-left: -8px; } .ds-board-tile-note { background: var(--sunken); color: var(--ink); font-size: 9px; line-height: 1.25; font-weight: 500; padding: 6px; overflow: hidden; } .ds-board-cover-body { display: grid; gap: 2px; padding: 10px; } .ds-board-cover-name { font-size: 14px; font-weight: 600; color: var(--ink); } .ds-board-cover-meta { font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Board Piece (link card)",
+      "kind": "custom",
+      "refersTo": "piece-card",
+      "description": "A shop link on a planning board, in board units: surface card on a hairline, tabular price, no tilt, no resting shadow; green outline when picked.",
+      "html": "<div class=\"ds-piece\" tabindex=\"0\"><div class=\"ds-piece-pic\"></div><div class=\"ds-piece-body\"><p class=\"ds-piece-title\">Oak bar stool, natural</p><p class=\"ds-piece-meta\"><span>habitat.co.uk</span><b>\u00a395</b></p></div></div>",
+      "css": ".ds-piece { width: 200px; overflow: hidden; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); transition: box-shadow 180ms cubic-bezier(0.16,1,0.3,1), scale 180ms cubic-bezier(0.16,1,0.3,1); } .ds-piece:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; } .ds-piece:active { box-shadow: var(--shadow-pop); scale: 1.03; } .ds-piece-pic { aspect-ratio: 1.25; background: var(--sunken); } .ds-piece-body { display: grid; gap: 4px; padding: 12px 16px 16px; } .ds-piece-title { margin: 0; font-size: 22px; line-height: 1.375; font-weight: 600; color: var(--ink); } .ds-piece-meta { margin: 0; display: flex; justify-content: space-between; gap: 8px; font-size: 18px; color: var(--ink-3); } .ds-piece-meta b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }"
     }
   ],
   "narrative": {
@@ -961,12 +1010,13 @@
       "Hairline rows on the ground, not cards; cards are reserved for swatches, the money strip and the quick-add box.",
       "Priority is typographic: an inked \"Must\" pill, a muted italic \"Someday\", nothing for the default.",
       "Undo toasts instead of confirmation dialogs.",
+      "Planning boards are a wall in three bands (Ideas, Maybe, Decided) washed in the board's room paint; deciding is moving a piece rightwards.",
       "Bottom tab bar with a central add button on phones; left rail and a right side panel on desktop."
     ],
     "rules": [
       {
         "name": "The Paint Is The Only Colour Rule",
-        "body": "Saturated colour on any screen comes from a room paint or from Front Door Green. Nothing else gets a hue: not priority, not kind, not person.",
+        "body": "Saturated colour on any screen comes from a room paint or from Front Door Green. Nothing else gets a hue: not priority, not kind, not person. What the household brings in is content, not interface: photos, and a swatch picked from a hex on a board, keep their own colours.",
         "section": "colors"
       },
       {
@@ -990,13 +1040,18 @@
         "section": "typography"
       },
       {
+        "name": "The Read-At-Zoom Rule",
+        "body": "Anything drawn on the board canvas is sized for the zoom it opens at, not for 1:1: pick the board-unit size that lands on the app's 15/13/12 ramp at about 0.72.",
+        "section": "typography"
+      },
+      {
         "name": "The Typographic Priority Rule",
         "body": "Priority is shown by type, never colour: \"Must\" is an inked pill (ink ground, limestone text, 11px bold); \"Someday\" is 12px italic in ink-3; the default (\"Would like\") shows nothing.",
         "section": "typography"
       },
       {
         "name": "The Float-Only Shadow Rule",
-        "body": "A shadow means the element is floating (sheet, toast, add button) or being hovered. Resting cards and rows never carry one.",
+        "body": "A shadow means the element is floating (sheet, toast, add button, a piece in the hand) or being hovered. Resting cards, rows and board pieces never carry one.",
         "section": "elevation"
       }
     ],
@@ -1008,7 +1063,8 @@
       "**Do** show progress as paint: a strip that fills one cell per finished job, a tick that floods with the room's colour.",
       "**Do** offer undo in a toast after ticking, deleting or changing the pot, instead of asking first.",
       "**Do** design both themes; check the dark ground (night-ground) against every new token.",
-      "**Do** honour reduced motion by collapsing animation rather than removing state changes."
+      "**Do** honour reduced motion by collapsing animation rather than removing state changes.",
+      "**Do** size anything on the board canvas for the zoom it opens at, and keep selection chrome at screen size with one over the zoom."
     ],
     "donts": [
       "**Don't** colour priority, item kind or people; priority is the inked \"Must\" pill, italic \"Someday\", or nothing.",
@@ -1016,7 +1072,8 @@
       "**Don't** wrap rows in cards or give resting containers a shadow.",
       "**Don't** add a confirmation dialog where an undo toast will do.",
       "**Don't** bring in a second typeface or a monospace for numbers.",
-      "**Don't** use a room paint as a button fill or a link colour, and don't use the green to mark a room."
+      "**Don't** use a room paint as a button fill or a link colour, and don't use the green to mark a room.",
+      "**Don't** tilt board pieces, give them resting shadows, or add pens, arrows or shapes to a board; a board holds photos, links, list items, notes and swatches."
     ]
   }
 }

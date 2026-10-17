@@ -559,6 +559,100 @@ dialog.sheet.sheet-leaving[open]::backdrop {
   pointer-events: none;
 }
 
+/* Planning boards (components/board). The board slides in from the side,
+   like going into a room, and leaves the same way. */
+@keyframes board-in {
+  from {
+    transform: translateX(28px);
+    opacity: 0;
+  }
+}
+@keyframes board-out {
+  to {
+    transform: translateX(28px);
+    opacity: 0;
+  }
+}
+dialog.board-layer[open] {
+  animation: board-in 300ms var(--ease-out-expo);
+}
+dialog.board-layer.board-leaving[open] {
+  animation: board-out 200ms ease-in forwards;
+}
+dialog.board-layer::backdrop {
+  background: var(--bg);
+}
+/* The page under a board holds still, scrollbar and all. */
+html:has(dialog.board-layer[open]) {
+  overflow: hidden;
+}
+
+.piece {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+.piece-body {
+  border-radius: 4px;
+  transition:
+    box-shadow 180ms var(--ease-out-expo),
+    scale 180ms var(--ease-out-expo);
+}
+/* --inv is one over the board's zoom, so outlines and the resize corner
+   keep their size on screen however far in or out the board is. */
+.piece-selected,
+.piece:focus-visible .piece-body {
+  outline: calc(2px * var(--inv, 1)) solid var(--accent);
+  outline-offset: calc(3px * var(--inv, 1));
+}
+.piece-handle {
+  position: absolute;
+  right: calc(-22px * var(--inv, 1));
+  bottom: calc(-22px * var(--inv, 1));
+  display: grid;
+  place-items: center;
+  width: calc(44px * var(--inv, 1));
+  height: calc(44px * var(--inv, 1));
+  cursor: nwse-resize;
+}
+.piece-handle::after {
+  content: "";
+  width: calc(16px * var(--inv, 1));
+  height: calc(16px * var(--inv, 1));
+  border: calc(2px * var(--inv, 1)) solid var(--accent);
+  border-radius: 9999px;
+  background: var(--surface);
+}
+/* In the hand: floating above the board, so it casts the pop shadow. */
+.piece-lifted .piece-body {
+  box-shadow: var(--shadow-pop);
+  scale: 1.03;
+}
+
+/* The grid a piece snaps to, shown only while one is in the hand. */
+.board-grid {
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--ink) 18%, transparent) 1.2px, transparent 1.6px);
+  background-size: 20px 20px;
+  background-position: -10px -10px;
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+}
+.board-grid[data-on] {
+  opacity: 1;
+}
+
+/* Dropped into Decided: the band's paint swells once. */
+@keyframes band-pulse {
+  30% {
+    opacity: 1;
+  }
+}
+.band-pulse {
+  opacity: 0;
+}
+.band-pulse[data-on] {
+  animation: band-pulse 900ms var(--ease-out-expo);
+}
+
 /* The phone tab bar holds still on top. Only its live picture is shown, so
    its backdrop blur doesn't flash. */
 ::view-transition-group(tab-bar) {

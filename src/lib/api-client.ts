@@ -3,6 +3,8 @@ import type { Unfurled } from "@/lib/unfurl";
 import type { AiJobDTO, AiJobUpdate } from "@/lib/ai";
 import type { ItemCreateInput, ItemUpdateInput, SettingsUpdateInput } from "@/lib/validation";
 import type { PrintLine, PrintOutDTO, PrintOutSummary } from "@/lib/printouts";
+import type { BoardDTO, PieceDTO, PieceKind } from "@/lib/boards";
+import type { Kind, Room } from "@/lib/types";
 
 export class ApiError extends Error {
   fieldErrors?: Record<string, string[] | undefined>;
@@ -37,7 +39,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export function fetchState() {
-  return request<{ items: ItemDTO[]; settings: SettingsDTO; jobs: AiJobDTO[] }>("/api/state", { cache: "no-store" });
+  return request<{ items: ItemDTO[]; settings: SettingsDTO; jobs: AiJobDTO[]; boards: BoardDTO[] }>("/api/state", { cache: "no-store" });
 }
 
 export async function createItem(input: ItemCreateInput): Promise<ItemDTO> {
@@ -85,6 +87,81 @@ export async function addPhoto(itemId: string, photo: { full: Blob; thumb: Blob;
   return data.item;
 }
 export const deletePhoto = (photoId: string) => itemCall(`/api/photos/${photoId}`, "DELETE");
+
+export async function createBoard(input: { name: string; room: Room | null; createdBy: string }): Promise<BoardDTO> {
+  const data = await request<{ board: BoardDTO }>("/api/boards", { method: "POST", body: JSON.stringify(input) });
+  return data.board;
+}
+
+export async function updateBoard(id: string, patch: { name?: string; room?: Room | null }): Promise<BoardDTO> {
+  const data = await request<{ board: BoardDTO }>(`/api/boards/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+  return data.board;
+}
+
+export async function deleteBoard(id: string): Promise<void> {
+  await request(`/api/boards/${id}`, { method: "DELETE" });
+}
+
+export type PieceInput = {
+  kind: PieceKind;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  aspect?: number | null;
+  itemId?: string | null;
+  url?: string | null;
+  title?: string | null;
+  price?: number | null;
+  site?: string | null;
+  text?: string | null;
+  color?: string | null;
+};
+
+export type PiecePatch = Partial<Pick<PieceDTO, "x" | "y" | "w" | "h" | "z" | "title" | "price" | "text" | "color">>;
+
+/** A piece onto a board, with its picture (both copies) when it has one. */
+export async function addPiece(
+  boardId: string,
+  piece: PieceInput & { addedBy: string },
+  image?: { full: Blob; thumb: Blob } | null,
+): Promise<PieceDTO> {
+  const form = new FormData();
+  form.set("piece", JSON.stringify(piece));
+  if (image) {
+    form.set("full", image.full, "full.jpg");
+    form.set("thumb", image.thumb, "thumb.jpg");
+  }
+  const data = await request<{ piece: PieceDTO }>(`/api/boards/${boardId}/pieces`, { method: "POST", body: form });
+  return data.piece;
+}
+
+export async function updatePiece(id: string, patch: PiecePatch): Promise<PieceDTO> {
+  const data = await request<{ piece: PieceDTO }>(`/api/pieces/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+  return data.piece;
+}
+
+export async function deletePiece(id: string): Promise<void> {
+  await request(`/api/pieces/${id}`, { method: "DELETE" });
+}
+
+export function pieceToItem(id: string, input: { title: string; kind: Kind; room: Room; addedBy: string }) {
+  return request<{ piece: PieceDTO; item: ItemDTO }>(`/api/pieces/${id}/to-item`, { method: "POST", body: JSON.stringify(input) });
+}
+
+/** A shop's product picture, fetched by the server, or null when the shop won't give it. */
+export async function fetchBoardImage(url: string): Promise<Blob | null> {
+  try {
+    const res = await fetch("/api/board-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    return res.ok ? await res.blob() : null;
+  } catch {
+    return null;
+  }
+}
 
 /** A product page's name and price, or null when it can't be read (often: shops block servers). */
 export async function unfurl(url: string): Promise<Unfurled | null> {

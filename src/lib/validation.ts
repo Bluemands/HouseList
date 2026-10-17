@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { KINDS, PRIORITIES, REPEATS, ROOMS, STATUSES, TITLE_MAX } from "@/lib/types";
+import { BOARD_NAME_MAX, PIECE_KINDS } from "@/lib/boards";
 
 const emptyToNull = (val: unknown) => (typeof val === "string" && val.trim() === "" ? null : val);
 
@@ -105,6 +106,70 @@ export const commentCreateSchema = z.object({
 export const photoCreateSchema = z.object({
   width: z.coerce.number().int().min(1).max(8192),
   height: z.coerce.number().int().min(1).max(8192),
+  addedBy: z.string().trim().min(1).max(60),
+});
+
+const boardName = z
+  .string({ error: "Give the board a name" })
+  .trim()
+  .min(1, "Give the board a name")
+  .max(BOARD_NAME_MAX, `Keep it under ${BOARD_NAME_MAX} characters`);
+
+export const boardCreateSchema = z.object({
+  name: boardName,
+  room: z.enum(ROOMS).nullable().optional(),
+  createdBy: z.string().trim().min(1).max(60),
+});
+
+export const boardUpdateSchema = z.object({
+  name: boardName.optional(),
+  room: z.enum(ROOMS).nullable().optional(),
+});
+
+// Board units; generous bounds, as the board only grows downward.
+const coord = z.number().finite().min(-1000).max(100_000);
+const size = z.number().finite().min(20).max(2000);
+const colour = z.string().regex(/^#[0-9a-f]{6}$/i, "Pick a colour");
+
+const pieceFields = {
+  x: coord,
+  y: coord,
+  w: size,
+  h: size,
+  title: optionalText(TITLE_MAX),
+  price: optionalMoney,
+  text: optionalText(1000),
+  color: colour.nullable().optional(),
+};
+
+// A photo's images arrive beside this, in the same upload.
+export const pieceCreateSchema = z.object({
+  kind: z.enum(PIECE_KINDS),
+  ...pieceFields,
+  aspect: z.number().finite().min(0.05).max(20).nullable().optional(),
+  itemId: z.string().max(40).nullable().optional(),
+  url: optionalUrl,
+  site: optionalText(80),
+  addedBy: z.string().trim().min(1).max(60),
+});
+
+export const pieceUpdateSchema = z.object({
+  x: coord.optional(),
+  y: coord.optional(),
+  w: size.optional(),
+  h: size.optional(),
+  z: z.number().int().min(0).max(1_000_000).optional(),
+  title: pieceFields.title,
+  price: pieceFields.price,
+  text: pieceFields.text,
+  color: pieceFields.color,
+});
+
+// What an idea becomes on the list.
+export const pieceToItemSchema = z.object({
+  title,
+  kind: z.enum(KINDS),
+  room: z.enum(ROOMS),
   addedBy: z.string().trim().min(1).max(60),
 });
 

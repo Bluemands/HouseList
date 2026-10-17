@@ -105,6 +105,8 @@ model Item {
   comments Comment[]
   photos   Photo[]
   aiJobs   AiJob[]
+  // Where it's pinned on a planning board, if anywhere.
+  pieces   BoardPiece[]
 
   @@index([status])
   @@index([priority])
@@ -226,6 +228,65 @@ model Photo {
 
   item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
 
+  @@index([itemId])
+}
+
+// A planning board: a canvas of ideas and things from the list, in three
+// bands (Ideas, Maybe, Decided) that a piece moves through as it's decided.
+// Optionally about one room, whose paint it wears.
+model Board {
+  id        String   @id @default(cuid())
+  name      String
+  room      Room?
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pieces BoardPiece[]
+}
+
+enum PieceKind {
+  PHOTO
+  LINK
+  ITEM
+  NOTE
+  SWATCH
+}
+
+// One thing on a board. Position and size are in board units (CSS pixels at
+// full size); which band it's in follows from x (lib/boards.ts).
+model BoardPiece {
+  id      String    @id @default(cuid())
+  boardId String
+  kind    PieceKind
+  x       Float
+  y       Float
+  w       Float
+  h       Float
+  // Stacking: higher is in front.
+  z       Int       @default(0)
+  // The picture (a photo, or a shop's product image), stored like an item's
+  // photos under this id. Width over height, for laying it out.
+  imageId String?
+  aspect  Float?
+  // An item from the list, or what this idea became when it was added to it.
+  // Null on an ITEM piece means the item has since been deleted.
+  itemId  String?
+  url     String?
+  title   String?
+  price   Float?
+  site    String?
+  text    String?
+  // A swatch's colour, as #rrggbb.
+  color   String?
+  addedBy   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  item  Item? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@index([boardId])
   @@index([itemId])
 }
 

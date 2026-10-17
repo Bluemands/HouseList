@@ -9,7 +9,9 @@ import { nextOccurrence } from "@/lib/types";
 import { costToConfirm, settlePot } from "@/lib/pot";
 import { ROOM_PAINT } from "@/lib/rooms";
 import { haptic } from "@/lib/haptics";
-import { preparePhoto } from "@/lib/photo-resize";
+import { preparePhoto, type PreparedPhoto } from "@/lib/photo-resize";
+import type { BoardDTO, PieceDTO } from "@/lib/boards";
+import type { Kind, Room } from "@/lib/types";
 import type { ItemCreateInput, ItemUpdateInput, SettingsUpdateInput } from "@/lib/validation";
 import type { BulkCandidate } from "@/components/BulkAddSheet";
 import type { AiJobDTO, AiJobUpdate } from "@/lib/ai";
@@ -62,6 +64,19 @@ type Store = {
   addPhoto: (itemId: string, file: File) => Promise<ItemDTO | null>;
   /** Gone at once, back with one tap; only deleted for good once the undo has passed. */
   deletePhoto: (item: ItemDTO, photo: ItemDTO["photos"][number]) => void;
+  /** Planning boards, most recently worked on first. */
+  boards: BoardDTO[];
+  createBoard: (name: string, room: Room | null) => Promise<BoardDTO | null>;
+  updateBoard: (id: string, patch: { name?: string; room?: Room | null }) => Promise<BoardDTO | null>;
+  /** Gone at once, back with one tap. */
+  removeBoard: (board: BoardDTO) => void;
+  /** Resolves to the piece once it's saved (a picture has to upload first). */
+  addPiece: (boardId: string, input: api.PieceInput, image?: PreparedPhoto | null) => Promise<PieceDTO | null>;
+  /** Moves, resizes and edits show at once, then save. */
+  updatePiece: (piece: PieceDTO, patch: api.PiecePatch) => void;
+  removePiece: (piece: PieceDTO) => void;
+  /** Makes an idea a real item; resolves to the item. */
+  pieceToItem: (piece: PieceDTO, input: { title: string; kind: Kind; room: Room }) => Promise<ItemDTO | null>;
   /** Private calendar subscription path for due dates. */
   calendarPath: string;
   /** Private path of Claude's connector (the MCP server). */
@@ -181,6 +196,7 @@ export function StoreProvider({
   initialItems,
   initialSettings,
   initialJobs,
+  initialBoards,
   me,
   calendarPath,
   connectorPath,
@@ -190,6 +206,7 @@ export function StoreProvider({
   initialItems: ItemDTO[];
   initialSettings: SettingsDTO;
   initialJobs: AiJobDTO[];
+  initialBoards: BoardDTO[];
   me: string;
   calendarPath: string;
   connectorPath: string;
@@ -199,6 +216,7 @@ export function StoreProvider({
   const [items, setItems] = useState(initialItems);
   const [settings, setSettings] = useState(initialSettings);
   const [jobs, setJobs] = useState(initialJobs);
+  const [boards, setBoards] = useState(initialBoards);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [editing, setEditing] = useState<Store["editing"]>(null);
   const [justAdded, setJustAdded] = useState<string | null>(null);
@@ -294,6 +312,7 @@ export function StoreProvider({
       setItems(state.items);
       setSettings(state.settings);
       setJobs(state.jobs);
+      setBoards(state.boards);
     } catch {
       // Background sync is best-effort; keep what's on screen.
     }
@@ -573,6 +592,146 @@ export function StoreProvider({
     [toast, fail],
   );
 
+  // Boards: one piece changed in place, wherever it is.
+  const setPiece = useCallback((piece: PieceDTO) => {
+    setBoards((list) =>
+      list.map((b) => (b.id === piece.boardId ? { ...b, pieces: b.pieces.map((p) => (p.id === piece.id ? piece : p)) } : b)),
+    );
+  }, []);
+
+  const createBoard = useCallback<Store["createBoard"]>(
+    async (name, room) => {
+      try {
+        const board = await track(() => api.createBoard({ name, room, createdBy: me }));
+        setBoards((list) => [board, ...list]);
+        return board;
+      } catch (err) {
+        fail(err);
+        return null;
+      }
+    },
+    [me, fail],
+  );
+
+  const updateBoard = useCallback<Store["updateBoard"]>(
+    async (id, patch) => {
+      setBoards((list) => list.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+      try {
+        const board = await track(() => api.updateBoard(id, patch));
+        setBoards((list) => list.map((b) => (b.id === id ? board : b)));
+        return board;
+      } catch (err) {
+        fail(err);
+        return null;
+      }
+    },
+    [fail],
+  );
+
+  const removeBoard = useCallback<Store["removeBoard"]>(
+    (board) => {
+      const key = `board:${board.id}`;
+      setBoards((list) => list.filter((b) => b.id !== board.id));
+      const timer = window.setTimeout(async () => {
+        pendingDeletes.current.delete(key);
+        try {
+          await track(() => api.deleteBoard(board.id));
+        } catch (err) {
+          setBoards((list) => [board, ...list]);
+          fail(err);
+        }
+      }, UNDO_MS);
+      pendingDeletes.current.set(key, timer);
+      toast({
+        message: `Deleted the board “${board.name}”`,
+        action: {
+          label: "Undo",
+          run: () => {
+            window.clearTimeout(timer);
+            pendingDeletes.current.delete(key);
+            setBoards((list) => (list.some((b) => b.id === board.id) ? list : [board, ...list]));
+          },
+        },
+      });
+    },
+    [toast, fail],
+  );
+
+  const addPiece = useCallback<Store["addPiece"]>(
+    async (boardId, input, image) => {
+      try {
+        const piece = await track(() => api.addPiece(boardId, { ...input, addedBy: me }, image));
+        setBoards((list) => list.map((b) => (b.id === boardId ? { ...b, pieces: [...b.pieces, piece] } : b)));
+        return piece;
+      } catch (err) {
+        fail(err);
+        return null;
+      }
+    },
+    [me, fail],
+  );
+
+  const updatePiece = useCallback<Store["updatePiece"]>(
+    (piece, patch) => {
+      setPiece({ ...piece, ...patch });
+      track(() => api.updatePiece(piece.id, patch)).then(setPiece, (err) => {
+        // Put back what the server has, rather than leave a move that didn't save.
+        setPiece(piece);
+        fail(err);
+      });
+    },
+    [setPiece, fail],
+  );
+
+  const removePiece = useCallback<Store["removePiece"]>(
+    (piece) => {
+      const key = `piece:${piece.id}`;
+      const drop = (list: BoardDTO[]) =>
+        list.map((b) => (b.id === piece.boardId ? { ...b, pieces: b.pieces.filter((p) => p.id !== piece.id) } : b));
+      setBoards(drop);
+      const timer = window.setTimeout(async () => {
+        pendingDeletes.current.delete(key);
+        try {
+          await track(() => api.deletePiece(piece.id));
+        } catch (err) {
+          fail(err);
+        }
+      }, UNDO_MS);
+      pendingDeletes.current.set(key, timer);
+      toast({
+        message: "Took it off the board",
+        action: {
+          label: "Undo",
+          run: () => {
+            window.clearTimeout(timer);
+            pendingDeletes.current.delete(key);
+            setBoards((list) =>
+              list.map((b) =>
+                b.id === piece.boardId && !b.pieces.some((p) => p.id === piece.id) ? { ...b, pieces: [...b.pieces, piece] } : b,
+              ),
+            );
+          },
+        },
+      });
+    },
+    [toast, fail],
+  );
+
+  const pieceToItem = useCallback<Store["pieceToItem"]>(
+    async (piece, input) => {
+      try {
+        const { piece: updated, item } = await track(() => api.pieceToItem(piece.id, { ...input, addedBy: me }));
+        setPiece(updated);
+        setItems((list) => [item, ...list.filter((i) => i.id !== item.id)]);
+        return item;
+      } catch (err) {
+        fail(err);
+        return null;
+      }
+    },
+    [me, setPiece, fail],
+  );
+
   const addItems = useCallback<Store["addItems"]>(
     async (inputs) => {
       try {
@@ -752,6 +911,14 @@ export function StoreProvider({
       deleteComment,
       addPhoto,
       deletePhoto,
+      boards,
+      createBoard,
+      updateBoard,
+      removeBoard,
+      addPiece,
+      updatePiece,
+      removePiece,
+      pieceToItem,
       calendarPath,
       connectorPath,
       workerToken,
@@ -779,7 +946,7 @@ export function StoreProvider({
       openBulk: setBulk,
       closeBulk: () => setBulk(null),
     }),
-    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, addPhoto, deletePhoto, calendarPath, connectorPath, workerToken, jobs, jobByItem, askClaude, undoImprove, updateJob, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, holdToast, toasts, editing, justAdded, bulk],
+    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, addPhoto, deletePhoto, boards, createBoard, updateBoard, removeBoard, addPiece, updatePiece, removePiece, pieceToItem, calendarPath, connectorPath, workerToken, jobs, jobByItem, askClaude, undoImprove, updateJob, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, holdToast, toasts, editing, justAdded, bulk],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

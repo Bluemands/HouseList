@@ -29,6 +29,7 @@ A shared to-do list and budget planner for a new house, for two people. Log ever
 - **Compare quotes** — log quotes from tradespeople against a job; the cheapest is flagged, and choosing one sets the job's cost.
 - **Updates** — a short thread on any item ("rang them, waiting for a callback"), with who said it and when.
 - **Photos** — the product, the wall before, the quote on paper. Each phone shrinks a photo before sending it, the first one shows on the item's row, and tapping one opens it full size to swipe through.
+- **Planning boards** — a canvas for deciding how things should look: photos, shop links (picture and price), things from the list, notes and paint colours, pinned anywhere across three bands, Ideas, Maybe and Decided. Drag something into Decided and it goes on the list in one tap, picture, price and link included. A List view shows the same board without dragging. Find them on Home, on each room's page and on the simple list.
 - **Duplicate** anything — the same job in another room, or again next year.
 - **Pin to the top** — anything you've decided is next leads Up next and its list group.
 - **Swipe on your phone** — right to finish, left to delete.

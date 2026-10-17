@@ -45,6 +45,8 @@ export function useRoute() {
   const toTop = useRef(false);
 
   const move = useCallback((next: Route) => {
+    // Back out of something drawn over the page (a board) leaves the route as it was.
+    if (next.view === current.current.view && next.room === current.current.room) return;
     const type = direction(current.current, next);
     current.current = next;
     startTransition(() => {

@@ -15,6 +15,7 @@ import { SectionHead } from "@/components/ui";
 import { FloorPlan } from "@/components/FloorPlan";
 import { FLOOR_LABELS, ROOM_LAYOUT, roomAreas, roomSizeLabel } from "@/lib/house";
 import { PrintButton } from "@/components/PrintButton";
+import { BoardsRail } from "@/components/board/BoardsRail";
 import { listLines } from "@/lib/printouts";
 
 export function RoomsView({ go }: { go: (r: Route) => void }) {
@@ -196,6 +197,8 @@ export function RoomView({ room, go }: { room: Room; go: (r: Route) => void }) {
           )}
         </section>
       )}
+
+      <BoardsRail room={room} title="Boards" />
     </div>
   );
 }

@@ -16,6 +16,7 @@ import { ItemList, ItemRow } from "@/components/ItemRow";
 import { SwatchCard } from "@/components/SwatchCard";
 import { CountingMoney, PaintChip, SectionHead } from "@/components/ui";
 import { RecentPrintOuts } from "@/components/RecentPrintOuts";
+import { BoardsRail } from "@/components/board/BoardsRail";
 
 export function HomeView({ go, onSettings }: { go: (r: Route) => void; onSettings: () => void }) {
   const { items, listing, listingSettings, settings, me, openBulk } = useStore();
@@ -137,6 +138,8 @@ export function HomeView({ go, onSettings }: { go: (r: Route) => void; onSetting
           </div>
         </section>
       )}
+
+      <BoardsRail />
 
       {recent.length > 0 && (
         <section aria-labelledby="recent-head">

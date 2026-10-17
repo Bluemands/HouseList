@@ -6,18 +6,7 @@ import { itemResponse } from "@/lib/api-route";
 import { removePhotos, savePhoto } from "@/lib/photo-store";
 import { PHOTOS_MAX } from "@/lib/types";
 import { clip, itemUrl, notifyLater } from "@/lib/push";
-
-// The phone shrinks a photo before sending it (lib/photo-resize.ts), so these
-// are generous: a full copy is usually a few hundred KB, a thumbnail ~40 KB.
-const FULL_MAX = 3 * 1024 * 1024;
-const THUMB_MAX = 512 * 1024;
-
-/** The upload's bytes, if it's a JPEG of a sensible size. */
-async function jpeg(part: FormDataEntryValue | null, max: number) {
-  if (!(part instanceof Blob) || part.size === 0 || part.size > max) return null;
-  const bytes = new Uint8Array(await part.arrayBuffer());
-  return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff ? bytes : null;
-}
+import { readPhotoParts, storeFailure } from "@/lib/photo-upload";
 
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/items/[id]/photos">) {
   const { id } = await ctx.params;
@@ -32,9 +21,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/items/[
     height: form.get("height"),
     addedBy: form.get("addedBy"),
   });
-  const full = await jpeg(form.get("full"), FULL_MAX);
-  const thumb = await jpeg(form.get("thumb"), THUMB_MAX);
-  if (!fields.success || !full || !thumb) {
+  const images = await readPhotoParts(form);
+  if (!fields.success || !images) {
     return NextResponse.json({ error: "That photo couldn't be read. Try another?" }, { status: 400 });
   }
 
@@ -46,14 +34,10 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/items/[
 
   const photoId = randomUUID();
   try {
-    await savePhoto(photoId, { full, thumb });
+    await savePhoto(photoId, images);
   } catch (err) {
-    console.error("Couldn't store a photo", err);
-    const unset = err instanceof Error && err.message.startsWith("Photos aren't set up");
-    return NextResponse.json(
-      { error: unset ? err.message : "Couldn't save the photo. Try again?" },
-      { status: unset ? 503 : 502 },
-    );
+    const { error, status } = storeFailure(err);
+    return NextResponse.json({ error }, { status });
   }
   try {
     await prisma.photo.create({ data: { id: photoId, itemId: id, ...fields.data } });
