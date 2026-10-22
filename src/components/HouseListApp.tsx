@@ -16,6 +16,7 @@ import type { AiJobDTO } from "@/lib/ai";
 import type { BoardDTO } from "@/lib/boards";
 import type { PaymentDTO } from "@/lib/payments";
 import type { ReadingDTO } from "@/lib/meters";
+import type { TradespersonDTO } from "@/lib/tradespeople";
 import { NameGate } from "@/components/NameGate";
 import { SettingsSheet } from "@/components/SettingsSheet";
 import { Toasts } from "@/components/Toasts";
@@ -36,6 +37,7 @@ type Props = {
   initialBoards: BoardDTO[];
   initialPayments: PaymentDTO[];
   initialReadings: ReadingDTO[];
+  initialTradespeople: TradespersonDTO[];
   calendarPath: string;
   connectorPath: string;
   workerToken: string;
@@ -49,6 +51,7 @@ export function HouseListApp({
   initialBoards,
   initialPayments,
   initialReadings,
+  initialTradespeople,
   calendarPath,
   connectorPath,
   workerToken,
@@ -69,6 +72,7 @@ export function HouseListApp({
       initialBoards={initialBoards}
       initialPayments={initialPayments}
       initialReadings={initialReadings}
+      initialTradespeople={initialTradespeople}
       me={name}
       calendarPath={calendarPath}
       connectorPath={connectorPath}

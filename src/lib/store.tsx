@@ -12,9 +12,17 @@ import { haptic } from "@/lib/haptics";
 import { preparePhoto, type PreparedPhoto } from "@/lib/photo-resize";
 import type { BoardDTO, PieceDTO } from "@/lib/boards";
 import type { Kind, Room } from "@/lib/types";
-import type { ItemCreateInput, ItemUpdateInput, PaymentCreateInput, PaymentUpdateInput, SettingsUpdateInput } from "@/lib/validation";
+import type {
+  ItemCreateInput,
+  ItemUpdateInput,
+  PaymentCreateInput,
+  PaymentUpdateInput,
+  SettingsUpdateInput,
+  TradespersonInput,
+} from "@/lib/validation";
 import { net, paidLine, type PaymentDTO } from "@/lib/payments";
 import type { Meter, ReadingDTO } from "@/lib/meters";
+import type { TradespersonDTO } from "@/lib/tradespeople";
 import type { BulkCandidate } from "@/components/BulkAddSheet";
 import type { AiJobDTO, AiJobUpdate } from "@/lib/ai";
 
@@ -99,6 +107,12 @@ type Store = {
   addReadings: (list: { meter: Meter; value: number; takenOn: string; photo?: File | null }[]) => Promise<number>;
   /** Gone at once, back with one tap. */
   removeReading: (reading: ReadingDTO) => void;
+  /** The tradespeople book, by name. */
+  tradespeople: TradespersonDTO[];
+  addTradesperson: (input: TradespersonInput & { name: string }) => Promise<TradespersonDTO | null>;
+  updateTradesperson: (id: string, patch: TradespersonInput) => Promise<TradespersonDTO | null>;
+  /** Gone at once, back with one tap. */
+  removeTradesperson: (person: TradespersonDTO) => void;
   /** Private calendar subscription path for due dates. */
   calendarPath: string;
   /** Private path of Claude's connector (the MCP server). */
@@ -158,6 +172,9 @@ export const UNDO_MS = 6_000;
 const ASK_MS = 12_000;
 /** How long a ticked row lingers in an open list (matches .row-leave). */
 const SETTLE_MS = 1_000;
+
+/** The tradespeople book's order. */
+const byName = (list: TradespersonDTO[]) => [...list].sort((a, b) => a.name.localeCompare(b.name));
 
 /** A step as the API takes it back. */
 const stepInput = ({ id, text, done, cost, link, notes }: StepDTO) => ({ id, text, done, cost, link, notes });
@@ -221,6 +238,7 @@ export function StoreProvider({
   initialBoards,
   initialPayments,
   initialReadings,
+  initialTradespeople,
   me,
   calendarPath,
   connectorPath,
@@ -233,6 +251,7 @@ export function StoreProvider({
   initialBoards: BoardDTO[];
   initialPayments: PaymentDTO[];
   initialReadings: ReadingDTO[];
+  initialTradespeople: TradespersonDTO[];
   me: string;
   calendarPath: string;
   connectorPath: string;
@@ -245,6 +264,7 @@ export function StoreProvider({
   const [boards, setBoards] = useState(initialBoards);
   const [payments, setPayments] = useState(initialPayments);
   const [readings, setReadings] = useState(initialReadings);
+  const [tradespeople, setTradespeople] = useState(initialTradespeople);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [editing, setEditing] = useState<Store["editing"]>(null);
   const [justAdded, setJustAdded] = useState<string | null>(null);
@@ -343,6 +363,7 @@ export function StoreProvider({
       setBoards(state.boards);
       setPayments(state.payments);
       setReadings(state.readings);
+      setTradespeople(state.tradespeople);
     } catch {
       // Background sync is best-effort; keep what's on screen.
     }
@@ -982,6 +1003,63 @@ export function StoreProvider({
     [toast, fail],
   );
 
+  const addTradesperson = useCallback<Store["addTradesperson"]>(
+    async (input) => {
+      try {
+        const person = await track(() => api.createTradesperson({ ...input, addedBy: me }));
+        setTradespeople((list) => byName([...list, person]));
+        return person;
+      } catch (err) {
+        fail(err);
+        return null;
+      }
+    },
+    [me, fail],
+  );
+
+  const updateTradesperson = useCallback<Store["updateTradesperson"]>(
+    async (id, patch) => {
+      try {
+        const person = await track(() => api.updateTradesperson(id, patch));
+        setTradespeople((list) => byName(list.map((p) => (p.id === id ? person : p))));
+        return person;
+      } catch (err) {
+        fail(err);
+        return null;
+      }
+    },
+    [fail],
+  );
+
+  const removeTradesperson = useCallback<Store["removeTradesperson"]>(
+    (person) => {
+      const key = `tradesperson:${person.id}`;
+      setTradespeople((list) => list.filter((p) => p.id !== person.id));
+      const timer = window.setTimeout(async () => {
+        pendingDeletes.current.delete(key);
+        try {
+          await track(() => api.deleteTradesperson(person.id));
+        } catch (err) {
+          setTradespeople((list) => byName([...list, person]));
+          fail(err);
+        }
+      }, UNDO_MS);
+      pendingDeletes.current.set(key, timer);
+      toast({
+        message: `Took ${person.name} out of the book`,
+        action: {
+          label: "Undo",
+          run: () => {
+            window.clearTimeout(timer);
+            pendingDeletes.current.delete(key);
+            setTradespeople((list) => (list.some((p) => p.id === person.id) ? list : byName([...list, person])));
+          },
+        },
+      });
+    },
+    [toast, fail],
+  );
+
   const addItems = useCallback<Store["addItems"]>(
     async (inputs) => {
       try {
@@ -1180,6 +1258,10 @@ export function StoreProvider({
       readings,
       addReadings,
       removeReading,
+      tradespeople,
+      addTradesperson,
+      updateTradesperson,
+      removeTradesperson,
       calendarPath,
       connectorPath,
       workerToken,
@@ -1207,7 +1289,7 @@ export function StoreProvider({
       openBulk: setBulk,
       closeBulk: () => setBulk(null),
     }),
-    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, addPhoto, deletePhoto, boards, createBoard, updateBoard, removeBoard, addPiece, updatePiece, removePiece, pieceToItem, payments, addPayment, updatePayment, togglePaid, removePayment, settleUp, reopenPayments, redateSettlement, readings, addReadings, removeReading, calendarPath, connectorPath, workerToken, jobs, jobByItem, askClaude, undoImprove, updateJob, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, holdToast, toasts, editing, justAdded, bulk],
+    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, addPhoto, deletePhoto, boards, createBoard, updateBoard, removeBoard, addPiece, updatePiece, removePiece, pieceToItem, payments, addPayment, updatePayment, togglePaid, removePayment, settleUp, reopenPayments, redateSettlement, readings, addReadings, removeReading, tradespeople, addTradesperson, updateTradesperson, removeTradesperson, calendarPath, connectorPath, workerToken, jobs, jobByItem, askClaude, undoImprove, updateJob, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, holdToast, toasts, editing, justAdded, bulk],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

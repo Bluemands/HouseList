@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/prisma";
-import type { AiJob, Board, BoardPiece, Comment, Item, MeterReading, Payment, Photo, Quote, Settings, Step } from "@/generated/prisma/client";
+import type { AiJob, Board, BoardPiece, Comment, Item, MeterReading, Payment, Photo, Quote, Settings, Step, Tradesperson } from "@/generated/prisma/client";
 import { stepCostsKey, stepsTotal, type ItemDTO, type SettingsDTO } from "@/lib/types";
 import { OPEN_JOB_STATUSES, aiResultSchema, type AiJobDTO } from "@/lib/ai";
 import type { BoardDTO, PieceDTO } from "@/lib/boards";
 import type { PaymentDTO } from "@/lib/payments";
 import type { Bin } from "@/lib/bins";
 import type { ReadingDTO } from "@/lib/meters";
+import type { TradespersonDTO } from "@/lib/tradespeople";
 import { binSchema } from "@/lib/validation";
 import { z } from "zod";
 
@@ -154,6 +155,16 @@ export async function getReadings(): Promise<ReadingDTO[]> {
   return readings.map(toReadingDTO);
 }
 
+export function toTradespersonDTO(t: Tradesperson): TradespersonDTO {
+  const { id, name, trade, phone, email, notes, verdict, addedBy } = t;
+  return { id, name, trade, phone, email, notes, verdict, addedBy, createdAt: t.createdAt.toISOString() };
+}
+
+export async function getTradespeople(): Promise<TradespersonDTO[]> {
+  const people = await prisma.tradesperson.findMany({ orderBy: { name: "asc" } });
+  return people.map(toTradespersonDTO);
+}
+
 /** Stored bins, read defensively: a shape change never reaches the UI half-formed. */
 function readBins(value: unknown): Bin[] {
   const parsed = z.array(binSchema).safeParse(value);
@@ -220,6 +231,7 @@ export type State = {
   boards: BoardDTO[];
   payments: PaymentDTO[];
   readings: ReadingDTO[];
+  tradespeople: TradespersonDTO[];
 };
 
 export async function getState(): Promise<State> {
@@ -232,5 +244,6 @@ export async function getState(): Promise<State> {
   const boards = await getBoards();
   const payments = await getPayments();
   const readings = await getReadings();
-  return { items: items.map(toItemDTO), settings: toSettingsDTO(settings), jobs, boards, payments, readings };
+  const tradespeople = await getTradespeople();
+  return { items: items.map(toItemDTO), settings: toSettingsDTO(settings), jobs, boards, payments, readings, tradespeople };
 }

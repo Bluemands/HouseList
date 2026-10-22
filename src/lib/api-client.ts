@@ -1,11 +1,19 @@
 import type { ItemDTO, SettingsDTO } from "@/lib/types";
 import type { Unfurled } from "@/lib/unfurl";
 import type { AiJobDTO, AiJobUpdate } from "@/lib/ai";
-import type { ItemCreateInput, ItemUpdateInput, PaymentCreateInput, PaymentUpdateInput, SettingsUpdateInput } from "@/lib/validation";
+import type {
+  ItemCreateInput,
+  ItemUpdateInput,
+  PaymentCreateInput,
+  PaymentUpdateInput,
+  SettingsUpdateInput,
+  TradespersonInput,
+} from "@/lib/validation";
 import type { PrintLine, PrintOutDTO, PrintOutSummary } from "@/lib/printouts";
 import type { BoardDTO, PieceDTO, PieceKind } from "@/lib/boards";
 import type { PaymentDTO } from "@/lib/payments";
 import type { Meter, ReadingDTO } from "@/lib/meters";
+import type { TradespersonDTO } from "@/lib/tradespeople";
 import type { Kind, Room } from "@/lib/types";
 
 export class ApiError extends Error {
@@ -48,6 +56,7 @@ export function fetchState() {
     boards: BoardDTO[];
     payments: PaymentDTO[];
     readings: ReadingDTO[];
+    tradespeople: TradespersonDTO[];
   }>(
     "/api/state",
     { cache: "no-store" },
@@ -161,6 +170,23 @@ export async function addReading(
 
 export async function deleteReading(id: string): Promise<void> {
   await request(`/api/meters/${id}`, { method: "DELETE" });
+}
+
+export async function createTradesperson(input: TradespersonInput & { name: string; addedBy: string }): Promise<TradespersonDTO> {
+  const data = await request<{ tradesperson: TradespersonDTO }>("/api/tradespeople", { method: "POST", body: JSON.stringify(input) });
+  return data.tradesperson;
+}
+
+export async function updateTradesperson(id: string, patch: TradespersonInput): Promise<TradespersonDTO> {
+  const data = await request<{ tradesperson: TradespersonDTO }>(`/api/tradespeople/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+  return data.tradesperson;
+}
+
+export async function deleteTradesperson(id: string): Promise<void> {
+  await request(`/api/tradespeople/${id}`, { method: "DELETE" });
 }
 
 export type PieceInput = {

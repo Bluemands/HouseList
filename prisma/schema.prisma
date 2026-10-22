@@ -218,6 +218,28 @@ model MeterReading {
   @@index([meter, takenOn])
 }
 
+// Whether you'd have a tradesperson back.
+enum Verdict {
+  YES
+  NOT_SURE
+  NO
+}
+
+// Someone who's quoted for or done a job, to call again (or not). Their
+// quotes and jobs are found by name, from quotes and who a job is with.
+model Tradesperson {
+  id        String   @id @default(cuid())
+  name      String
+  trade     String?
+  phone     String?
+  email     String?
+  notes     String?
+  verdict   Verdict?
+  addedBy   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // A list printed to tick off on paper. It keeps the lines as printed, so
 // ticking it back in later shows exactly what was on the page, in the same
 // order and numbering, even after the list has moved on.

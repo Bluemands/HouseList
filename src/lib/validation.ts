@@ -4,6 +4,7 @@ import { BOARD_NAME_MAX, PIECE_KINDS } from "@/lib/boards";
 import { DESCRIPTION_MAX } from "@/lib/payments";
 import { BINS_MAX } from "@/lib/bins";
 import { METERS } from "@/lib/meters";
+import { VERDICTS } from "@/lib/tradespeople";
 
 const emptyToNull = (val: unknown) => (typeof val === "string" && val.trim() === "" ? null : val);
 
@@ -185,6 +186,18 @@ export const binSchema = z.object({
   changes: z.array(z.object({ on: isoDate, to: isoDate.nullable() })).max(30),
 });
 
+const tradespersonFields = {
+  name: z.string({ error: "Who is it?" }).trim().min(1, "Who is it?").max(80, "Keep it under 80 characters"),
+  trade: optionalText(60),
+  phone: optionalText(40),
+  email: z.preprocess(emptyToNull, z.email({ error: "That doesn't look like an email address" }).nullable()).optional(),
+  notes: optionalText(2000),
+  verdict: z.enum(VERDICTS).nullable().optional(),
+};
+
+export const tradespersonCreateSchema = z.object({ ...tradespersonFields, addedBy: z.string().trim().min(1).max(60) });
+export const tradespersonUpdateSchema = z.object(tradespersonFields).partial();
+
 export const readingCreateSchema = z.object({
   meter: z.enum(METERS),
   value: z.number({ error: "Enter the reading" }).min(0, "Can't be negative").max(1_000_000_000, "That looks too large"),
@@ -276,3 +289,4 @@ export type ItemUpdateInput = z.input<typeof itemUpdateSchema>;
 export type SettingsUpdateInput = z.input<typeof settingsUpdateSchema>;
 export type PaymentCreateInput = z.input<typeof paymentCreateSchema>;
 export type PaymentUpdateInput = z.input<typeof paymentUpdateSchema>;
+export type TradespersonInput = z.input<typeof tradespersonUpdateSchema>;

@@ -13,6 +13,7 @@ import type { Route } from "@/lib/nav";
 import { QuickAdd } from "@/components/QuickAdd";
 import { SinceLastTime } from "@/components/SinceLastTime";
 import { BinsNotice } from "@/components/Bins";
+import { TradespeopleLink } from "@/components/Tradespeople";
 import { ItemList, ItemRow } from "@/components/ItemRow";
 import { SwatchCard } from "@/components/SwatchCard";
 import { CountingMoney, PaintChip, SectionHead } from "@/components/ui";
@@ -143,6 +144,8 @@ export function HomeView({ go, onSettings }: { go: (r: Route) => void; onSetting
       )}
 
       <BoardsRail />
+
+      <TradespeopleLink />
 
       {recent.length > 0 && (
         <section aria-labelledby="recent-head">

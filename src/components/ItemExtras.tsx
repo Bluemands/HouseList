@@ -13,7 +13,7 @@ import { Button, Field, MoneyInput, inputClass } from "@/components/ui";
  * the item's cost; `onChosen` lets the open sheet pick that up too.
  */
 export function QuotesField({ item, onChosen }: { item: ItemDTO; onChosen: (item: ItemDTO) => void }) {
-  const { addQuote, updateQuote, deleteQuote, toast } = useStore();
+  const { addQuote, updateQuote, deleteQuote, toast, tradespeople } = useStore();
 
   // Like every other delete: gone at once, back with one tap.
   async function remove(q: ItemDTO["quotes"][number]) {
@@ -137,8 +137,17 @@ export function QuotesField({ item, onChosen }: { item: ItemDTO; onChosen: (item
               placeholder="Who from?"
               aria-label="Quote from"
               maxLength={80}
+              // People in the tradespeople book, so their quotes find them by name.
+              list="tradespeople-names"
               className={inputClass}
             />
+            <datalist id="tradespeople-names">
+              {tradespeople.map((p) => (
+                <option key={p.id} value={p.name}>
+                  {p.trade ?? undefined}
+                </option>
+              ))}
+            </datalist>
             <MoneyInput label="Quote amount" value={amount} onChange={setAmount} placeholder="Amount" />
           </div>
           <div className="flex gap-2">
