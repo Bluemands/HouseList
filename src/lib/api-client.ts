@@ -5,6 +5,7 @@ import type { ItemCreateInput, ItemUpdateInput, PaymentCreateInput, PaymentUpdat
 import type { PrintLine, PrintOutDTO, PrintOutSummary } from "@/lib/printouts";
 import type { BoardDTO, PieceDTO, PieceKind } from "@/lib/boards";
 import type { PaymentDTO } from "@/lib/payments";
+import type { Meter, ReadingDTO } from "@/lib/meters";
 import type { Kind, Room } from "@/lib/types";
 
 export class ApiError extends Error {
@@ -40,7 +41,14 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export function fetchState() {
-  return request<{ items: ItemDTO[]; settings: SettingsDTO; jobs: AiJobDTO[]; boards: BoardDTO[]; payments: PaymentDTO[] }>(
+  return request<{
+    items: ItemDTO[];
+    settings: SettingsDTO;
+    jobs: AiJobDTO[];
+    boards: BoardDTO[];
+    payments: PaymentDTO[];
+    readings: ReadingDTO[];
+  }>(
     "/api/state",
     { cache: "no-store" },
   );
@@ -134,6 +142,25 @@ export async function redateSettlement(settlementId: string, paidOn: string): Pr
     body: JSON.stringify({ paidOn }),
   });
   return data.payments;
+}
+
+/** A meter reading, with a photo of the dial (both copies) when there is one. */
+export async function addReading(
+  reading: { meter: Meter; value: number; takenOn: string; takenBy: string },
+  photo?: { full: Blob; thumb: Blob } | null,
+): Promise<ReadingDTO> {
+  const form = new FormData();
+  form.set("reading", JSON.stringify(reading));
+  if (photo) {
+    form.set("full", photo.full, "full.jpg");
+    form.set("thumb", photo.thumb, "thumb.jpg");
+  }
+  const data = await request<{ reading: ReadingDTO }>("/api/meters", { method: "POST", body: form });
+  return data.reading;
+}
+
+export async function deleteReading(id: string): Promise<void> {
+  await request(`/api/meters/${id}`, { method: "DELETE" });
 }
 
 export type PieceInput = {

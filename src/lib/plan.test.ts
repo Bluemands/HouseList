@@ -66,6 +66,7 @@ const settings = (pot: number, monthly = 0): SettingsDTO => ({
   lastPaydayBy: null,
   workerSeenAt: null,
   bins: [],
+  meterDay: null,
 });
 
 describe("buildPlan", () => {

@@ -9,6 +9,7 @@ import { clip, itemUrl, notify, pushConfigured } from "@/lib/push";
  * person hears about what's due today that's theirs, "Both"'s or nobody's
  * in particular; things already overdue are mentioned alongside, and on
  * their own only on Mondays, so a slipped date nudges weekly, not daily.
+ * On the day of the month you chose, it also asks for meter readings.
  */
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
 
   const day = today();
   const [settings, items, phones] = await Promise.all([
-    prisma.settings.findUnique({ where: { id: 1 }, select: { members: true } }),
+    prisma.settings.findUnique({ where: { id: 1 }, select: { members: true, meterDay: true } }),
     prisma.item.findMany({
       where: { status: { not: "DONE" }, dueDate: { lte: fromDay(day)! } },
       select: { id: true, title: true, dueDate: true, assignee: true },
@@ -53,6 +54,15 @@ export async function GET(request: NextRequest) {
           url: overdue.length === 1 ? itemUrl(overdue[0].id) : "/?v=list",
         };
     await notify({ ...message, tag: "due" }, { to: member });
+    sent += 1;
+  }
+
+  // The monthly nudge to read the meters, on the day you chose.
+  if (settings?.meterDay && Number(day.slice(8, 10)) === settings.meterDay) {
+    await notify(
+      { title: "Meter readings", body: "Time to read the gas, electric and water meters.", url: "/?v=money", tag: "meters" },
+      "everyone",
+    );
     sent += 1;
   }
   return NextResponse.json({ ok: true, sent });

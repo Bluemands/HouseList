@@ -277,6 +277,8 @@ export type SettingsDTO = {
   /** When the AI worker last asked for work (ISO); null if one never has. */
   workerSeenAt: string | null;
   bins: Bin[];
+  /** Day of the month (1-28) for the meter reading reminder; null for none. */
+  meterDay: number | null;
 };
 
 export const TITLE_MAX = 200;

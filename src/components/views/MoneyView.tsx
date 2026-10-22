@@ -10,6 +10,7 @@ import { ROOM_PAINT } from "@/lib/rooms";
 import { ItemList, ItemRow } from "@/components/ItemRow";
 import { Button, CountingMoney, MoneyInput, PaintChip, SectionHead } from "@/components/ui";
 import { BetweenUs } from "@/components/Payments";
+import { Meters } from "@/components/Meters";
 
 export function MoneyView() {
   const { items, settings } = useStore();
@@ -47,6 +48,8 @@ export function MoneyView() {
       <PotPanel />
 
       <BetweenUs />
+
+      <Meters />
 
       <section aria-labelledby="plan-head">
         <SectionHead id="plan-head" title="The plan" />

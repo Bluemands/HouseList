@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/prisma";
-import type { AiJob, Board, BoardPiece, Comment, Item, Payment, Photo, Quote, Settings, Step } from "@/generated/prisma/client";
+import type { AiJob, Board, BoardPiece, Comment, Item, MeterReading, Payment, Photo, Quote, Settings, Step } from "@/generated/prisma/client";
 import { stepCostsKey, stepsTotal, type ItemDTO, type SettingsDTO } from "@/lib/types";
 import { OPEN_JOB_STATUSES, aiResultSchema, type AiJobDTO } from "@/lib/ai";
 import type { BoardDTO, PieceDTO } from "@/lib/boards";
 import type { PaymentDTO } from "@/lib/payments";
 import type { Bin } from "@/lib/bins";
+import type { ReadingDTO } from "@/lib/meters";
 import { binSchema } from "@/lib/validation";
 import { z } from "zod";
 
@@ -135,6 +136,24 @@ export async function getPayments(): Promise<PaymentDTO[]> {
   return payments.map(toPaymentDTO);
 }
 
+export function toReadingDTO(reading: MeterReading): ReadingDTO {
+  return {
+    id: reading.id,
+    meter: reading.meter,
+    value: reading.value,
+    takenOn: toDay(reading.takenOn)!,
+    photoId: reading.photoId,
+    takenBy: reading.takenBy,
+    createdAt: reading.createdAt.toISOString(),
+  };
+}
+
+/** Every meter reading: one a month per meter stays small for years. */
+export async function getReadings(): Promise<ReadingDTO[]> {
+  const readings = await prisma.meterReading.findMany({ orderBy: [{ takenOn: "desc" }, { createdAt: "desc" }] });
+  return readings.map(toReadingDTO);
+}
+
 /** Stored bins, read defensively: a shape change never reaches the UI half-formed. */
 function readBins(value: unknown): Bin[] {
   const parsed = z.array(binSchema).safeParse(value);
@@ -152,6 +171,7 @@ export function toSettingsDTO(settings: Settings): SettingsDTO {
     lastPaydayBy: settings.lastPaydayBy,
     workerSeenAt: settings.workerSeenAt?.toISOString() ?? null,
     bins: readBins(settings.bins),
+    meterDay: settings.meterDay,
   };
 }
 
@@ -199,6 +219,7 @@ export type State = {
   jobs: AiJobDTO[];
   boards: BoardDTO[];
   payments: PaymentDTO[];
+  readings: ReadingDTO[];
 };
 
 export async function getState(): Promise<State> {
@@ -210,5 +231,6 @@ export async function getState(): Promise<State> {
   const jobs = await getOpenJobs();
   const boards = await getBoards();
   const payments = await getPayments();
-  return { items: items.map(toItemDTO), settings: toSettingsDTO(settings), jobs, boards, payments };
+  const readings = await getReadings();
+  return { items: items.map(toItemDTO), settings: toSettingsDTO(settings), jobs, boards, payments, readings };
 }

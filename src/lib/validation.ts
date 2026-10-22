@@ -3,6 +3,7 @@ import { KINDS, PRIORITIES, REPEATS, ROOMS, STATUSES, TITLE_MAX } from "@/lib/ty
 import { BOARD_NAME_MAX, PIECE_KINDS } from "@/lib/boards";
 import { DESCRIPTION_MAX } from "@/lib/payments";
 import { BINS_MAX } from "@/lib/bins";
+import { METERS } from "@/lib/meters";
 
 const emptyToNull = (val: unknown) => (typeof val === "string" && val.trim() === "" ? null : val);
 
@@ -184,6 +185,13 @@ export const binSchema = z.object({
   changes: z.array(z.object({ on: isoDate, to: isoDate.nullable() })).max(30),
 });
 
+export const readingCreateSchema = z.object({
+  meter: z.enum(METERS),
+  value: z.number({ error: "Enter the reading" }).min(0, "Can't be negative").max(1_000_000_000, "That looks too large"),
+  takenOn: isoDate,
+  takenBy: z.string().trim().min(1).max(60),
+});
+
 export const settingsUpdateSchema = z.object({
   budgetAvailable: z
     .number({ error: "Enter a number" })
@@ -200,6 +208,7 @@ export const settingsUpdateSchema = z.object({
   addMember: z.string().trim().min(1).max(60).optional(),
   removeMember: z.string().trim().min(1).max(60).optional(),
   bins: z.array(binSchema).max(BINS_MAX, `Up to ${BINS_MAX} bins`).optional(),
+  meterDay: z.number().int().min(1).max(28).nullable().optional(),
 });
 
 const person = z.string().trim().min(1, "Who?").max(60);

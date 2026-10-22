@@ -160,6 +160,9 @@ model Settings {
   // Bin[] (src/lib/bins.ts): each bin's colour, how often it goes out, and
   // any one-off moved or missed collections.
   bins            Json      @default("[]")
+  // The day of the month (1-28) the morning reminder asks for meter
+  // readings; null for no reminder.
+  meterDay        Int?
 }
 
 // Money one of the household owes the other: usually a bill one of them paid,
@@ -192,6 +195,27 @@ model Payment {
   @@index([paidOn])
   @@index([settlementId])
   @@index([itemId])
+}
+
+enum Meter {
+  GAS
+  ELECTRIC
+  WATER
+}
+
+// One reading of one meter, for the supplier and to see how much you use.
+model MeterReading {
+  id      String   @id @default(cuid())
+  meter   Meter
+  value   Float
+  takenOn DateTime @db.Date
+  // A photo of the dial, stored like an item's photos under this id, in case
+  // a bill is ever disputed.
+  photoId String?
+  takenBy String
+  createdAt DateTime @default(now())
+
+  @@index([meter, takenOn])
 }
 
 // A list printed to tick off on paper. It keeps the lines as printed, so

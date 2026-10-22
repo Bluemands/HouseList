@@ -200,6 +200,7 @@ const settings: SettingsDTO = {
   lastPaydayBy: null,
   workerSeenAt: null,
   bins: [],
+  meterDay: null,
 };
 
 describe("the tools", () => {

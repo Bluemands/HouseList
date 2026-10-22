@@ -14,6 +14,7 @@ import type { BoardDTO, PieceDTO } from "@/lib/boards";
 import type { Kind, Room } from "@/lib/types";
 import type { ItemCreateInput, ItemUpdateInput, PaymentCreateInput, PaymentUpdateInput, SettingsUpdateInput } from "@/lib/validation";
 import { net, paidLine, type PaymentDTO } from "@/lib/payments";
+import type { Meter, ReadingDTO } from "@/lib/meters";
 import type { BulkCandidate } from "@/components/BulkAddSheet";
 import type { AiJobDTO, AiJobUpdate } from "@/lib/ai";
 
@@ -92,6 +93,12 @@ type Store = {
   reopenPayments: (paid: PaymentDTO[]) => void;
   /** Moves a whole settle-up to the day it was really paid. */
   redateSettlement: (settlementId: string, paidOn: string) => void;
+  /** Meter readings, newest first. */
+  readings: ReadingDTO[];
+  /** Several meters read at once, each with an optional photo; resolves to how many saved. */
+  addReadings: (list: { meter: Meter; value: number; takenOn: string; photo?: File | null }[]) => Promise<number>;
+  /** Gone at once, back with one tap. */
+  removeReading: (reading: ReadingDTO) => void;
   /** Private calendar subscription path for due dates. */
   calendarPath: string;
   /** Private path of Claude's connector (the MCP server). */
@@ -213,6 +220,7 @@ export function StoreProvider({
   initialJobs,
   initialBoards,
   initialPayments,
+  initialReadings,
   me,
   calendarPath,
   connectorPath,
@@ -224,6 +232,7 @@ export function StoreProvider({
   initialJobs: AiJobDTO[];
   initialBoards: BoardDTO[];
   initialPayments: PaymentDTO[];
+  initialReadings: ReadingDTO[];
   me: string;
   calendarPath: string;
   connectorPath: string;
@@ -235,6 +244,7 @@ export function StoreProvider({
   const [jobs, setJobs] = useState(initialJobs);
   const [boards, setBoards] = useState(initialBoards);
   const [payments, setPayments] = useState(initialPayments);
+  const [readings, setReadings] = useState(initialReadings);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [editing, setEditing] = useState<Store["editing"]>(null);
   const [justAdded, setJustAdded] = useState<string | null>(null);
@@ -332,6 +342,7 @@ export function StoreProvider({
       setJobs(state.jobs);
       setBoards(state.boards);
       setPayments(state.payments);
+      setReadings(state.readings);
     } catch {
       // Background sync is best-effort; keep what's on screen.
     }
@@ -917,6 +928,60 @@ export function StoreProvider({
     [payments, mergePayments, fail],
   );
 
+  const addReadings = useCallback<Store["addReadings"]>(
+    async (list) => {
+      let saved = 0;
+      for (const { photo, ...reading } of list) {
+        let prepared: PreparedPhoto | null = null;
+        if (photo) {
+          try {
+            prepared = await preparePhoto(photo);
+          } catch {
+            toast({ message: "That photo couldn't be opened, so the reading went in without it", tone: "error" });
+          }
+        }
+        try {
+          const created = await track(() => api.addReading({ ...reading, takenBy: me }, prepared));
+          setReadings((all) => [created, ...all]);
+          saved += 1;
+        } catch (err) {
+          fail(err);
+        }
+      }
+      return saved;
+    },
+    [me, toast, fail],
+  );
+
+  const removeReading = useCallback<Store["removeReading"]>(
+    (reading) => {
+      const key = `reading:${reading.id}`;
+      setReadings((all) => all.filter((r) => r.id !== reading.id));
+      const timer = window.setTimeout(async () => {
+        pendingDeletes.current.delete(key);
+        try {
+          await track(() => api.deleteReading(reading.id));
+        } catch (err) {
+          setReadings((all) => [reading, ...all]);
+          fail(err);
+        }
+      }, UNDO_MS);
+      pendingDeletes.current.set(key, timer);
+      toast({
+        message: "Deleted the reading",
+        action: {
+          label: "Undo",
+          run: () => {
+            window.clearTimeout(timer);
+            pendingDeletes.current.delete(key);
+            setReadings((all) => (all.some((r) => r.id === reading.id) ? all : [reading, ...all]));
+          },
+        },
+      });
+    },
+    [toast, fail],
+  );
+
   const addItems = useCallback<Store["addItems"]>(
     async (inputs) => {
       try {
@@ -1112,6 +1177,9 @@ export function StoreProvider({
       settleUp,
       reopenPayments,
       redateSettlement,
+      readings,
+      addReadings,
+      removeReading,
       calendarPath,
       connectorPath,
       workerToken,
@@ -1139,7 +1207,7 @@ export function StoreProvider({
       openBulk: setBulk,
       closeBulk: () => setBulk(null),
     }),
-    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, addPhoto, deletePhoto, boards, createBoard, updateBoard, removeBoard, addPiece, updatePiece, removePiece, pieceToItem, payments, addPayment, updatePayment, togglePaid, removePayment, settleUp, reopenPayments, redateSettlement, calendarPath, connectorPath, workerToken, jobs, jobByItem, askClaude, undoImprove, updateJob, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, holdToast, toasts, editing, justAdded, bulk],
+    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, addPhoto, deletePhoto, boards, createBoard, updateBoard, removeBoard, addPiece, updatePiece, removePiece, pieceToItem, payments, addPayment, updatePayment, togglePaid, removePayment, settleUp, reopenPayments, redateSettlement, readings, addReadings, removeReading, calendarPath, connectorPath, workerToken, jobs, jobByItem, askClaude, undoImprove, updateJob, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, holdToast, toasts, editing, justAdded, bulk],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
