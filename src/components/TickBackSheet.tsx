@@ -2,18 +2,20 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
-import { Check, X } from "lucide-react";
+import { Check, Trash2, X } from "lucide-react";
 import * as api from "@/lib/api-client";
 import { lineLabels, lineState, type PrintOutDTO } from "@/lib/printouts";
 import { describeDay, toDayString } from "@/lib/format";
-import { useStore } from "@/lib/store";
+import { UNDO_MS, useStore } from "@/lib/store";
+import { hidePrintOut } from "@/components/RecentPrintOuts";
 import { useSheetDrag } from "@/lib/useSheetDrag";
 import { Button } from "@/components/ui";
 
 /**
  * Ticking a print-out back in: the list as it went on paper, same order and
  * numbers, to tap what was ticked by hand. One "Mark done" finishes them all,
- * with one undo; anything done or deleted since says so instead.
+ * with one undo; anything done or deleted since says so instead. A test or
+ * stale one can be thrown away without ticking anything.
  */
 export function TickBackSheet({ id, leaving, onClose }: { id: string; leaving: boolean; onClose: () => void }) {
   const { itemById, patchItem, toast } = useStore();
@@ -65,6 +67,28 @@ export function TickBackSheet({ id, leaving, onClose }: { id: string; leaving: b
         run: () => {
           for (const item of items) patchItem(item.id, { status: item.status, actualPrice: item.actualPrice });
           for (const l of steps) patchItem(l.itemId, { stepDone: { id: l.stepId!, done: false } });
+        },
+      },
+    });
+    onClose();
+  }
+
+  // Like deleting items: gone at once, really gone when the undo window closes.
+  function throwAway() {
+    hidePrintOut(id, true);
+    const timer = window.setTimeout(() => {
+      api.deletePrintOut(id).catch((err) => {
+        hidePrintOut(id, false);
+        toast({ message: err instanceof Error ? err.message : "Couldn't delete that print-out", tone: "error" });
+      });
+    }, UNDO_MS);
+    toast({
+      message: `Deleted the print-out “${printOut?.title ?? ""}”`,
+      action: {
+        label: "Undo",
+        run: () => {
+          window.clearTimeout(timer);
+          hidePrintOut(id, false);
         },
       },
     });
@@ -177,9 +201,16 @@ export function TickBackSheet({ id, leaving, onClose }: { id: string; leaving: b
       </div>
 
       <div className="flex items-center gap-2 border-t border-line bg-surface px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))]">
-        <Button variant="ghost" onClick={onClose} className="px-3">
-          Cancel
-        </Button>
+        {printOut ? (
+          <Button variant="danger" onClick={throwAway} className="px-3">
+            <Trash2 size={16} aria-hidden="true" />
+            Delete
+          </Button>
+        ) : (
+          <Button variant="ghost" onClick={onClose} className="px-3">
+            Cancel
+          </Button>
+        )}
         <Button onClick={markDone} disabled={!count} className="ml-auto min-w-36">
           {count ? `Mark ${count} done` : "Mark done"}
         </Button>

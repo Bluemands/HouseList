@@ -232,3 +232,7 @@ export async function fetchPrintOut(id: string): Promise<PrintOutDTO> {
   });
   return printOut;
 }
+
+export async function deletePrintOut(id: string): Promise<void> {
+  await request(`/api/printouts/${encodeURIComponent(id)}`, { method: "DELETE" });
+}

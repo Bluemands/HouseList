@@ -10,6 +10,17 @@ import { describeDay, toDayString } from "@/lib/format";
 export const TickBackContext = createContext<(id: string) => void>(() => {});
 export const useTickBack = () => useContext(TickBackContext);
 
+// Print-outs thrown away but still in their undo window, kept off the list.
+const hidden = new Set<string>();
+const HIDDEN_EVENT = "printouts-hidden";
+
+/** Takes a print-out off (or puts it back on) every list on this phone. */
+export function hidePrintOut(id: string, hide: boolean) {
+  if (hide) hidden.add(id);
+  else hidden.delete(id);
+  window.dispatchEvent(new Event(HIDDEN_EVENT));
+}
+
 /**
  * The last few print-outs, to pick the one in your hand and tick it back in
  * (the QR code on the paper does the same). Nothing shows until there's one.
@@ -17,6 +28,7 @@ export const useTickBack = () => useContext(TickBackContext);
 export function RecentPrintOuts({ limit = 3 }: { limit?: number }) {
   const open = useTickBack();
   const [printOuts, setPrintOuts] = useState<PrintOutSummary[]>([]);
+  const [, setHiddenSeq] = useState(0);
 
   useEffect(() => {
     let live = true;
@@ -29,13 +41,17 @@ export function RecentPrintOuts({ limit = 3 }: { limit?: number }) {
     // Back from printing (or from the other phone's), the list is fresh.
     const onShow = () => document.visibilityState === "visible" && load();
     document.addEventListener("visibilitychange", onShow);
+    const onHidden = () => setHiddenSeq((n) => n + 1);
+    window.addEventListener(HIDDEN_EVENT, onHidden);
     return () => {
       live = false;
       document.removeEventListener("visibilitychange", onShow);
+      window.removeEventListener(HIDDEN_EVENT, onHidden);
     };
   }, []);
 
-  if (!printOuts.length) return null;
+  const shown = printOuts.filter((p) => !hidden.has(p.id));
+  if (!shown.length) return null;
 
   return (
     <section aria-labelledby="printouts-head">
@@ -43,7 +59,7 @@ export function RecentPrintOuts({ limit = 3 }: { limit?: number }) {
         Print-outs
       </h2>
       <ul className="overflow-hidden rounded-2xl border border-line bg-surface">
-        {printOuts.slice(0, limit).map((p) => (
+        {shown.slice(0, limit).map((p) => (
           <li key={p.id} className="border-b border-line last:border-b-0">
             <button
               type="button"

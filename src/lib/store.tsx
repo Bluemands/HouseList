@@ -131,7 +131,7 @@ export function useStore(): Store {
 }
 
 const POLL_MS = 15_000;
-const UNDO_MS = 6_000;
+export const UNDO_MS = 6_000;
 /** Long enough to find the receipt; it doesn't go while the box is in use. */
 const ASK_MS = 12_000;
 /** How long a ticked row lingers in an open list (matches .row-leave). */
