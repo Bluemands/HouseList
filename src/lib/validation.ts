@@ -209,9 +209,15 @@ const paymentFields = {
 const notOneself = (p: { owedBy?: string; owedTo?: string }) =>
   !p.owedBy || !p.owedTo || p.owedBy.toLowerCase() !== p.owedTo.toLowerCase();
 
+// A share of a bill can't be more than the bill.
+const withinBill = (p: { amount?: number; billTotal?: number | null }) =>
+  p.amount == null || p.billTotal == null || p.amount <= p.billTotal;
+const overBill = { message: "That's more than the whole bill", path: ["amount"] };
+
 export const paymentCreateSchema = z
-  .object({ ...paymentFields, addedBy: person })
-  .refine(notOneself, { message: "Pick who owes whom", path: ["owedTo"] });
+  .object({ ...paymentFields, itemId: z.string().min(1).max(40).nullable().optional(), addedBy: person })
+  .refine(notOneself, { message: "Pick who owes whom", path: ["owedTo"] })
+  .refine(withinBill, overBill);
 
 export const paymentUpdateSchema = z
   .object({
@@ -220,7 +226,8 @@ export const paymentUpdateSchema = z
     paidOn: isoDate.nullable().optional(),
     actor: person,
   })
-  .refine(notOneself, { message: "Pick who owes whom", path: ["owedTo"] });
+  .refine(notOneself, { message: "Pick who owes whom", path: ["owedTo"] })
+  .refine(withinBill, overBill);
 
 /** Several ticked off at once as one settle-up, or (paidOn null) reopened. */
 export const paymentSettleSchema = z.object({

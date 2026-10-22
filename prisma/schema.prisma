@@ -107,6 +107,8 @@ model Item {
   aiJobs   AiJob[]
   // Where it's pinned on a planning board, if anywhere.
   pieces   BoardPiece[]
+  // Split between the two of you after one paid for it.
+  payments Payment[]
 
   @@index([status])
   @@index([priority])
@@ -176,12 +178,17 @@ model Payment {
   paidBy      String?
   // Paid together in one settle-up: every payment it cleared shares this.
   settlementId String?
+  // The thing on the list this was half of, when a purchase was split.
+  itemId      String?
   addedBy     String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  item Item? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
   @@index([paidOn])
   @@index([settlementId])
+  @@index([itemId])
 }
 
 // A list printed to tick off on paper. It keeps the lines as printed, so

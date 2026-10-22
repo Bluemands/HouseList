@@ -50,6 +50,7 @@ function row(id: string, over: Partial<Row> = {}): Row {
     paidOn: null,
     paidBy: null,
     settlementId: null,
+    itemId: null,
     addedBy: "Connor",
     createdAt: new Date("2026-10-01T09:00:00Z"),
     updatedAt: new Date("2026-10-01T09:00:00Z"),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { balances, clearedIn, half, history, net, owesLine, paidLine, recentDescriptions, type PaymentDTO } from "@/lib/payments";
+import { balances, clearedIn, half, history, net, owesLine, paidLine, recentDescriptions, shareOf, splitNote, type PaymentDTO } from "@/lib/payments";
 
 let seq = 0;
 function payment(over: Partial<PaymentDTO> = {}): PaymentDTO {
@@ -15,6 +15,7 @@ function payment(over: Partial<PaymentDTO> = {}): PaymentDTO {
     paidOn: null,
     paidBy: null,
     settlementId: null,
+    itemId: null,
     addedBy: "Connor",
     createdAt: `2026-10-01T10:00:${String(seq % 60).padStart(2, "0")}.000Z`,
     ...over,
@@ -124,6 +125,21 @@ describe("recentDescriptions", () => {
     ]);
     expect(out.map((r) => r.description)).toEqual(["council tax", "Broadband"]);
     expect(out[0].billTotal).toBe(170);
+  });
+});
+
+describe("splitNote", () => {
+  const gbp = (n: number) => `£${n}`;
+  it("says how the bill was shared", () => {
+    expect(splitNote({ amount: 85, billTotal: 170 }, gbp)).toBe("half of £170");
+    expect(splitNote({ amount: shareOf(170, 40), billTotal: 170 }, gbp)).toBe("40% of £170");
+    expect(splitNote({ amount: 50, billTotal: 170 }, gbp)).toBe("29% of £170");
+    expect(splitNote({ amount: 12, billTotal: null }, gbp)).toBeNull();
+  });
+
+  it("takes a share to the penny", () => {
+    expect(shareOf(170, 40)).toBe(68);
+    expect(shareOf(99.99, 30)).toBe(30);
   });
 });
 

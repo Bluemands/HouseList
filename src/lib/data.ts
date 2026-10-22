@@ -120,6 +120,7 @@ export function toPaymentDTO(payment: Payment): PaymentDTO {
     paidOn: toDay(payment.paidOn),
     paidBy: payment.paidBy,
     settlementId: payment.settlementId,
+    itemId: payment.itemId,
     addedBy: payment.addedBy,
     createdAt: payment.createdAt.toISOString(),
   };

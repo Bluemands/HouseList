@@ -16,8 +16,10 @@ export class PaymentError extends Error {
 }
 
 export async function createPayment(data: z.output<typeof paymentCreateSchema>) {
+  // Split from something on the list that's since been deleted: logged all the same.
+  const itemId = data.itemId && (await prisma.item.count({ where: { id: data.itemId } })) ? data.itemId : null;
   const payment = await prisma.payment.create({
-    data: { ...data, billTotal: data.billTotal ?? null, billedOn: fromDay(data.billedOn)! },
+    data: { ...data, itemId, billTotal: data.billTotal ?? null, billedOn: fromDay(data.billedOn)! },
   });
   return toPaymentDTO(payment);
 }
@@ -30,6 +32,9 @@ export async function updatePayment(id: string, data: z.output<typeof paymentUpd
   const owedBy = rest.owedBy ?? before.owedBy;
   const owedTo = rest.owedTo ?? before.owedTo;
   if (owedBy.toLowerCase() === owedTo.toLowerCase()) throw new PaymentError("Pick who owes whom");
+  const amount = rest.amount ?? before.amount;
+  const billTotal = rest.billTotal === undefined ? before.billTotal : rest.billTotal;
+  if (billTotal != null && amount > billTotal) throw new PaymentError("That's more than the whole bill");
 
   const paid: { paidOn?: Date | null; paidBy?: string | null; settlementId?: string | null } = {};
   const wasPaidOn = before.paidOn?.toISOString().slice(0, 10) ?? null;

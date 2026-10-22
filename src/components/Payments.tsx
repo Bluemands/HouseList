@@ -8,6 +8,7 @@ import { useSheetExit } from "@/lib/useSheetDrag";
 import { describeDay, formatGBP, today } from "@/lib/format";
 import {
   DESCRIPTION_MAX,
+  SHARE_PRESETS,
   balances,
   clearedIn,
   half,
@@ -15,11 +16,15 @@ import {
   owesLine,
   paidLine,
   paysLine,
+  pence,
   recentDescriptions,
+  shareOf,
+  splitNote,
   type Balance,
   type HistoryEntry,
   type PaymentDTO,
 } from "@/lib/payments";
+import type { ItemDTO } from "@/lib/types";
 import { MiniSheet } from "@/components/MiniSheet";
 import { Button, Chip, Field, MoneyInput, SectionHead, Segmented, TickButton, inputClass } from "@/components/ui";
 
@@ -207,7 +212,7 @@ function OpenPayments({
               </span>
               <span className="block text-meta text-ink-3">
                 {owesLine(p.owedBy, p.owedTo, me)} · {shortDay(p.billedOn)}
-                {p.billTotal != null && ` · half of ${formatGBP(p.billTotal)}`}
+                {p.billTotal != null && ` · ${splitNote(p, formatGBP)}`}
               </span>
             </button>
             <span className="shrink-0 font-semibold text-ink tabular">{formatGBP(p.amount)}</span>
@@ -420,11 +425,73 @@ function SettleSheet({ people, leaving, onClose }: { people: [string, string]; l
   );
 }
 
+/**
+ * On a finished item one of you paid for: split what it cost with the other,
+ * and what's been split of it already.
+ */
+export function SplitField({ item }: { item: ItemDTO }) {
+  const { payments, me } = useStore();
+  const [open, setOpen] = useState(false);
+  const sheet = useSheetExit(open || null);
+  const linked = payments.filter((p) => p.itemId === item.id);
+  const cost = item.actualPrice ?? item.estimatedPrice;
+  if (!linked.length && !cost) return null;
+  return (
+    <div className="grid justify-items-start gap-1.5">
+      {linked.map((p) => (
+        <p key={p.id} className="text-supporting text-ink-2">
+          Split: {owesLine(p.owedBy, p.owedTo, me)} <span className="font-semibold text-ink tabular">{formatGBP(p.amount)}</span>
+          {" · "}
+          {p.paidOn ? `paid ${describeDay(p.paidOn)}` : "not paid yet"}
+        </p>
+      ))}
+      {!linked.length && cost != null && (
+        <Button variant="secondary" onClick={() => setOpen(true)} className="px-3 py-2">
+          Split it: {formatGBP(half(cost))} each
+        </Button>
+      )}
+      {sheet.shown && (
+        <PaymentSheet
+          key={sheet.opening}
+          payment={null}
+          from={{ itemId: item.id, title: item.title, cost: cost ?? 0 }}
+          leaving={sheet.leaving}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 type Direction = "theyOwe" | "iOwe";
 
+/** How much of the bill is owed: half, a percentage or an exact amount of it, or all of it. */
+type Share = { mode: "half" | "custom" | "all"; pct: number | null; exact: string };
+const HALF: Share = { mode: "half", pct: null, exact: "" };
+
+/** The share a logged payment used, to edit it or log the same again. */
+function shareFrom(p: Pick<PaymentDTO, "amount" | "billTotal">): Share {
+  if (p.billTotal == null) return { ...HALF, mode: "all" };
+  if (p.amount === half(p.billTotal)) return HALF;
+  const pct = SHARE_PRESETS.find((s) => shareOf(p.billTotal!, s) === p.amount);
+  return pct ? { mode: "custom", pct, exact: "" } : { mode: "custom", pct: null, exact: String(p.amount) };
+}
+
 /** Logging a payment, or putting one right (its paid date too). */
-function PaymentSheet({ payment, leaving, onClose }: { payment: PaymentDTO | null; leaving: boolean; onClose: () => void }) {
-  const { payments, me, settings, addPayment, updatePayment, removePayment } = useStore();
+function PaymentSheet({
+  payment,
+  from,
+  leaving,
+  onClose,
+}: {
+  payment: PaymentDTO | null;
+  /** Splitting something bought from the list: what it was and what it cost. */
+  from?: { itemId: string; title: string; cost: number };
+  leaving: boolean;
+  onClose: () => void;
+}) {
+  const { payments, me, settings, itemById, addPayment, updatePayment, removePayment, openItem } = useStore();
+  const linked = payment?.itemId ? itemById.get(payment.itemId) : undefined;
   // Who the other person is: from the payment being edited, else whoever else uses the app.
   const others = useMemo(() => {
     const names = settings.members.filter((m) => m.toLowerCase() !== me.toLowerCase());
@@ -437,9 +504,9 @@ function PaymentSheet({ payment, leaving, onClose }: { payment: PaymentDTO | nul
   // Someone else's payment between two other people: shown from the side of the one owed.
   const self = payment && payment.owedBy !== me && payment.owedTo !== me ? payment.owedTo : me;
 
-  const [description, setDescription] = useState(payment?.description ?? "");
-  const [total, setTotal] = useState(payment ? String(payment.billTotal ?? payment.amount) : "");
-  const [split, setSplit] = useState(payment ? payment.billTotal != null : true);
+  const [description, setDescription] = useState(payment?.description ?? from?.title ?? "");
+  const [total, setTotal] = useState(payment ? String(payment.billTotal ?? payment.amount) : from ? String(from.cost) : "");
+  const [share, setShare] = useState<Share>(payment ? shareFrom(payment) : HALF);
   const [other, setOther] = useState(
     payment ? (payment.owedBy === self ? payment.owedTo : payment.owedBy) : (others[0] ?? ""),
   );
@@ -457,15 +524,38 @@ function PaymentSheet({ payment, leaving, onClose }: { payment: PaymentDTO | nul
   );
 
   const n = Number(total.replace(/,/g, ""));
-  const amount = Number.isFinite(n) && n > 0 ? (split ? half(n) : Math.round(n * 100) / 100) : null;
+  const bill = Number.isFinite(n) && n > 0 ? pence(n) : null;
+  const exact = Number(share.exact.replace(/,/g, ""));
+  const amount =
+    bill == null
+      ? null
+      : share.mode === "half"
+        ? half(bill)
+        : share.mode === "all"
+          ? bill
+          : share.pct != null
+            ? shareOf(bill, share.pct)
+            : Number.isFinite(exact) && exact > 0
+              ? pence(exact)
+              : null;
+  const split = share.mode !== "all";
+  const overBill = split && bill != null && amount != null && amount > bill;
   const name = other.trim();
   const [owedBy, owedTo] = direction === "iOwe" ? [self, name] : [name, self];
-  const ready = description.trim().length > 0 && amount != null && amount > 0 && !!name && name.toLowerCase() !== self.toLowerCase();
+  // Whose share it is, in the words of whoever's looking.
+  const debtor = owedBy === me ? "Your" : name ? `${name}’s` : "Their";
+  const ready =
+    description.trim().length > 0 &&
+    amount != null &&
+    amount > 0 &&
+    !overBill &&
+    !!name &&
+    name.toLowerCase() !== self.toLowerCase();
 
   function applyRecent(r: (typeof recent)[number]) {
     setDescription(r.description);
     setTotal(String(r.billTotal ?? r.amount));
-    setSplit(r.billTotal != null);
+    setShare(shareFrom(r));
     if (r.owedBy === me || r.owedTo === me) {
       setDirection(r.owedBy === me ? "iOwe" : "theyOwe");
       setOther(r.owedBy === me ? r.owedTo : r.owedBy);
@@ -479,14 +569,14 @@ function PaymentSheet({ payment, leaving, onClose }: { payment: PaymentDTO | nul
     const fields = {
       description: description.trim(),
       amount: amount!,
-      billTotal: split ? n : null,
+      billTotal: split ? bill : null,
       owedBy,
       owedTo,
       billedOn: billedOn || today(),
     };
     const saved = payment
       ? await updatePayment(payment, { ...fields, ...(paidOn !== payment.paidOn && { paidOn }) })
-      : await addPayment(fields);
+      : await addPayment({ ...fields, itemId: from?.itemId ?? null });
     setBusy(false);
     if (saved) onClose();
   }
@@ -518,6 +608,18 @@ function PaymentSheet({ payment, leaving, onClose }: { payment: PaymentDTO | nul
       }
     >
       <form id="payment-form" onSubmit={save} className="grid gap-4">
+        {linked && (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              openItem(linked.id);
+            }}
+            className="justify-self-start text-supporting font-medium text-accent-text hover:underline"
+          >
+            From the list: {linked.title}
+          </button>
+        )}
         <Field label="What for">
           <input
             value={description}
@@ -542,10 +644,11 @@ function PaymentSheet({ payment, leaving, onClose }: { payment: PaymentDTO | nul
         <Field label="How much of it">
           <Segmented
             label="How much of it"
-            value={split ? "half" : "all"}
-            onChange={(v) => setSplit(v === "half")}
+            value={share.mode}
+            onChange={(mode) => setShare(mode === "custom" ? { mode, pct: SHARE_PRESETS[1], exact: "" } : { ...HALF, mode })}
             options={[
               { value: "half", label: "Half each" },
+              { value: "custom", label: "Custom" },
               { value: "all", label: "All of it" },
             ]}
           />
@@ -553,10 +656,46 @@ function PaymentSheet({ payment, leaving, onClose }: { payment: PaymentDTO | nul
 
         <Field
           label={split ? "The whole bill" : "What’s owed"}
-          hint={split && amount && name ? `So ${owesLine(owedBy, owedTo, me).replace(/^You /, "you ")} ${formatGBP(amount)}` : undefined}
+          hint={
+            overBill
+              ? "That’s more than the whole bill."
+              : split && amount && name
+                ? `So ${owesLine(owedBy, owedTo, me).replace(/^You /, "you ")} ${formatGBP(amount)}${
+                    share.mode === "custom" && bill ? ` (${splitNote({ amount, billTotal: bill }, formatGBP)})` : ""
+                  }`
+                : undefined
+          }
         >
           <MoneyInput label={split ? "The whole bill" : "What’s owed"} value={total} onChange={setTotal} placeholder="0.00" />
         </Field>
+
+        {share.mode === "custom" && (
+          <Field label={`${debtor} share`}>
+            <div className="flex flex-wrap gap-1.5">
+              {SHARE_PRESETS.map((pct) => (
+                <Chip key={pct} selected={share.pct === pct} onClick={() => setShare({ mode: "custom", pct, exact: "" })}>
+                  {pct}%
+                </Chip>
+              ))}
+              <Chip
+                selected={share.pct == null}
+                onClick={() =>
+                  setShare({ mode: "custom", pct: null, exact: amount != null && share.pct != null ? String(amount) : share.exact })
+                }
+              >
+                Exact amount
+              </Chip>
+            </div>
+            {share.pct == null && (
+              <MoneyInput
+                label={`${debtor} share, in pounds`}
+                value={share.exact}
+                onChange={(exact) => setShare({ mode: "custom", pct: null, exact })}
+                placeholder="0.00"
+              />
+            )}
+          </Field>
+        )}
 
         <Field label="Who owes whom">
           {others.length > 1 && (

@@ -42,6 +42,7 @@ import { PhotosField } from "@/components/Photos";
 import { AskClaude } from "@/components/AskClaude";
 import { PlanNote } from "@/components/PlanNote";
 import { LinksField, StepsField, parseMoney, type DraftStep } from "@/components/StepsField";
+import { SplitField } from "@/components/Payments";
 
 type Draft = {
   title: string;
@@ -725,6 +726,7 @@ function SheetBody({
                 <MoneyInput label="Paid" placeholder="What it actually cost" value={draft.actualPrice} onChange={(v) => set("actualPrice", v)} />
               </div>
             )}
+            {item?.status === "DONE" && <SplitField item={item} />}
           </Field>
 
           <PlanNote planned={planned} isNew={isNew} />

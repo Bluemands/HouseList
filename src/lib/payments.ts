@@ -18,6 +18,8 @@ export type PaymentDTO = {
   paidBy: string | null;
   /** Shared by every payment cleared in the same settle-up. */
   settlementId: string | null;
+  /** The thing on the list this was a share of, when a purchase was split. */
+  itemId: string | null;
   addedBy: string;
   createdAt: string;
 };
@@ -138,6 +140,19 @@ export function recentDescriptions(payments: PaymentDTO[], limit = 5): Recent[] 
     if (out.length === limit) break;
   }
   return out;
+}
+
+/** Shares of a bill offered in a tap, as the percentage the one who owes covers. */
+export const SHARE_PRESETS = [30, 40, 60, 70] as const;
+
+/** `pct` percent of a bill, to the penny. */
+export const shareOf = (total: number, pct: number) => pence((total * pct) / 100);
+
+/** How a split bill was shared: "half of £170", "40% of £170"; null when it wasn't split. */
+export function splitNote(p: Pick<PaymentDTO, "amount" | "billTotal">, format: (n: number) => string) {
+  if (p.billTotal == null || p.billTotal <= 0) return null;
+  if (p.amount === half(p.billTotal)) return `half of ${format(p.billTotal)}`;
+  return `${Math.round((p.amount / p.billTotal) * 100)}% of ${format(p.billTotal)}`;
 }
 
 /** "Kerry owes you", "You owe Kerry", "Kerry owes Connor", from where `me` stands. */
