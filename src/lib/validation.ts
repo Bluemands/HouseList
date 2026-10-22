@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { KINDS, PRIORITIES, REPEATS, ROOMS, STATUSES, TITLE_MAX } from "@/lib/types";
 import { BOARD_NAME_MAX, PIECE_KINDS } from "@/lib/boards";
+import { DESCRIPTION_MAX } from "@/lib/payments";
 
 const emptyToNull = (val: unknown) => (typeof val === "string" && val.trim() === "" ? null : val);
 
@@ -190,6 +191,46 @@ export const settingsUpdateSchema = z.object({
   removeMember: z.string().trim().min(1).max(60).optional(),
 });
 
+const person = z.string().trim().min(1, "Who?").max(60);
+
+const paymentFields = {
+  description: z
+    .string({ error: "What was it for?" })
+    .trim()
+    .min(1, "What was it for?")
+    .max(DESCRIPTION_MAX, `Keep it under ${DESCRIPTION_MAX} characters`),
+  amount: money.min(0.01, "Enter what's owed"),
+  billTotal: optionalMoney,
+  owedBy: person,
+  owedTo: person,
+  billedOn: isoDate,
+};
+
+const notOneself = (p: { owedBy?: string; owedTo?: string }) =>
+  !p.owedBy || !p.owedTo || p.owedBy.toLowerCase() !== p.owedTo.toLowerCase();
+
+export const paymentCreateSchema = z
+  .object({ ...paymentFields, addedBy: person })
+  .refine(notOneself, { message: "Pick who owes whom", path: ["owedTo"] });
+
+export const paymentUpdateSchema = z
+  .object({
+    ...z.object(paymentFields).partial().shape,
+    // Null: not paid after all.
+    paidOn: isoDate.nullable().optional(),
+    actor: person,
+  })
+  .refine(notOneself, { message: "Pick who owes whom", path: ["owedTo"] });
+
+/** Several ticked off at once as one settle-up, or (paidOn null) reopened. */
+export const paymentSettleSchema = z.object({
+  ids: z.array(z.string().min(1).max(40)).min(1, "Nothing to settle").max(500),
+  paidOn: isoDate.nullable(),
+  actor: person,
+});
+
+export const settlementUpdateSchema = z.object({ paidOn: isoDate });
+
 const printLine = z.object({
   itemId: z.string().min(1).max(40),
   stepId: z.string().min(1).max(40).nullable().optional(),
@@ -206,3 +247,5 @@ export const printOutCreateSchema = z.object({
 export type ItemCreateInput = z.input<typeof itemCreateSchema>;
 export type ItemUpdateInput = z.input<typeof itemUpdateSchema>;
 export type SettingsUpdateInput = z.input<typeof settingsUpdateSchema>;
+export type PaymentCreateInput = z.input<typeof paymentCreateSchema>;
+export type PaymentUpdateInput = z.input<typeof paymentUpdateSchema>;

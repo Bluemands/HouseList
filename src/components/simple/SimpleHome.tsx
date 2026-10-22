@@ -13,12 +13,14 @@ import { PrintButton } from "@/components/PrintButton";
 import { RecentPrintOuts } from "@/components/RecentPrintOuts";
 import { BoardsRail } from "@/components/board/BoardsRail";
 import { PhotoThumb } from "@/components/PhotoThumb";
+import { BetweenUsCard, BetweenUsLink } from "@/components/Payments";
 
 /**
  * The simple layout: the house as one paper-like checklist, room by room, in
  * the order things were written down. Ticked things stay crossed out until
  * tomorrow, so the day's work stays in sight. Everything else (money, plans,
- * priorities, Claude) lives in the full layout.
+ * priorities, Claude) lives in the full layout, apart from what the two of
+ * you owe each other, which shows while something is owed.
  */
 export function SimpleHome({ onAdd, onSettings }: { onAdd: () => void; onSettings: () => void }) {
   const { items, me } = useStore();
@@ -53,6 +55,8 @@ export function SimpleHome({ onAdd, onSettings }: { onAdd: () => void; onSetting
           <Settings size={21} />
         </button>
       </header>
+
+      <BetweenUsCard />
 
       <RecentPrintOuts />
 
@@ -110,6 +114,8 @@ export function SimpleHome({ onAdd, onSettings }: { onAdd: () => void; onSetting
           className="justify-self-center"
         />
       )}
+
+      <BetweenUsLink />
 
       {/* The one way in: big, at the thumb. */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/92 px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] backdrop-blur-lg">

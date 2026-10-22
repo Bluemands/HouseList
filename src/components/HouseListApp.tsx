@@ -14,6 +14,7 @@ import { useRoute } from "@/lib/nav";
 import type { ItemDTO, SettingsDTO } from "@/lib/types";
 import type { AiJobDTO } from "@/lib/ai";
 import type { BoardDTO } from "@/lib/boards";
+import type { PaymentDTO } from "@/lib/payments";
 import { NameGate } from "@/components/NameGate";
 import { SettingsSheet } from "@/components/SettingsSheet";
 import { Toasts } from "@/components/Toasts";
@@ -32,6 +33,7 @@ type Props = {
   initialSettings: SettingsDTO;
   initialJobs: AiJobDTO[];
   initialBoards: BoardDTO[];
+  initialPayments: PaymentDTO[];
   calendarPath: string;
   connectorPath: string;
   workerToken: string;
@@ -43,6 +45,7 @@ export function HouseListApp({
   initialSettings,
   initialJobs,
   initialBoards,
+  initialPayments,
   calendarPath,
   connectorPath,
   workerToken,
@@ -61,6 +64,7 @@ export function HouseListApp({
       initialSettings={initialSettings}
       initialJobs={initialJobs}
       initialBoards={initialBoards}
+      initialPayments={initialPayments}
       me={name}
       calendarPath={calendarPath}
       connectorPath={connectorPath}

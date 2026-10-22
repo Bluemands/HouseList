@@ -1,9 +1,10 @@
 import type { ItemDTO, SettingsDTO } from "@/lib/types";
 import type { Unfurled } from "@/lib/unfurl";
 import type { AiJobDTO, AiJobUpdate } from "@/lib/ai";
-import type { ItemCreateInput, ItemUpdateInput, SettingsUpdateInput } from "@/lib/validation";
+import type { ItemCreateInput, ItemUpdateInput, PaymentCreateInput, PaymentUpdateInput, SettingsUpdateInput } from "@/lib/validation";
 import type { PrintLine, PrintOutDTO, PrintOutSummary } from "@/lib/printouts";
 import type { BoardDTO, PieceDTO, PieceKind } from "@/lib/boards";
+import type { PaymentDTO } from "@/lib/payments";
 import type { Kind, Room } from "@/lib/types";
 
 export class ApiError extends Error {
@@ -39,7 +40,10 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export function fetchState() {
-  return request<{ items: ItemDTO[]; settings: SettingsDTO; jobs: AiJobDTO[]; boards: BoardDTO[] }>("/api/state", { cache: "no-store" });
+  return request<{ items: ItemDTO[]; settings: SettingsDTO; jobs: AiJobDTO[]; boards: BoardDTO[]; payments: PaymentDTO[] }>(
+    "/api/state",
+    { cache: "no-store" },
+  );
 }
 
 export async function createItem(input: ItemCreateInput): Promise<ItemDTO> {
@@ -100,6 +104,36 @@ export async function updateBoard(id: string, patch: { name?: string; room?: Roo
 
 export async function deleteBoard(id: string): Promise<void> {
   await request(`/api/boards/${id}`, { method: "DELETE" });
+}
+
+export async function createPayment(input: PaymentCreateInput): Promise<PaymentDTO> {
+  const data = await request<{ payment: PaymentDTO }>("/api/payments", { method: "POST", body: JSON.stringify(input) });
+  return data.payment;
+}
+
+export async function updatePayment(id: string, patch: PaymentUpdateInput): Promise<PaymentDTO> {
+  const data = await request<{ payment: PaymentDTO }>(`/api/payments/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+  return data.payment;
+}
+
+export async function deletePayment(id: string): Promise<void> {
+  await request(`/api/payments/${id}`, { method: "DELETE" });
+}
+
+/** Ticks them all off as one settle-up, or (paidOn null) reopens them. */
+export function settlePayments(ids: string[], paidOn: string | null, actor: string) {
+  return request<{ payments: PaymentDTO[]; settlementId: string | null }>("/api/payments/settle", {
+    method: "POST",
+    body: JSON.stringify({ ids, paidOn, actor }),
+  });
+}
+
+export async function redateSettlement(settlementId: string, paidOn: string): Promise<PaymentDTO[]> {
+  const data = await request<{ payments: PaymentDTO[] }>(`/api/payments/settlements/${settlementId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ paidOn }),
+  });
+  return data.payments;
 }
 
 export type PieceInput = {

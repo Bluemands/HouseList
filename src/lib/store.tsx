@@ -12,7 +12,8 @@ import { haptic } from "@/lib/haptics";
 import { preparePhoto, type PreparedPhoto } from "@/lib/photo-resize";
 import type { BoardDTO, PieceDTO } from "@/lib/boards";
 import type { Kind, Room } from "@/lib/types";
-import type { ItemCreateInput, ItemUpdateInput, SettingsUpdateInput } from "@/lib/validation";
+import type { ItemCreateInput, ItemUpdateInput, PaymentCreateInput, PaymentUpdateInput, SettingsUpdateInput } from "@/lib/validation";
+import { net, paidLine, type PaymentDTO } from "@/lib/payments";
 import type { BulkCandidate } from "@/components/BulkAddSheet";
 import type { AiJobDTO, AiJobUpdate } from "@/lib/ai";
 
@@ -77,6 +78,20 @@ type Store = {
   removePiece: (piece: PieceDTO) => void;
   /** Makes an idea a real item; resolves to the item. */
   pieceToItem: (piece: PieceDTO, input: { title: string; kind: Kind; room: Room }) => Promise<ItemDTO | null>;
+  /** Money owed between the two of you, open and paid. */
+  payments: PaymentDTO[];
+  addPayment: (input: Omit<PaymentCreateInput, "addedBy">) => Promise<PaymentDTO | null>;
+  updatePayment: (payment: PaymentDTO, patch: Omit<PaymentUpdateInput, "actor">) => Promise<PaymentDTO | null>;
+  /** Paid today (or not paid after all), with an undo. */
+  togglePaid: (payment: PaymentDTO) => void;
+  /** Gone at once, back with one tap. */
+  removePayment: (payment: PaymentDTO) => void;
+  /** Ticks them all off together as one settle-up on `paidOn`, with one undo. */
+  settleUp: (open: PaymentDTO[], paidOn: string) => Promise<boolean>;
+  /** Back to owed: a settle-up taken back, with an undo. */
+  reopenPayments: (paid: PaymentDTO[]) => void;
+  /** Moves a whole settle-up to the day it was really paid. */
+  redateSettlement: (settlementId: string, paidOn: string) => void;
   /** Private calendar subscription path for due dates. */
   calendarPath: string;
   /** Private path of Claude's connector (the MCP server). */
@@ -197,6 +212,7 @@ export function StoreProvider({
   initialSettings,
   initialJobs,
   initialBoards,
+  initialPayments,
   me,
   calendarPath,
   connectorPath,
@@ -207,6 +223,7 @@ export function StoreProvider({
   initialSettings: SettingsDTO;
   initialJobs: AiJobDTO[];
   initialBoards: BoardDTO[];
+  initialPayments: PaymentDTO[];
   me: string;
   calendarPath: string;
   connectorPath: string;
@@ -217,6 +234,7 @@ export function StoreProvider({
   const [settings, setSettings] = useState(initialSettings);
   const [jobs, setJobs] = useState(initialJobs);
   const [boards, setBoards] = useState(initialBoards);
+  const [payments, setPayments] = useState(initialPayments);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [editing, setEditing] = useState<Store["editing"]>(null);
   const [justAdded, setJustAdded] = useState<string | null>(null);
@@ -313,6 +331,7 @@ export function StoreProvider({
       setSettings(state.settings);
       setJobs(state.jobs);
       setBoards(state.boards);
+      setPayments(state.payments);
     } catch {
       // Background sync is best-effort; keep what's on screen.
     }
@@ -732,6 +751,172 @@ export function StoreProvider({
     [me, setPiece, fail],
   );
 
+  // Payments: each answer from the server replaces those payments in place.
+  const mergePayments = useCallback((saved: PaymentDTO[]) => {
+    const byId = new Map(saved.map((p) => [p.id, p]));
+    setPayments((list) => list.map((p) => byId.get(p.id) ?? p));
+  }, []);
+
+  const addPayment = useCallback<Store["addPayment"]>(
+    async (input) => {
+      try {
+        const payment = await track(() => api.createPayment({ ...input, addedBy: me }));
+        setPayments((list) => [payment, ...list]);
+        toast({
+          message: `Logged “${payment.description}”`,
+          action: {
+            label: "Undo",
+            run: () => {
+              setPayments((list) => list.filter((p) => p.id !== payment.id));
+              track(() => api.deletePayment(payment.id)).catch((err) => {
+                setPayments((list) => [payment, ...list]);
+                fail(err);
+              });
+            },
+          },
+        });
+        return payment;
+      } catch (err) {
+        fail(err);
+        return null;
+      }
+    },
+    [me, toast, fail],
+  );
+
+  const updatePayment = useCallback<Store["updatePayment"]>(
+    async (payment, patch) => {
+      // Mirrors the server: a new paid date is a payment of its own, out of any settle-up.
+      const next: PaymentDTO = { ...payment };
+      for (const [key, value] of Object.entries(patch)) {
+        if (value !== undefined) (next as Record<string, unknown>)[key] = value;
+      }
+      if (patch.paidOn !== undefined && patch.paidOn !== payment.paidOn) {
+        next.paidBy = patch.paidOn === null ? null : (payment.paidBy ?? me);
+        next.settlementId = null;
+      }
+      setPayments((list) => list.map((p) => (p.id === payment.id ? next : p)));
+      try {
+        const saved = await track(() => api.updatePayment(payment.id, { ...patch, actor: me }));
+        mergePayments([saved]);
+        return saved;
+      } catch (err) {
+        mergePayments([payment]);
+        fail(err);
+        return null;
+      }
+    },
+    [me, mergePayments, fail],
+  );
+
+  const togglePaid = useCallback<Store["togglePaid"]>(
+    (payment) => {
+      if (payment.paidOn) return void updatePayment(payment, { paidOn: null });
+      haptic(10);
+      updatePayment(payment, { paidOn: today() });
+      toast({
+        message: `Paid: ${payment.description}`,
+        action: { label: "Undo", run: () => updatePayment(payment, { paidOn: null }) },
+      });
+    },
+    [updatePayment, toast],
+  );
+
+  const removePayment = useCallback<Store["removePayment"]>(
+    (payment) => {
+      const key = `payment:${payment.id}`;
+      setPayments((list) => list.filter((p) => p.id !== payment.id));
+      const timer = window.setTimeout(async () => {
+        pendingDeletes.current.delete(key);
+        try {
+          await track(() => api.deletePayment(payment.id));
+        } catch (err) {
+          setPayments((list) => [payment, ...list]);
+          fail(err);
+        }
+      }, UNDO_MS);
+      pendingDeletes.current.set(key, timer);
+      toast({
+        message: `Deleted “${payment.description}”`,
+        action: {
+          label: "Undo",
+          run: () => {
+            window.clearTimeout(timer);
+            pendingDeletes.current.delete(key);
+            setPayments((list) => (list.some((p) => p.id === payment.id) ? list : [payment, ...list]));
+          },
+        },
+      });
+    },
+    [toast, fail],
+  );
+
+  // A settle-up's undo reopens it, and reopening's undo settles again.
+  const reopenRef = useRef<((paid: PaymentDTO[], quiet?: boolean) => Promise<void>) | null>(null);
+
+  const settleUp = useCallback<Store["settleUp"]>(
+    async (open, paidOn) => {
+      const ids = new Set(open.map((p) => p.id));
+      setPayments((list) =>
+        list.map((p) => (ids.has(p.id) && !p.paidOn ? { ...p, paidOn, paidBy: me, settlementId: "settling" } : p)),
+      );
+      haptic(10);
+      try {
+        const { payments: saved, settlementId } = await track(() => api.settlePayments([...ids], paidOn, me));
+        mergePayments(saved);
+        const settled = saved.filter((p) => p.settlementId === settlementId);
+        const n = net(settled);
+        toast({
+          message: n.from && n.to ? `Settled up: ${paidLine(n.from, n.to, me)} ${formatGBP(n.amount)}` : "Settled up: all square",
+          action: { label: "Undo", run: () => reopenRef.current?.(settled, true) },
+        });
+        return true;
+      } catch (err) {
+        mergePayments(open);
+        fail(err);
+        return false;
+      }
+    },
+    [me, mergePayments, toast, fail],
+  );
+
+  const reopen = useCallback(
+    async (paid: PaymentDTO[], quiet = false) => {
+      const ids = new Set(paid.map((p) => p.id));
+      setPayments((list) => list.map((p) => (ids.has(p.id) ? { ...p, paidOn: null, paidBy: null, settlementId: null } : p)));
+      try {
+        const { payments: saved } = await track(() => api.settlePayments([...ids], null, me));
+        mergePayments(saved);
+        if (quiet) return;
+        const paidOn = paid[0]?.paidOn;
+        toast({
+          message: `Back to owed: ${paid.length} ${paid.length === 1 ? "payment" : "payments"}`,
+          action: paidOn ? { label: "Undo", run: () => settleUp(saved, paidOn) } : undefined,
+        });
+      } catch (err) {
+        mergePayments(paid);
+        fail(err);
+      }
+    },
+    [me, mergePayments, toast, fail, settleUp],
+  );
+  useLayoutEffect(() => {
+    reopenRef.current = reopen;
+  });
+  const reopenPayments = useCallback<Store["reopenPayments"]>((paid) => void reopen(paid), [reopen]);
+
+  const redateSettlement = useCallback<Store["redateSettlement"]>(
+    (settlementId, paidOn) => {
+      const before = payments.filter((p) => p.settlementId === settlementId);
+      setPayments((list) => list.map((p) => (p.settlementId === settlementId ? { ...p, paidOn } : p)));
+      track(() => api.redateSettlement(settlementId, paidOn)).then(mergePayments, (err) => {
+        mergePayments(before);
+        fail(err);
+      });
+    },
+    [payments, mergePayments, fail],
+  );
+
   const addItems = useCallback<Store["addItems"]>(
     async (inputs) => {
       try {
@@ -919,6 +1104,14 @@ export function StoreProvider({
       updatePiece,
       removePiece,
       pieceToItem,
+      payments,
+      addPayment,
+      updatePayment,
+      togglePaid,
+      removePayment,
+      settleUp,
+      reopenPayments,
+      redateSettlement,
       calendarPath,
       connectorPath,
       workerToken,
@@ -946,7 +1139,7 @@ export function StoreProvider({
       openBulk: setBulk,
       closeBulk: () => setBulk(null),
     }),
-    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, addPhoto, deletePhoto, boards, createBoard, updateBoard, removeBoard, addPiece, updatePiece, removePiece, pieceToItem, calendarPath, connectorPath, workerToken, jobs, jobByItem, askClaude, undoImprove, updateJob, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, holdToast, toasts, editing, justAdded, bulk],
+    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, addPhoto, deletePhoto, boards, createBoard, updateBoard, removeBoard, addPiece, updatePiece, removePiece, pieceToItem, payments, addPayment, updatePayment, togglePaid, removePayment, settleUp, reopenPayments, redateSettlement, calendarPath, connectorPath, workerToken, jobs, jobByItem, askClaude, undoImprove, updateJob, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, holdToast, toasts, editing, justAdded, bulk],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

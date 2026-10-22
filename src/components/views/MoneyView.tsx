@@ -9,6 +9,7 @@ import { dayDiff, describeDay, formatGBP, formatGBPShort, formatMonth, formatMon
 import { ROOM_PAINT } from "@/lib/rooms";
 import { ItemList, ItemRow } from "@/components/ItemRow";
 import { Button, CountingMoney, MoneyInput, PaintChip, SectionHead } from "@/components/ui";
+import { BetweenUs } from "@/components/Payments";
 
 export function MoneyView() {
   const { items, settings } = useStore();
@@ -44,6 +45,8 @@ export function MoneyView() {
       </header>
 
       <PotPanel />
+
+      <BetweenUs />
 
       <section aria-labelledby="plan-head">
         <SectionHead id="plan-head" title="The plan" />
@@ -142,12 +145,20 @@ export function MoneyView() {
 
       <section className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
         <p className="text-supporting text-ink-2">Want it in a spreadsheet?</p>
-        <a
-          href="/api/export"
-          className="inline-flex items-center gap-1.5 rounded-control border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink hover:bg-sunken"
-        >
-          <Download size={16} /> Download CSV
-        </a>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href="/api/export"
+            className="inline-flex items-center gap-1.5 rounded-control border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink hover:bg-sunken"
+          >
+            <Download size={16} /> Download CSV
+          </a>
+          <a
+            href="/api/export?what=payments"
+            className="inline-flex items-center gap-1.5 rounded-control border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink hover:bg-sunken"
+          >
+            <Download size={16} /> Payments CSV
+          </a>
+        </div>
       </section>
     </div>
   );

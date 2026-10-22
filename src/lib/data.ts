@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
-import type { AiJob, Board, BoardPiece, Comment, Item, Photo, Quote, Settings, Step } from "@/generated/prisma/client";
+import type { AiJob, Board, BoardPiece, Comment, Item, Payment, Photo, Quote, Settings, Step } from "@/generated/prisma/client";
 import { stepCostsKey, stepsTotal, type ItemDTO, type SettingsDTO } from "@/lib/types";
 import { OPEN_JOB_STATUSES, aiResultSchema, type AiJobDTO } from "@/lib/ai";
 import type { BoardDTO, PieceDTO } from "@/lib/boards";
+import type { PaymentDTO } from "@/lib/payments";
 
 const toDay = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
@@ -107,6 +108,29 @@ export async function getBoards(): Promise<BoardDTO[]> {
   return boards.map(toBoardDTO);
 }
 
+export function toPaymentDTO(payment: Payment): PaymentDTO {
+  return {
+    id: payment.id,
+    description: payment.description,
+    amount: payment.amount,
+    billTotal: payment.billTotal,
+    owedBy: payment.owedBy,
+    owedTo: payment.owedTo,
+    billedOn: toDay(payment.billedOn)!,
+    paidOn: toDay(payment.paidOn),
+    paidBy: payment.paidBy,
+    settlementId: payment.settlementId,
+    addedBy: payment.addedBy,
+    createdAt: payment.createdAt.toISOString(),
+  };
+}
+
+/** Every payment there's been: a couple of bills a month stays small. */
+export async function getPayments(): Promise<PaymentDTO[]> {
+  const payments = await prisma.payment.findMany({ orderBy: [{ billedOn: "desc" }, { createdAt: "desc" }] });
+  return payments.map(toPaymentDTO);
+}
+
 export function toSettingsDTO(settings: Settings): SettingsDTO {
   return {
     budgetAvailable: settings.budgetAvailable,
@@ -158,7 +182,15 @@ export function getSettings() {
   return prisma.settings.upsert({ where: { id: 1 }, update: {}, create: { id: 1 } });
 }
 
-export async function getState(): Promise<{ items: ItemDTO[]; settings: SettingsDTO; jobs: AiJobDTO[]; boards: BoardDTO[] }> {
+export type State = {
+  items: ItemDTO[];
+  settings: SettingsDTO;
+  jobs: AiJobDTO[];
+  boards: BoardDTO[];
+  payments: PaymentDTO[];
+};
+
+export async function getState(): Promise<State> {
   // Sequential, not Promise.all: concurrent queries over the same adapter
   // pool have triggered "prepared statement" protocol errors against the
   // local Prisma Postgres dev server.
@@ -166,5 +198,6 @@ export async function getState(): Promise<{ items: ItemDTO[]; settings: Settings
   const settings = await getSettings();
   const jobs = await getOpenJobs();
   const boards = await getBoards();
-  return { items: items.map(toItemDTO), settings: toSettingsDTO(settings), jobs, boards };
+  const payments = await getPayments();
+  return { items: items.map(toItemDTO), settings: toSettingsDTO(settings), jobs, boards, payments };
 }

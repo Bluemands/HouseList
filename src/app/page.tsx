@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function Home() {
   // The tokens and cookie don't touch the database, so they're worked out
   // while the state loads.
-  const [{ items, settings, jobs, boards }, calendarToken, connectorToken, workerToken, cookieStore] = await Promise.all([
+  const [{ items, settings, jobs, boards, payments }, calendarToken, connectorToken, workerToken, cookieStore] = await Promise.all([
     getState(),
     computeCalendarToken(),
     computeConnectorToken(),
@@ -28,6 +28,7 @@ export default async function Home() {
       initialSettings={settings}
       initialJobs={jobs}
       initialBoards={boards}
+      initialPayments={payments}
       calendarPath={calendarPath}
       connectorPath={connectorPath}
       workerToken={workerToken}

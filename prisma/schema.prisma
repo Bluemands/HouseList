@@ -157,6 +157,33 @@ model Settings {
   workerSeenAt    DateTime?
 }
 
+// Money one of the household owes the other: usually a bill one of them paid,
+// half of which is the other's. Open until it's paid. Nothing to do with the
+// pot: settling up moves money between them, not out of the house savings.
+model Payment {
+  id          String    @id @default(cuid())
+  description String
+  // What's owed.
+  amount      Float
+  // The whole bill, when it was split half each; null when the amount was
+  // owed as it stands.
+  billTotal   Float?
+  owedBy      String
+  owedTo      String
+  billedOn    DateTime  @db.Date
+  // When it was paid, which needn't be the day it was ticked off.
+  paidOn      DateTime? @db.Date
+  paidBy      String?
+  // Paid together in one settle-up: every payment it cleared shares this.
+  settlementId String?
+  addedBy     String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([paidOn])
+  @@index([settlementId])
+}
+
 // A list printed to tick off on paper. It keeps the lines as printed, so
 // ticking it back in later shows exactly what was on the page, in the same
 // order and numbering, even after the list has moved on.
