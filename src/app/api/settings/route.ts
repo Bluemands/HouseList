@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { settingsUpdateSchema } from "@/lib/validation";
 import { fromDay, getSettings, toSettingsDTO } from "@/lib/data";
+import { pruneChanges } from "@/lib/bins";
+import { today } from "@/lib/format";
 
 export async function GET() {
   return NextResponse.json({ settings: toSettingsDTO(await getSettings()) });
@@ -23,7 +25,7 @@ export async function PUT(request: NextRequest) {
     );
   }
 
-  const { addMember, removeMember, movedInOn, lastPaydayOn, addToPot, ...rest } = parsed.data;
+  const { addMember, removeMember, movedInOn, lastPaydayOn, addToPot, bins, ...rest } = parsed.data;
   const current = await getSettings();
   let members = current.members;
   if (addMember && !members.some((m) => m.toLowerCase() === addMember.toLowerCase())) {
@@ -36,6 +38,7 @@ export async function PUT(request: NextRequest) {
     data: {
       ...rest,
       members,
+      ...(bins && { bins: bins.map((b) => ({ ...b, changes: pruneChanges(b.changes, today()) })) }),
       // Setting the pot or a saving is what starts it being kept.
       ...(rest.budgetAvailable !== undefined || addToPot !== undefined || (rest.monthlySaving ?? 0) > 0
         ? { potTracked: true }

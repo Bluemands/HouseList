@@ -4,6 +4,9 @@ import { stepCostsKey, stepsTotal, type ItemDTO, type SettingsDTO } from "@/lib/
 import { OPEN_JOB_STATUSES, aiResultSchema, type AiJobDTO } from "@/lib/ai";
 import type { BoardDTO, PieceDTO } from "@/lib/boards";
 import type { PaymentDTO } from "@/lib/payments";
+import type { Bin } from "@/lib/bins";
+import { binSchema } from "@/lib/validation";
+import { z } from "zod";
 
 const toDay = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
@@ -132,6 +135,12 @@ export async function getPayments(): Promise<PaymentDTO[]> {
   return payments.map(toPaymentDTO);
 }
 
+/** Stored bins, read defensively: a shape change never reaches the UI half-formed. */
+function readBins(value: unknown): Bin[] {
+  const parsed = z.array(binSchema).safeParse(value);
+  return parsed.success ? parsed.data : [];
+}
+
 export function toSettingsDTO(settings: Settings): SettingsDTO {
   return {
     budgetAvailable: settings.budgetAvailable,
@@ -142,6 +151,7 @@ export function toSettingsDTO(settings: Settings): SettingsDTO {
     lastPaydayOn: toDay(settings.lastPaydayOn),
     lastPaydayBy: settings.lastPaydayBy,
     workerSeenAt: settings.workerSeenAt?.toISOString() ?? null,
+    bins: readBins(settings.bins),
   };
 }
 

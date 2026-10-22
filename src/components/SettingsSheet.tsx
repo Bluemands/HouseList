@@ -12,6 +12,7 @@ import { timeAgo } from "@/lib/format";
 import { Button, Field, Segmented, inputClass } from "@/components/ui";
 import { NotificationsField } from "@/components/NotificationsField";
 import type { Layout } from "@/lib/layout";
+import { BinsField } from "@/components/Bins";
 
 type Theme = "system" | "light" | "dark";
 
@@ -132,6 +133,8 @@ export function SettingsSheet({
             </Button>
           </div>
         </Field>
+
+        <BinsField />
 
         <Field
           label="This phone shows"

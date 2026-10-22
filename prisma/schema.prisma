@@ -157,6 +157,9 @@ model Settings {
   // When the AI worker last asked for work, so the app can say honestly
   // whether anything is listening for its questions.
   workerSeenAt    DateTime?
+  // Bin[] (src/lib/bins.ts): each bin's colour, how often it goes out, and
+  // any one-off moved or missed collections.
+  bins            Json      @default("[]")
 }
 
 // Money one of the household owes the other: usually a bill one of them paid,

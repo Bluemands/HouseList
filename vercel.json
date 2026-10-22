@@ -6,6 +6,10 @@
     {
       "path": "/api/cron/due",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/bins",
+      "schedule": "0 18 * * *"
     }
   ]
 }

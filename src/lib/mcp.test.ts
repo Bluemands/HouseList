@@ -199,6 +199,7 @@ const settings: SettingsDTO = {
   lastPaydayOn: null,
   lastPaydayBy: null,
   workerSeenAt: null,
+  bins: [],
 };
 
 describe("the tools", () => {

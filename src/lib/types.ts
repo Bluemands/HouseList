@@ -1,3 +1,5 @@
+import type { Bin } from "@/lib/bins";
+
 export const ROOMS = [
   // A scope rather than a room — first because whole-house jobs (rewiring,
   // heating, decorating) are a common pick and the default for quick adds.
@@ -274,6 +276,7 @@ export type SettingsDTO = {
   lastPaydayBy: string | null;
   /** When the AI worker last asked for work (ISO); null if one never has. */
   workerSeenAt: string | null;
+  bins: Bin[];
 };
 
 export const TITLE_MAX = 200;

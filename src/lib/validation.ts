@@ -2,6 +2,7 @@ import { z } from "zod";
 import { KINDS, PRIORITIES, REPEATS, ROOMS, STATUSES, TITLE_MAX } from "@/lib/types";
 import { BOARD_NAME_MAX, PIECE_KINDS } from "@/lib/boards";
 import { DESCRIPTION_MAX } from "@/lib/payments";
+import { BINS_MAX } from "@/lib/bins";
 
 const emptyToNull = (val: unknown) => (typeof val === "string" && val.trim() === "" ? null : val);
 
@@ -174,6 +175,15 @@ export const pieceToItemSchema = z.object({
   addedBy: z.string().trim().min(1).max(60),
 });
 
+export const binSchema = z.object({
+  id: z.string().min(1).max(40),
+  name: z.string().trim().min(1, "Name the bin").max(40),
+  colour: z.string().regex(/^#[0-9a-f]{6}$/i, "Pick a colour"),
+  everyWeeks: z.number().int().min(1).max(4),
+  from: isoDate,
+  changes: z.array(z.object({ on: isoDate, to: isoDate.nullable() })).max(30),
+});
+
 export const settingsUpdateSchema = z.object({
   budgetAvailable: z
     .number({ error: "Enter a number" })
@@ -189,6 +199,7 @@ export const settingsUpdateSchema = z.object({
   lastPaydayBy: optionalText(60),
   addMember: z.string().trim().min(1).max(60).optional(),
   removeMember: z.string().trim().min(1).max(60).optional(),
+  bins: z.array(binSchema).max(BINS_MAX, `Up to ${BINS_MAX} bins`).optional(),
 });
 
 const person = z.string().trim().min(1, "Who?").max(60);
