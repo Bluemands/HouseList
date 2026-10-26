@@ -10,9 +10,18 @@ import { Button, Field, MoneyInput, inputClass } from "@/components/ui";
 
 /**
  * Quotes from people who'd do the job, cheapest first. Choosing one makes it
- * the item's cost; `onChosen` lets the open sheet pick that up too.
+ * the item's cost; `onChosen` lets the open sheet pick that up too. Read only,
+ * they're just the list, with the chosen one marked.
  */
-export function QuotesField({ item, onChosen }: { item: ItemDTO; onChosen: (item: ItemDTO) => void }) {
+export function QuotesField({
+  item,
+  onChosen,
+  readOnly = false,
+}: {
+  item: ItemDTO;
+  onChosen?: (item: ItemDTO) => void;
+  readOnly?: boolean;
+}) {
   const { addQuote, updateQuote, deleteQuote, toast, tradespeople } = useStore();
 
   // Like every other delete: gone at once, back with one tap.
@@ -28,7 +37,7 @@ export function QuotesField({ item, onChosen }: { item: ItemDTO; onChosen: (item
           const back = restored?.quotes.find((r) => !item.quotes.some((o) => o.id === r.id) && r.from === q.from);
           if (q.chosen && back) {
             const chosen = await updateQuote(back.id, { chosen: true });
-            if (chosen) onChosen(chosen);
+            if (chosen) onChosen?.(chosen);
           }
         },
       },
@@ -65,9 +74,13 @@ export function QuotesField({ item, onChosen }: { item: ItemDTO; onChosen: (item
     <Field
       label="Quotes"
       hint={
-        quotes.length > 1
-          ? `${formatGBP(spread)} between the cheapest and dearest. Choosing one sets the cost.`
-          : "Get a few and compare. Choosing one sets the cost."
+        readOnly
+          ? quotes.length > 1
+            ? `${formatGBP(spread)} between the cheapest and dearest.`
+            : undefined
+          : quotes.length > 1
+            ? `${formatGBP(spread)} between the cheapest and dearest. Choosing one sets the cost.`
+            : "Get a few and compare. Choosing one sets the cost."
       }
     >
       {quotes.length > 0 && (
@@ -90,7 +103,13 @@ export function QuotesField({ item, onChosen }: { item: ItemDTO; onChosen: (item
                 </p>
               </div>
               <span className="pt-px text-body font-semibold text-ink tabular">{formatGBP(q.amount)}</span>
-              {q.chosen ? (
+              {readOnly ? (
+                q.chosen && (
+                  <span className="inline-flex shrink-0 items-center gap-1 px-2 py-1 text-meta font-bold text-accent-text">
+                    <Check size={14} strokeWidth={2.6} aria-hidden="true" /> Chosen
+                  </span>
+                )
+              ) : q.chosen ? (
                 <button
                   type="button"
                   onClick={() => updateQuote(q.id, { chosen: false })}
@@ -104,13 +123,14 @@ export function QuotesField({ item, onChosen }: { item: ItemDTO; onChosen: (item
                   type="button"
                   onClick={async () => {
                     const updated = await updateQuote(q.id, { chosen: true });
-                    if (updated) onChosen(updated);
+                    if (updated) onChosen?.(updated);
                   }}
                   className="shrink-0 rounded-lg border border-line px-2.5 py-1 text-meta font-semibold text-ink hover:border-accent hover:text-accent-text"
                 >
                   Choose
                 </button>
               )}
+              {!readOnly && (
               <button
                 type="button"
                 aria-label={`Remove the quote from ${q.from}`}
@@ -119,11 +139,12 @@ export function QuotesField({ item, onChosen }: { item: ItemDTO; onChosen: (item
               >
                 <X size={14} />
               </button>
+              )}
             </li>
           ))}
         </ul>
       )}
-      {quotes.length === 0 && !adding ? (
+      {readOnly ? null : quotes.length === 0 && !adding ? (
         <Button variant="secondary" onClick={() => setAdding(true)} className="justify-self-start px-3 py-2">
           <Plus size={15} /> Add a quote
         </Button>

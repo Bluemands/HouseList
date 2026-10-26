@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
-import { Copy, Hammer, Pin, Plus, ShoppingBag, Sparkles, Trash2, X } from "lucide-react";
+import { Copy, Hammer, Pencil, Pin, Plus, ShoppingBag, Sparkles, Trash2, X } from "lucide-react";
 import {
   PRIORITIES,
   PRIORITY_LABELS,
@@ -39,6 +39,7 @@ import type { ItemUpdateInput } from "@/lib/validation";
 import { Button, Chip, Field, GrowingTextarea, MoneyInput, PaintChip, Segmented, Suggestion, inputClass } from "@/components/ui";
 import { QuotesField, UpdatesField } from "@/components/ItemExtras";
 import { PhotosField } from "@/components/Photos";
+import { ItemDetails, ItemFacts } from "@/components/ItemView";
 import { AskClaude } from "@/components/AskClaude";
 import { PlanNote } from "@/components/PlanNote";
 import { LinksField, StepsField, parseMoney, type DraftStep } from "@/components/StepsField";
@@ -159,6 +160,18 @@ function SheetBody({
   // open is never overwritten by our stale copy of that field.
   const [initial, setInitial] = useState<Draft>(() => toDraft(item ?? defaults ?? {}));
   const [draft, setDraft] = useState<Draft>(() => (restore?.draft as Draft | undefined) ?? initial);
+  // An item opens to read, so a stray tap changes nothing; Edit brings the
+  // form. Coming back after a failed save goes straight to the form.
+  const [viewing, setViewing] = useState(!isNew && !restore);
+  // While reading, the snapshot follows the item (a step ticked here, the
+  // other phone, Claude), so editing starts from it as it is now.
+  const [readFrom, setReadFrom] = useState(item);
+  if (viewing && item && item !== readFrom) {
+    setReadFrom(item);
+    const fresh = toDraft(item);
+    setInitial(fresh);
+    setDraft(fresh);
+  }
   const [error, setError] = useState<string | null>(restore?.error ?? null);
   const [newStep, setNewStep] = useState("");
   const [newLink, setNewLink] = useState("");
@@ -176,6 +189,11 @@ function SheetBody({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const roomRailRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const claudeRef = useRef<HTMLDivElement>(null);
+  // Where to be when the form comes in: the top, or still at Claude's card
+  // when using one of its suggestions is what started the editing.
+  const editFrom = useRef<"top" | "claude">("top");
   const dismiss = () => (isNew && !draft.title.trim() ? closeItem() : save());
   const dragHandlers = useSheetDrag(dismiss);
 
@@ -198,7 +216,13 @@ function SheetBody({
     const r = rail.getBoundingClientRect();
     const c = chip.getBoundingClientRect();
     rail.scrollLeft += c.left - r.left - (r.width - c.width) / 2;
-  }, []);
+  }, [viewing]);
+
+  useLayoutEffect(() => {
+    if (viewing) return;
+    if (editFrom.current === "claude") claudeRef.current?.scrollIntoView({ block: "nearest" });
+    else if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [viewing]);
 
   // Grow the title box to fit.
   useEffect(() => {
@@ -207,7 +231,19 @@ function SheetBody({
       el.style.height = "0px";
       el.style.height = `${el.scrollHeight}px`;
     }
-  }, [draft.title]);
+  }, [draft.title, viewing]);
+
+  function startEditing(from: "top" | "claude" = "top") {
+    editFrom.current = from;
+    setViewing(false);
+  }
+  // Using a suggestion from Claude's card changes the draft, so it starts editing.
+  const viaEdit =
+    <A extends unknown[], R>(fn: (...args: A) => R) =>
+    (...args: A) => {
+      if (viewing) startEditing("claude");
+      return fn(...args);
+    };
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
   const dirty =
@@ -557,11 +593,9 @@ function SheetBody({
   const showRepeats = more || !!draft.repeat;
   const showQuotes = more || !!item?.quotes.length;
   const showUpdates = more || !!item?.comments.length;
-  const showPhotos = more || !!item?.photos.length;
   const showLinks = more || draft.links.length > 0;
   const showProject = more || !!draft.project.trim();
   const hidden = [
-    item && !showPhotos && "photos",
     !showRepeats && "repeats",
     item && !showQuotes && "quotes",
     item && !showUpdates && "updates",
@@ -572,7 +606,7 @@ function SheetBody({
   return (
     <dialog
       ref={dialogRef}
-      aria-label={isNew ? "New item" : `Edit ${item!.title}`}
+      aria-label={isNew ? "New item" : viewing ? item!.title : `Edit ${item!.title}`}
       onCancel={(e) => {
         e.preventDefault();
         if (leaving) return;
@@ -593,7 +627,15 @@ function SheetBody({
     >
       <div {...dragHandlers} className="flex touch-none items-center justify-between gap-2 px-4 pt-3 pb-1">
         <span aria-hidden="true" className="absolute top-2 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-line-strong lg:hidden" />
-        {item ? (
+        {item && viewing ? (
+          item.pinned ? (
+            <span className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 text-meta font-semibold text-accent-text">
+              <Pin size={14} strokeWidth={2.3} className="fill-current" aria-hidden="true" /> Pinned to the top
+            </span>
+          ) : (
+            <span aria-hidden="true" />
+          )
+        ) : item ? (
           <button
             type="button"
             aria-pressed={item.pinned}
@@ -619,387 +661,402 @@ function SheetBody({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto overscroll-contain px-5 pb-6">
-        <textarea
-          ref={titleRef}
-          rows={1}
-          value={draft.title}
-          onChange={(e) => {
-            set("title", e.target.value.replace(/\n/g, ""));
-            setError(null);
-          }}
-          placeholder={draft.kind === "BUY" ? "What do you need to buy?" : "What needs doing?"}
-          aria-label="Title"
-          maxLength={TITLE_MAX}
-          className="w-full resize-none overflow-hidden bg-transparent py-2 text-sheet-title leading-tight font-bold tracking-[-0.015em] text-ink outline-none placeholder:text-ink-3"
-        />
-        {error && (
-          <p role="alert" className="mb-2 text-sm font-medium text-danger">
-            {error}
-          </p>
-        )}
-
-        <div className="mt-3 grid gap-5">
-          {/* Side by side only when "To buy · Ordered · Bought" has room to fit. */}
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Segmented
-              label="Type"
-              value={draft.kind}
-              onChange={(v) => set("kind", v)}
-              options={[
-                { value: "TASK", label: <><Hammer size={14} strokeWidth={2.2} aria-hidden="true" /> Job</> },
-                { value: "BUY", label: <><ShoppingBag size={14} strokeWidth={2.2} aria-hidden="true" /> To buy</> },
-              ]}
+      <div ref={scrollRef} className="grid flex-1 content-start gap-5 overflow-y-auto overscroll-contain px-5 pb-6">
+        {viewing && item ? (
+          <ItemFacts item={item} planned={planned} />
+        ) : (
+          <div>
+            <textarea
+              ref={titleRef}
+              rows={1}
+              value={draft.title}
+              onChange={(e) => {
+                set("title", e.target.value.replace(/\n/g, ""));
+                setError(null);
+              }}
+              placeholder={draft.kind === "BUY" ? "What do you need to buy?" : "What needs doing?"}
+              aria-label="Title"
+              maxLength={TITLE_MAX}
+              className="w-full resize-none overflow-hidden bg-transparent py-2 text-sheet-title leading-tight font-bold tracking-[-0.015em] text-ink outline-none placeholder:text-ink-3"
             />
-            <Segmented
-              label="Status"
-              value={draft.status}
-              onChange={(v) => set("status", v)}
-              size="sm"
-              options={STATUSES.map((s) => ({ value: s, label: statusLabels[s] }))}
-            />
-          </div>
-
-          <Field label="Priority">
-            <Segmented
-              label="Priority"
-              value={draft.priority}
-              onChange={(v) => set("priority", v)}
-              options={PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] }))}
-            />
-          </Field>
-
-          <Field
-            label="Cost"
-            hint={
-              draft.status === "DONE"
-                ? "What you actually paid comes out of the pot."
-                : followsSteps
-                  ? "Set by the steps’ costs below. Clear those to enter one figure here."
-                  : fromSteps != null
-                    ? `The steps add up to ${formatGBP(fromSteps)}. Change a step's cost to use that instead.`
-                  : "Leave blank if it's free. Add an upper figure for a range, or cost each step below."
-            }
-          >
-            {followsSteps ? (
-              <div className="flex items-baseline justify-between gap-3 rounded-control border border-line bg-sunken px-3 py-2.5">
-                <span className="text-body font-semibold text-ink tabular">{formatGBP(fromSteps)}</span>
-                <span className="text-meta text-ink-3 tabular">
-                  {paidSoFar > 0 && draft.status !== "DONE"
-                    ? `${formatGBP(paidSoFar)} paid · ${formatGBP(Math.max(0, fromSteps - paidSoFar))} to go`
-                    : "Total of the steps"}
-                </span>
-              </div>
-            ) : (
-              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                <MoneyInput label="Estimate" placeholder="Estimate" value={draft.estimatedPrice} onChange={(v) => set("estimatedPrice", v)} />
-                <span className="text-sm text-ink-3">to</span>
-                <MoneyInput label="Up to" placeholder="Up to" value={draft.estimateMax} onChange={(v) => set("estimateMax", v)} />
-              </div>
+            {error && (
+              <p role="alert" className="mb-2 text-sm font-medium text-danger">
+                {error}
+              </p>
             )}
-            {gap != null && priorFigure != null && draft.status !== "DONE" && (
-              <div className="grid justify-items-start gap-1.5" aria-live="polite">
-                <span className="text-meta text-ink-2 tabular">
-                  That&apos;s {formatGBP(Math.abs(gap))} {gap > 0 ? "less" : "more"} than the {priorLabel} of{" "}
-                  {formatGBP(priorFigure)}
-                  {gap > 0 ? ", so the plan would count only the steps." : "."}
-                </span>
-                {gap > 0 && (
-                  <Suggestion onClick={() => addBalance(gap)}>
-                    Add the {formatGBP(gap)} balance as a step
-                  </Suggestion>
-                )}
-              </div>
-            )}
-            <label className="flex items-center gap-2.5 py-1 text-supporting text-ink-2">
-              <input
-                type="checkbox"
-                checked={draft.isQuote}
-                onChange={(e) => set("isQuote", e.target.checked)}
-                className="h-[18px] w-[18px] accent-[var(--accent)]"
-              />
-              We&apos;ve had a firm quote for this
-            </label>
-            {(draft.status === "DONE" || draft.actualPrice) && (
-              <div className="grid grid-cols-[auto_1fr] items-center gap-3">
-                <span className="text-supporting font-medium text-ink">Paid</span>
-                <MoneyInput label="Paid" placeholder="What it actually cost" value={draft.actualPrice} onChange={(v) => set("actualPrice", v)} />
-              </div>
-            )}
-            {item?.status === "DONE" && <SplitField item={item} />}
-          </Field>
 
-          <PlanNote planned={planned} isNew={isNew} />
-
-          {(draft.status === "DONE" || draft.warrantyUntil) && (
-            <Field label="Guaranteed until" hint="The calendar feed reminds you a month before it runs out.">
-              <div className="flex flex-wrap gap-1.5">
-                {[1, 2, 5, 10].map((years) => {
-                  // Counted from when it was finished (or today, if that's now).
-                  const from = item?.completedAt ? toDayString(new Date(item.completedAt)) : today();
-                  const day = addYears(from, years);
-                  return (
-                    <Chip
-                      key={years}
-                      selected={draft.warrantyUntil === day}
-                      onClick={() => set("warrantyUntil", draft.warrantyUntil === day ? "" : day)}
-                    >
-                      {years} {years === 1 ? "year" : "years"}
-                    </Chip>
-                  );
-                })}
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={draft.warrantyUntil}
-                  onChange={(e) => set("warrantyUntil", e.target.value)}
-                  aria-label="Guaranteed until"
-                  className={clsx(inputClass, "tabular")}
+            <div className="mt-3 grid gap-5">
+              {/* Side by side only when "To buy · Ordered · Bought" has room to fit. */}
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Segmented
+                  label="Type"
+                  value={draft.kind}
+                  onChange={(v) => set("kind", v)}
+                  options={[
+                    { value: "TASK", label: <><Hammer size={14} strokeWidth={2.2} aria-hidden="true" /> Job</> },
+                    { value: "BUY", label: <><ShoppingBag size={14} strokeWidth={2.2} aria-hidden="true" /> To buy</> },
+                  ]}
                 />
-                {draft.warrantyUntil && (
-                  <Button variant="ghost" onClick={() => set("warrantyUntil", "")} className="shrink-0">
-                    Clear
-                  </Button>
-                )}
+                <Segmented
+                  label="Status"
+                  value={draft.status}
+                  onChange={(v) => set("status", v)}
+                  size="sm"
+                  options={STATUSES.map((s) => ({ value: s, label: statusLabels[s] }))}
+                />
               </div>
-            </Field>
-          )}
 
-          <Field label="Room">
-            <div ref={roomRailRef} className="rail -mx-5 flex gap-1.5 overflow-x-auto px-5 pb-1">
-              {ROOMS.map((room) => (
-                <Chip key={room} selected={draft.room === room} onClick={() => set("room", room)}>
-                  <PaintChip room={room} />
-                  {ROOM_PAINT[room].label}
-                </Chip>
-              ))}
-            </div>
-          </Field>
+              <Field label="Priority">
+                <Segmented
+                  label="Priority"
+                  value={draft.priority}
+                  onChange={(v) => set("priority", v)}
+                  options={PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] }))}
+                />
+              </Field>
 
-          <Field label="Who's on it">
-            <div className="flex flex-wrap gap-1.5">
-              {people.map((p) => (
-                <Chip
-                  key={p}
-                  selected={draft.assignee === p}
-                  onClick={() => {
-                    setCustomWho(false);
-                    set("assignee", draft.assignee === p ? "" : p);
-                  }}
-                >
-                  {p === me ? `${p} (you)` : p}
-                </Chip>
-              ))}
-              <Chip
-                selected={customWho || !isPerson}
-                onClick={() => {
-                  setCustomWho(true);
-                  if (isPerson) set("assignee", "");
-                }}
+              <Field
+                label="Cost"
+                hint={
+                  draft.status === "DONE"
+                    ? "What you actually paid comes out of the pot."
+                    : followsSteps
+                      ? "Set by the steps’ costs below. Clear those to enter one figure here."
+                      : fromSteps != null
+                        ? `The steps add up to ${formatGBP(fromSteps)}. Change a step's cost to use that instead.`
+                      : "Leave blank if it's free. Add an upper figure for a range, or cost each step below."
+                }
               >
-                Someone else
-              </Chip>
-            </div>
-            {(customWho || !isPerson) && (
-              <input
-                autoFocus={customWho}
-                value={draft.assignee}
-                onChange={(e) => set("assignee", e.target.value)}
-                placeholder="e.g. Electrician, Dad, Gary the plasterer"
-                aria-label="Who's doing it"
-                maxLength={60}
-                className={inputClass}
-              />
-            )}
-          </Field>
+                {followsSteps ? (
+                  <div className="flex items-baseline justify-between gap-3 rounded-control border border-line bg-sunken px-3 py-2.5">
+                    <span className="text-body font-semibold text-ink tabular">{formatGBP(fromSteps)}</span>
+                    <span className="text-meta text-ink-3 tabular">
+                      {paidSoFar > 0 && draft.status !== "DONE"
+                        ? `${formatGBP(paidSoFar)} paid · ${formatGBP(Math.max(0, fromSteps - paidSoFar))} to go`
+                        : "Total of the steps"}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                    <MoneyInput label="Estimate" placeholder="Estimate" value={draft.estimatedPrice} onChange={(v) => set("estimatedPrice", v)} />
+                    <span className="text-sm text-ink-3">to</span>
+                    <MoneyInput label="Up to" placeholder="Up to" value={draft.estimateMax} onChange={(v) => set("estimateMax", v)} />
+                  </div>
+                )}
+                {gap != null && priorFigure != null && draft.status !== "DONE" && (
+                  <div className="grid justify-items-start gap-1.5" aria-live="polite">
+                    <span className="text-meta text-ink-2 tabular">
+                      That&apos;s {formatGBP(Math.abs(gap))} {gap > 0 ? "less" : "more"} than the {priorLabel} of{" "}
+                      {formatGBP(priorFigure)}
+                      {gap > 0 ? ", so the plan would count only the steps." : "."}
+                    </span>
+                    {gap > 0 && (
+                      <Suggestion onClick={() => addBalance(gap)}>
+                        Add the {formatGBP(gap)} balance as a step
+                      </Suggestion>
+                    )}
+                  </div>
+                )}
+                <label className="flex items-center gap-2.5 py-1 text-supporting text-ink-2">
+                  <input
+                    type="checkbox"
+                    checked={draft.isQuote}
+                    onChange={(e) => set("isQuote", e.target.checked)}
+                    className="h-[18px] w-[18px] accent-[var(--accent)]"
+                  />
+                  We&apos;ve had a firm quote for this
+                </label>
+                {(draft.status === "DONE" || draft.actualPrice) && (
+                  <div className="grid grid-cols-[auto_1fr] items-center gap-3">
+                    <span className="text-supporting font-medium text-ink">Paid</span>
+                    <MoneyInput label="Paid" placeholder="What it actually cost" value={draft.actualPrice} onChange={(v) => set("actualPrice", v)} />
+                  </div>
+                )}
+                {item?.status === "DONE" && <SplitField item={item} />}
+              </Field>
 
-          <Field label="When">
-            <div className="flex flex-wrap gap-1.5">
-              {dueChips.map((c) => (
-                <Chip key={c.label} selected={draft.dueDate === c.day} onClick={() => set("dueDate", draft.dueDate === c.day ? "" : c.day)}>
-                  {c.label}
-                </Chip>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={draft.dueDate}
-                onChange={(e) => set("dueDate", e.target.value)}
-                aria-label="Due date"
-                className={clsx(inputClass, "tabular")}
+              <PlanNote planned={planned} isNew={isNew} />
+
+              {(draft.status === "DONE" || draft.warrantyUntil) && (
+                <Field label="Guaranteed until" hint="The calendar feed reminds you a month before it runs out.">
+                  <div className="flex flex-wrap gap-1.5">
+                    {[1, 2, 5, 10].map((years) => {
+                      // Counted from when it was finished (or today, if that's now).
+                      const from = item?.completedAt ? toDayString(new Date(item.completedAt)) : today();
+                      const day = addYears(from, years);
+                      return (
+                        <Chip
+                          key={years}
+                          selected={draft.warrantyUntil === day}
+                          onClick={() => set("warrantyUntil", draft.warrantyUntil === day ? "" : day)}
+                        >
+                          {years} {years === 1 ? "year" : "years"}
+                        </Chip>
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={draft.warrantyUntil}
+                      onChange={(e) => set("warrantyUntil", e.target.value)}
+                      aria-label="Guaranteed until"
+                      className={clsx(inputClass, "tabular")}
+                    />
+                    {draft.warrantyUntil && (
+                      <Button variant="ghost" onClick={() => set("warrantyUntil", "")} className="shrink-0">
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                </Field>
+              )}
+
+              <Field label="Room">
+                <div ref={roomRailRef} className="rail -mx-5 flex gap-1.5 overflow-x-auto px-5 pb-1">
+                  {ROOMS.map((room) => (
+                    <Chip key={room} selected={draft.room === room} onClick={() => set("room", room)}>
+                      <PaintChip room={room} />
+                      {ROOM_PAINT[room].label}
+                    </Chip>
+                  ))}
+                </div>
+              </Field>
+
+              <Field label="Who's on it">
+                <div className="flex flex-wrap gap-1.5">
+                  {people.map((p) => (
+                    <Chip
+                      key={p}
+                      selected={draft.assignee === p}
+                      onClick={() => {
+                        setCustomWho(false);
+                        set("assignee", draft.assignee === p ? "" : p);
+                      }}
+                    >
+                      {p === me ? `${p} (you)` : p}
+                    </Chip>
+                  ))}
+                  <Chip
+                    selected={customWho || !isPerson}
+                    onClick={() => {
+                      setCustomWho(true);
+                      if (isPerson) set("assignee", "");
+                    }}
+                  >
+                    Someone else
+                  </Chip>
+                </div>
+                {(customWho || !isPerson) && (
+                  <input
+                    autoFocus={customWho}
+                    value={draft.assignee}
+                    onChange={(e) => set("assignee", e.target.value)}
+                    placeholder="e.g. Electrician, Dad, Gary the plasterer"
+                    aria-label="Who's doing it"
+                    maxLength={60}
+                    className={inputClass}
+                  />
+                )}
+              </Field>
+
+              <Field label="When">
+                <div className="flex flex-wrap gap-1.5">
+                  {dueChips.map((c) => (
+                    <Chip key={c.label} selected={draft.dueDate === c.day} onClick={() => set("dueDate", draft.dueDate === c.day ? "" : c.day)}>
+                      {c.label}
+                    </Chip>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={draft.dueDate}
+                    onChange={(e) => set("dueDate", e.target.value)}
+                    aria-label="Due date"
+                    className={clsx(inputClass, "tabular")}
+                  />
+                  {draft.dueDate && (
+                    <Button variant="ghost" onClick={() => set("dueDate", "")} className="shrink-0">
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </Field>
+
+              <StepsField
+                steps={draft.steps}
+                onChange={(steps) => set("steps", steps)}
+                newStep={newStep}
+                onNewStep={setNewStep}
+                onAdd={addStep}
               />
-              {draft.dueDate && (
-                <Button variant="ghost" onClick={() => set("dueDate", "")} className="shrink-0">
-                  Clear
-                </Button>
+              {item && item.steps.some((st) => !st.done) && (
+                <PrintButton
+                  title={item.title}
+                  lines={() => stepLines(item)}
+                  label="Print the steps"
+                  before={() => save()}
+                  className="-mt-3 -ml-3 justify-self-start"
+                />
               )}
             </div>
-          </Field>
+          </div>
+        )}
 
-          <StepsField
-            steps={draft.steps}
-            onChange={(steps) => set("steps", steps)}
-            newStep={newStep}
-            onNewStep={setNewStep}
-            onAdd={addStep}
-          />
-          {item && item.steps.some((st) => !st.done) && (
-            <PrintButton
-              title={item.title}
-              lines={() => stepLines(item)}
-              label="Print the steps"
-              before={() => save()}
-              className="-mt-3 -ml-3 justify-self-start"
-            />
-          )}
-
+        {/* One place in both modes, so the card keeps what's been used from it. */}
+        <div ref={claudeRef} className="empty:hidden">
           {item && (
             <AskClaude
               item={item}
               canSetEstimate={!followsSteps && !draft.isQuote}
-              onEstimate={applyEstimate}
-              onAddSteps={addSuggestedSteps}
-              onAddLink={addSuggestedLink}
+              onEstimate={viaEdit(applyEstimate)}
+              onAddSteps={viaEdit(addSuggestedSteps)}
+              onAddLink={viaEdit(addSuggestedLink)}
               onUndoImprove={undoClaude}
             />
           )}
+        </div>
 
-          <Field label="Notes">
-            <GrowingTextarea
-              value={draft.notes}
-              onChange={(e) => set("notes", e.target.value)}
-              placeholder="Measurements, colours, who quoted what…"
-              aria-label="Notes"
-              maxLength={4000}
-              className={inputClass}
-            />
-          </Field>
-
-          {item && showPhotos && (
-            <Field label="Photos">
-              <PhotosField item={item} />
-            </Field>
-          )}
-
-          {showRepeats && (
-            <>
-            <Field
-              label="Repeats"
-              hint={draft.repeat ? "Ticking it off schedules the next one, counted from the day it's done." : undefined}
-            >
-              <div className="flex flex-wrap gap-1.5">
-                <Chip selected={!draft.repeat} onClick={() => set("repeat", null)}>
-                  Never
-                </Chip>
-                {REPEATS.map((r) => (
-                  <Chip key={r} selected={draft.repeat === r} onClick={() => set("repeat", r)}>
-                    {REPEAT_SHORT[r]}
-                  </Chip>
-                ))}
-              </div>
-            </Field>
-            </>
-          )}
-
-          {item && showQuotes && (
-            <QuotesField
-              item={item}
-              onChosen={(u) => {
-                const sync = (d: Draft): Draft => ({
-                  ...d,
-                  estimatedPrice: num(u.estimatedPrice),
-                  estimateMax: num(u.estimateMax),
-                  isQuote: u.isQuote,
-                });
-                setDraft(sync);
-                setInitial(sync);
-              }}
-            />
-          )}
-
-          {item && showUpdates && <UpdatesField item={item} />}
-
-          {showLinks && (
-            <>
-            <LinksField
-              links={draft.links}
-              onChange={(links) => set("links", links)}
-              newLink={newLink}
-              onNewLink={setNewLink}
-              onAdd={addLink}
-            >
-              {page.status === "loading" && (placeholderTitle || !draft.estimatedPrice.trim()) && (
-                <span className="text-hint text-ink-3" aria-live="polite">
-                  Looking up that page…
-                </span>
-              )}
-              {(offerPrice != null || offerTitle) && (
-                <div className="flex min-w-0 flex-wrap gap-1.5" aria-live="polite">
-                  {offerPrice != null && (
-                    <Suggestion onClick={() => set("estimatedPrice", String(offerPrice))}>
-                      Use {formatGBP(offerPrice)} from {shop}
-                    </Suggestion>
-                  )}
-                  {offerTitle && (
-                    <Suggestion onClick={() => set("title", offerTitle.slice(0, TITLE_MAX))}>
-                      Name it “{offerTitle}”
-                    </Suggestion>
-                  )}
-                </div>
-              )}
-            </LinksField>
-            </>
-          )}
-
-          {showProject && (
-            <>
-            <Field label="Project" hint="Optional — group things like “Kitchen reno”.">
-              <input
-                value={draft.project}
-                onChange={(e) => set("project", e.target.value)}
-                list="projects"
-                placeholder="None"
-                aria-label="Project"
-                maxLength={60}
+        {viewing && item ? (
+          <ItemDetails item={item} />
+        ) : (
+          <div className="grid gap-5">
+            <Field label="Notes">
+              <GrowingTextarea
+                value={draft.notes}
+                onChange={(e) => set("notes", e.target.value)}
+                placeholder="Measurements, colours, who quoted what…"
+                aria-label="Notes"
+                maxLength={4000}
                 className={inputClass}
               />
-              <datalist id="projects">
-                {projects.map((p) => (
-                  <option key={p} value={p} />
-                ))}
-              </datalist>
             </Field>
-            </>
-          )}
 
-          {hidden.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setMore(true)}
-              className="flex items-center gap-2 rounded-control border border-dashed border-line-strong px-3 py-2.5 text-left text-supporting text-ink-2 hover:border-tick-ring hover:text-ink"
-            >
-              <Plus size={16} aria-hidden="true" className="shrink-0" />
-              <span>
-                More: <span className="text-ink-3">{hidden.join(", ")}</span>
-              </span>
-            </button>
-          )}
+            {item && (
+              <Field label="Photos">
+                <PhotosField item={item} />
+              </Field>
+            )}
 
-          {item && (
-            <p className="text-meta text-ink-3">
-              Added by {item.addedBy} {timeAgo(item.createdAt)}
-              {item.completedAt && (
-                <>
-                  {" · "}
-                  {STATUS_LABELS[item.kind].DONE} {item.completedBy ? `by ${item.completedBy} ` : ""}on{" "}
-                  {formatDay(toDayString(new Date(item.completedAt)))}
-                </>
-              )}
-            </p>
-          )}
-        </div>
+            {showRepeats && (
+              <>
+              <Field
+                label="Repeats"
+                hint={draft.repeat ? "Ticking it off schedules the next one, counted from the day it's done." : undefined}
+              >
+                <div className="flex flex-wrap gap-1.5">
+                  <Chip selected={!draft.repeat} onClick={() => set("repeat", null)}>
+                    Never
+                  </Chip>
+                  {REPEATS.map((r) => (
+                    <Chip key={r} selected={draft.repeat === r} onClick={() => set("repeat", r)}>
+                      {REPEAT_SHORT[r]}
+                    </Chip>
+                  ))}
+                </div>
+              </Field>
+              </>
+            )}
+
+            {item && showQuotes && (
+              <QuotesField
+                item={item}
+                onChosen={(u) => {
+                  const sync = (d: Draft): Draft => ({
+                    ...d,
+                    estimatedPrice: num(u.estimatedPrice),
+                    estimateMax: num(u.estimateMax),
+                    isQuote: u.isQuote,
+                  });
+                  setDraft(sync);
+                  setInitial(sync);
+                }}
+              />
+            )}
+
+            {item && showUpdates && <UpdatesField item={item} />}
+
+            {showLinks && (
+              <>
+              <LinksField
+                links={draft.links}
+                onChange={(links) => set("links", links)}
+                newLink={newLink}
+                onNewLink={setNewLink}
+                onAdd={addLink}
+              >
+                {page.status === "loading" && (placeholderTitle || !draft.estimatedPrice.trim()) && (
+                  <span className="text-hint text-ink-3" aria-live="polite">
+                    Looking up that page…
+                  </span>
+                )}
+                {(offerPrice != null || offerTitle) && (
+                  <div className="flex min-w-0 flex-wrap gap-1.5" aria-live="polite">
+                    {offerPrice != null && (
+                      <Suggestion onClick={() => set("estimatedPrice", String(offerPrice))}>
+                        Use {formatGBP(offerPrice)} from {shop}
+                      </Suggestion>
+                    )}
+                    {offerTitle && (
+                      <Suggestion onClick={() => set("title", offerTitle.slice(0, TITLE_MAX))}>
+                        Name it “{offerTitle}”
+                      </Suggestion>
+                    )}
+                  </div>
+                )}
+              </LinksField>
+              </>
+            )}
+
+            {showProject && (
+              <>
+              <Field label="Project" hint="Optional — group things like “Kitchen reno”.">
+                <input
+                  value={draft.project}
+                  onChange={(e) => set("project", e.target.value)}
+                  list="projects"
+                  placeholder="None"
+                  aria-label="Project"
+                  maxLength={60}
+                  className={inputClass}
+                />
+                <datalist id="projects">
+                  {projects.map((p) => (
+                    <option key={p} value={p} />
+                  ))}
+                </datalist>
+              </Field>
+              </>
+            )}
+
+            {hidden.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setMore(true)}
+                className="flex items-center gap-2 rounded-control border border-dashed border-line-strong px-3 py-2.5 text-left text-supporting text-ink-2 hover:border-tick-ring hover:text-ink"
+              >
+                <Plus size={16} aria-hidden="true" className="shrink-0" />
+                <span>
+                  More: <span className="text-ink-3">{hidden.join(", ")}</span>
+                </span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {item && (
+          <p className="text-meta text-ink-3">
+            Added by {item.addedBy} {timeAgo(item.createdAt)}
+            {item.completedAt && (
+              <>
+                {" · "}
+                {STATUS_LABELS[item.kind].DONE} {item.completedBy ? `by ${item.completedBy} ` : ""}on{" "}
+                {formatDay(toDayString(new Date(item.completedAt)))}
+              </>
+            )}
+          </p>
+        )}
       </div>
 
       {improving && (
@@ -1057,6 +1114,23 @@ function SheetBody({
               <Sparkles size={16} aria-hidden="true" /> Improve
             </Button>
           </>
+        ) : viewing ? (
+          <>
+            {canImprove && (
+              <Button
+                variant="secondary"
+                disabled={claudeBusy}
+                onClick={() => setImproving(true)}
+                title={claudeBusy ? "Claude's already working on this one" : "Ask Claude to improve this item"}
+                className="px-3"
+              >
+                <Sparkles size={16} aria-hidden="true" /> Improve
+              </Button>
+            )}
+            <Button onClick={() => startEditing()} className="ml-auto min-w-28">
+              <Pencil size={16} aria-hidden="true" /> Edit
+            </Button>
+          </>
         ) : isNew ? (
           <>
             <Button variant="ghost" onClick={closeItem} className="px-3">
@@ -1097,7 +1171,7 @@ function SheetBody({
             )}
           </>
         )}
-        {!improving && (
+        {!improving && !viewing && (
           <Button
             onClick={() => save()}
             className={clsx((isNew && worker !== "never") || canImprove ? "min-w-20" : "ml-auto min-w-28")}
