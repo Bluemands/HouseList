@@ -132,7 +132,7 @@ function Book({ onOpen }: { onOpen: (id: string | null, name?: string) => void }
       {unsaved.length > 0 && (
         <div className="grid gap-1.5">
           <span className="text-meta font-semibold text-ink-2">From your quotes</span>
-          <ul className="grid gap-1">
+          <ul className="grid grid-cols-[minmax(0,1fr)] gap-1">
             {unsaved.map((q) => (
               <li key={q.name} className="flex items-center gap-3 text-supporting">
                 <span className="min-w-0 flex-1 truncate text-ink">
@@ -265,7 +265,7 @@ function PersonForm({
 
       {work.length > 0 && (
         <Field label="Quotes and jobs">
-          <ul className="grid gap-1">
+          <ul className="grid grid-cols-[minmax(0,1fr)] gap-1">
             {work.map(({ item, quote }) => (
               <li key={item.id}>
                 <button

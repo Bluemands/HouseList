@@ -150,7 +150,7 @@ export function HomeView({ go, onSettings }: { go: (r: Route) => void; onSetting
       {recent.length > 0 && (
         <section aria-labelledby="recent-head">
           <SectionHead id="recent-head" title="Recently done" />
-          <ul className="grid gap-2.5">
+          <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5">
             {recent.map((item) => (
               <li key={item.id} className="flex items-center gap-2.5 text-supporting">
                 <PaintChip room={item.room} />

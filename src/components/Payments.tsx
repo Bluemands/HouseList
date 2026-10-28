@@ -325,7 +325,7 @@ function SettlementRow({ entry, simple }: { entry: HistoryEntry; simple: boolean
       </button>
       {open && (
         <div className="mb-2 ml-[38px] grid gap-3 rounded-xl bg-sunken p-3">
-          <ul className="grid gap-1.5">
+          <ul className="grid grid-cols-[minmax(0,1fr)] gap-1.5">
             {payments.map((p) => (
               <li key={p.id} className="flex items-baseline gap-2 text-supporting">
                 <span className="min-w-0 flex-1 truncate text-ink">{p.description}</span>

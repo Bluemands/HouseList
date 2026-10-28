@@ -389,7 +389,7 @@ function Guarantees() {
   return (
     <section aria-labelledby="guarantees-head">
       <SectionHead id="guarantees-head" title="Guarantees" />
-      <ul className="grid gap-2 rounded-2xl border border-line bg-surface p-4">
+      <ul className="grid grid-cols-[minmax(0,1fr)] gap-2 rounded-2xl border border-line bg-surface p-4">
         {running.map((i) => {
           const days = dayDiff(now, i.warrantyUntil!);
           return (
@@ -424,7 +424,7 @@ function RecentSpend() {
     return <p className="text-supporting text-ink-3">Tick off something with a cost and it shows up here.</p>;
   }
   return (
-    <ul className="grid gap-2 border-t border-line pt-3">
+    <ul className="grid grid-cols-[minmax(0,1fr)] gap-2 border-t border-line pt-3">
       {recent.map((i) => (
         <li key={i.id} className="flex items-center gap-2.5 text-supporting">
           <PaintChip room={i.room} />

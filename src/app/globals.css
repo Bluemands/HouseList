@@ -109,6 +109,9 @@
     font-family: var(--font-sans);
     font-feature-settings: "ss01";
     caret-color: var(--accent);
+    /* A safety net: anything that ever runs wider than the screen is cut off
+       rather than letting the whole page (and the tab bar) slide sideways. */
+    overflow-x: clip;
   }
 
   ::selection {
