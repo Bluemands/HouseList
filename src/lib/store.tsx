@@ -19,10 +19,12 @@ import type {
   PaymentUpdateInput,
   SettingsUpdateInput,
   TradespersonInput,
+  EventInput,
 } from "@/lib/validation";
 import { net, paidLine, type PaymentDTO } from "@/lib/payments";
 import type { Meter, ReadingDTO } from "@/lib/meters";
 import type { TradespersonDTO } from "@/lib/tradespeople";
+import type { EventDTO } from "@/lib/events";
 import type { BulkCandidate } from "@/components/BulkAddSheet";
 import type { AiJobDTO, AiJobUpdate } from "@/lib/ai";
 
@@ -113,6 +115,12 @@ type Store = {
   updateTradesperson: (id: string, patch: TradespersonInput) => Promise<TradespersonDTO | null>;
   /** Gone at once, back with one tap. */
   removeTradesperson: (person: TradespersonDTO) => void;
+  /** What's on the calendar besides jobs: gigs, family dos, birthdays. */
+  events: EventDTO[];
+  addEvent: (input: EventInput & { title: string; date: string }) => Promise<EventDTO | null>;
+  updateEvent: (id: string, patch: EventInput) => Promise<EventDTO | null>;
+  /** Gone at once, back with one tap. */
+  removeEvent: (event: EventDTO) => void;
   /** Private calendar subscription path for due dates. */
   calendarPath: string;
   /** Private path of Claude's connector (the MCP server). */
@@ -175,6 +183,10 @@ const SETTLE_MS = 1_000;
 
 /** The tradespeople book's order. */
 const byName = (list: TradespersonDTO[]) => [...list].sort((a, b) => a.name.localeCompare(b.name));
+
+/** The calendar's order. */
+const byDate = (list: EventDTO[]) =>
+  [...list].sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? "").localeCompare(b.time ?? ""));
 
 /** A step as the API takes it back. */
 const stepInput = ({ id, text, done, cost, link, notes }: StepDTO) => ({ id, text, done, cost, link, notes });
@@ -239,6 +251,7 @@ export function StoreProvider({
   initialPayments,
   initialReadings,
   initialTradespeople,
+  initialEvents,
   me,
   calendarPath,
   connectorPath,
@@ -252,6 +265,7 @@ export function StoreProvider({
   initialPayments: PaymentDTO[];
   initialReadings: ReadingDTO[];
   initialTradespeople: TradespersonDTO[];
+  initialEvents: EventDTO[];
   me: string;
   calendarPath: string;
   connectorPath: string;
@@ -265,6 +279,7 @@ export function StoreProvider({
   const [payments, setPayments] = useState(initialPayments);
   const [readings, setReadings] = useState(initialReadings);
   const [tradespeople, setTradespeople] = useState(initialTradespeople);
+  const [events, setEvents] = useState(initialEvents);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [editing, setEditing] = useState<Store["editing"]>(null);
   const [justAdded, setJustAdded] = useState<string | null>(null);
@@ -364,6 +379,7 @@ export function StoreProvider({
       setPayments(state.payments);
       setReadings(state.readings);
       setTradespeople(state.tradespeople);
+      setEvents(state.events);
     } catch {
       // Background sync is best-effort; keep what's on screen.
     }
@@ -1060,6 +1076,63 @@ export function StoreProvider({
     [toast, fail],
   );
 
+  const addEvent = useCallback<Store["addEvent"]>(
+    async (input) => {
+      try {
+        const event = await track(() => api.createEvent({ ...input, addedBy: me }));
+        setEvents((list) => byDate([...list, event]));
+        return event;
+      } catch (err) {
+        fail(err);
+        return null;
+      }
+    },
+    [me, fail],
+  );
+
+  const updateEvent = useCallback<Store["updateEvent"]>(
+    async (id, patch) => {
+      try {
+        const event = await track(() => api.updateEvent(id, patch));
+        setEvents((list) => byDate(list.map((e) => (e.id === id ? event : e))));
+        return event;
+      } catch (err) {
+        fail(err);
+        return null;
+      }
+    },
+    [fail],
+  );
+
+  const removeEvent = useCallback<Store["removeEvent"]>(
+    (event) => {
+      const key = `event:${event.id}`;
+      setEvents((list) => list.filter((e) => e.id !== event.id));
+      const timer = window.setTimeout(async () => {
+        pendingDeletes.current.delete(key);
+        try {
+          await track(() => api.deleteEvent(event.id));
+        } catch (err) {
+          setEvents((list) => byDate([...list, event]));
+          fail(err);
+        }
+      }, UNDO_MS);
+      pendingDeletes.current.set(key, timer);
+      toast({
+        message: `Took ${event.title} off the calendar`,
+        action: {
+          label: "Undo",
+          run: () => {
+            window.clearTimeout(timer);
+            pendingDeletes.current.delete(key);
+            setEvents((list) => (list.some((e) => e.id === event.id) ? list : byDate([...list, event])));
+          },
+        },
+      });
+    },
+    [toast, fail],
+  );
+
   const addItems = useCallback<Store["addItems"]>(
     async (inputs) => {
       try {
@@ -1262,6 +1335,10 @@ export function StoreProvider({
       addTradesperson,
       updateTradesperson,
       removeTradesperson,
+      events,
+      addEvent,
+      updateEvent,
+      removeEvent,
       calendarPath,
       connectorPath,
       workerToken,
@@ -1289,7 +1366,7 @@ export function StoreProvider({
       openBulk: setBulk,
       closeBulk: () => setBulk(null),
     }),
-    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, addPhoto, deletePhoto, boards, createBoard, updateBoard, removeBoard, addPiece, updatePiece, removePiece, pieceToItem, payments, addPayment, updatePayment, togglePaid, removePayment, settleUp, reopenPayments, redateSettlement, readings, addReadings, removeReading, tradespeople, addTradesperson, updateTradesperson, removeTradesperson, calendarPath, connectorPath, workerToken, jobs, jobByItem, askClaude, undoImprove, updateJob, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, holdToast, toasts, editing, justAdded, bulk],
+    [items, listing, listingSettings, settling, itemById, settings, me, addItem, addItems, addQuote, updateQuote, deleteQuote, addComment, deleteComment, addPhoto, deletePhoto, boards, createBoard, updateBoard, removeBoard, addPiece, updatePiece, removePiece, pieceToItem, payments, addPayment, updatePayment, togglePaid, removePayment, settleUp, reopenPayments, redateSettlement, readings, addReadings, removeReading, tradespeople, addTradesperson, updateTradesperson, removeTradesperson, events, addEvent, updateEvent, removeEvent, calendarPath, connectorPath, workerToken, jobs, jobByItem, askClaude, undoImprove, updateJob, patchItem, toggleDone, toggleStep, removeItem, removeItems, bulkEdit, saveSettings, toast, dismissToast, holdToast, toasts, editing, justAdded, bulk],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { AiJob, Board, BoardPiece, Comment, Item, MeterReading, Payment, Photo, Quote, Settings, Step, Tradesperson } from "@/generated/prisma/client";
+import type { AiJob, Board, BoardPiece, Comment, Item, MeterReading, Payment, Photo, Quote, Settings, Step, Tradesperson, CalendarEvent } from "@/generated/prisma/client";
 import { stepCostsKey, stepsTotal, type ItemDTO, type SettingsDTO } from "@/lib/types";
 import { OPEN_JOB_STATUSES, aiResultSchema, type AiJobDTO } from "@/lib/ai";
 import type { BoardDTO, PieceDTO } from "@/lib/boards";
@@ -7,6 +7,7 @@ import type { PaymentDTO } from "@/lib/payments";
 import type { Bin } from "@/lib/bins";
 import type { ReadingDTO } from "@/lib/meters";
 import type { TradespersonDTO } from "@/lib/tradespeople";
+import type { EventDTO } from "@/lib/events";
 import { binSchema } from "@/lib/validation";
 import { z } from "zod";
 
@@ -165,6 +166,27 @@ export async function getTradespeople(): Promise<TradespersonDTO[]> {
   return people.map(toTradespersonDTO);
 }
 
+export function toEventDTO(e: CalendarEvent): EventDTO {
+  const { id, title, time, notes, addedBy } = e;
+  return {
+    id,
+    title,
+    date: toDay(e.date)!,
+    endDate: toDay(e.endDate),
+    time,
+    // Only the event repeats are ever saved; anything else reads as a one-off.
+    repeat: e.repeat === "YEARLY" || e.repeat === "MONTHLY" || e.repeat === "WEEKLY" ? e.repeat : null,
+    notes,
+    addedBy,
+    createdAt: e.createdAt.toISOString(),
+  };
+}
+
+export async function getEvents(): Promise<EventDTO[]> {
+  const events = await prisma.calendarEvent.findMany({ orderBy: [{ date: "asc" }, { time: "asc" }] });
+  return events.map(toEventDTO);
+}
+
 /** Stored bins, read defensively: a shape change never reaches the UI half-formed. */
 function readBins(value: unknown): Bin[] {
   const parsed = z.array(binSchema).safeParse(value);
@@ -232,6 +254,7 @@ export type State = {
   payments: PaymentDTO[];
   readings: ReadingDTO[];
   tradespeople: TradespersonDTO[];
+  events: EventDTO[];
 };
 
 export async function getState(): Promise<State> {
@@ -245,5 +268,6 @@ export async function getState(): Promise<State> {
   const payments = await getPayments();
   const readings = await getReadings();
   const tradespeople = await getTradespeople();
-  return { items: items.map(toItemDTO), settings: toSettingsDTO(settings), jobs, boards, payments, readings, tradespeople };
+  const events = await getEvents();
+  return { items: items.map(toItemDTO), settings: toSettingsDTO(settings), jobs, boards, payments, readings, tradespeople, events };
 }

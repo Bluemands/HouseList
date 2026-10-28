@@ -8,12 +8,14 @@ import type {
   PaymentUpdateInput,
   SettingsUpdateInput,
   TradespersonInput,
+  EventInput,
 } from "@/lib/validation";
 import type { PrintLine, PrintOutDTO, PrintOutSummary } from "@/lib/printouts";
 import type { BoardDTO, PieceDTO, PieceKind } from "@/lib/boards";
 import type { PaymentDTO } from "@/lib/payments";
 import type { Meter, ReadingDTO } from "@/lib/meters";
 import type { TradespersonDTO } from "@/lib/tradespeople";
+import type { EventDTO } from "@/lib/events";
 import type { Kind, Room } from "@/lib/types";
 
 export class ApiError extends Error {
@@ -57,6 +59,7 @@ export function fetchState() {
     payments: PaymentDTO[];
     readings: ReadingDTO[];
     tradespeople: TradespersonDTO[];
+    events: EventDTO[];
   }>(
     "/api/state",
     { cache: "no-store" },
@@ -187,6 +190,20 @@ export async function updateTradesperson(id: string, patch: TradespersonInput): 
 
 export async function deleteTradesperson(id: string): Promise<void> {
   await request(`/api/tradespeople/${id}`, { method: "DELETE" });
+}
+
+export async function createEvent(input: EventInput & { title: string; date: string; addedBy: string }): Promise<EventDTO> {
+  const data = await request<{ event: EventDTO }>("/api/events", { method: "POST", body: JSON.stringify(input) });
+  return data.event;
+}
+
+export async function updateEvent(id: string, patch: EventInput): Promise<EventDTO> {
+  const data = await request<{ event: EventDTO }>(`/api/events/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+  return data.event;
+}
+
+export async function deleteEvent(id: string): Promise<void> {
+  await request(`/api/events/${id}`, { method: "DELETE" });
 }
 
 export type PieceInput = {

@@ -19,6 +19,7 @@ import { SwatchCard } from "@/components/SwatchCard";
 import { CountingMoney, PaintChip, SectionHead } from "@/components/ui";
 import { RecentPrintOuts } from "@/components/RecentPrintOuts";
 import { BoardsRail } from "@/components/board/BoardsRail";
+import { ComingUp } from "@/components/ComingUp";
 
 export function HomeView({ go, onSettings }: { go: (r: Route) => void; onSettings: () => void }) {
   const { items, listing, listingSettings, settings, me, openBulk } = useStore();
@@ -119,6 +120,8 @@ export function HomeView({ go, onSettings }: { go: (r: Route) => void; onSetting
         )}
         {items.length > 0 && items.length < 25 && <EssentialsNudge onOpen={openEssentials} />}
       </section>
+
+      <ComingUp />
 
       <RecentPrintOuts />
 

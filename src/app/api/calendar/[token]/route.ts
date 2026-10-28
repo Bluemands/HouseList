@@ -3,9 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { isValidCalendarToken } from "@/lib/auth";
 import { ROOM_PAINT } from "@/lib/rooms";
 import { PRIORITY_LABELS, REPEAT_LABELS } from "@/lib/types";
+import { toEventDTO } from "@/lib/data";
 
-// Every open item with a due date, as an all-day event. Subscribing to this
-// from a phone calendar is how reminders work without the app sending any.
+// Every open item with a due date, as an all-day event, and the events you've
+// put on the calendar. Subscribing to this from a phone calendar is how
+// reminders work without the app sending any.
 
 function esc(text: string): string {
   return text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
@@ -42,6 +44,8 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/calendar
     where: { warrantyUntil: { gte: new Date(Date.now() - 86_400_000) } },
     orderBy: { warrantyUntil: "asc" },
   });
+
+  const events = (await prisma.calendarEvent.findMany({ orderBy: { date: "asc" } })).map(toEventDTO);
 
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
   const origin = new URL(request.url).origin;
@@ -100,6 +104,31 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/calendar
       "TRIGGER:-P30D",
       fold(`DESCRIPTION:${esc(`Guarantee ends in a month: ${item.title}`)}`),
       "END:VALARM",
+      "END:VEVENT",
+    );
+  }
+  for (const event of events) {
+    // UK local time, written as "floating" time so it reads the same on any phone.
+    const start = event.time
+      ? `DTSTART:${event.date.replace(/-/g, "")}T${event.time.replace(":", "")}00`
+      : `DTSTART;VALUE=DATE:${event.date.replace(/-/g, "")}`;
+    const last = event.endDate && event.endDate > event.date ? event.endDate : event.date;
+    // A timed one runs a couple of hours (or to the same time on its last day); an all-day one to the end of its last day.
+    const end = event.time
+      ? last === event.date
+        ? "DURATION:PT2H"
+        : `DTEND:${last.replace(/-/g, "")}T${event.time.replace(":", "")}00`
+      : `DTEND;VALUE=DATE:${ymd(new Date(new Date(`${last}T00:00:00Z`).getTime() + 86_400_000))}`;
+    lines.push(
+      "BEGIN:VEVENT",
+      `UID:${event.id}-event@house-list`,
+      `DTSTAMP:${stamp}`,
+      start,
+      end,
+      ...(event.repeat ? [`RRULE:FREQ=${event.repeat}`] : []),
+      fold(`SUMMARY:${esc(event.title)}`),
+      ...(event.notes ? [fold(`DESCRIPTION:${esc(event.notes)}`)] : []),
+      `URL:${origin}/?day=${event.date}`,
       "END:VEVENT",
     );
   }

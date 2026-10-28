@@ -5,6 +5,7 @@ import { DESCRIPTION_MAX } from "@/lib/payments";
 import { BINS_MAX } from "@/lib/bins";
 import { METERS } from "@/lib/meters";
 import { VERDICTS } from "@/lib/tradespeople";
+import { EVENT_REPEATS, EVENT_TITLE_MAX } from "@/lib/events";
 
 const emptyToNull = (val: unknown) => (typeof val === "string" && val.trim() === "" ? null : val);
 
@@ -198,6 +199,26 @@ const tradespersonFields = {
 export const tradespersonCreateSchema = z.object({ ...tradespersonFields, addedBy: z.string().trim().min(1).max(60) });
 export const tradespersonUpdateSchema = z.object(tradespersonFields).partial();
 
+const eventFields = {
+  title: z
+    .string({ error: "What is it?" })
+    .trim()
+    .min(1, "What is it?")
+    .max(EVENT_TITLE_MAX, `Keep it under ${EVENT_TITLE_MAX} characters`),
+  date: isoDate,
+  endDate: isoDate.nullable().optional(),
+  time: z.preprocess(emptyToNull, z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a time like 19:30").nullable()).optional(),
+  repeat: z.enum(EVENT_REPEATS).nullable().optional(),
+  notes: optionalText(2000),
+};
+
+// A last day before the first is a slip, not a plan.
+const endsAfter = (e: { date?: string; endDate?: string | null }) => !e.date || !e.endDate || e.endDate >= e.date;
+const endsBefore = { message: "It can't end before it starts", path: ["endDate"] };
+
+export const eventCreateSchema = z.object({ ...eventFields, addedBy: z.string().trim().min(1).max(60) }).refine(endsAfter, endsBefore);
+export const eventUpdateSchema = z.object(eventFields).partial().refine(endsAfter, endsBefore);
+
 export const readingCreateSchema = z.object({
   meter: z.enum(METERS),
   value: z.number({ error: "Enter the reading" }).min(0, "Can't be negative").max(1_000_000_000, "That looks too large"),
@@ -290,3 +311,4 @@ export type SettingsUpdateInput = z.input<typeof settingsUpdateSchema>;
 export type PaymentCreateInput = z.input<typeof paymentCreateSchema>;
 export type PaymentUpdateInput = z.input<typeof paymentUpdateSchema>;
 export type TradespersonInput = z.input<typeof tradespersonUpdateSchema>;
+export type EventInput = z.input<typeof eventUpdateSchema>;

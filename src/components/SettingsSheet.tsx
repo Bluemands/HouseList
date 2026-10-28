@@ -183,8 +183,8 @@ export function SettingsSheet({
         )}
 
         <Field
-          label="Due dates in your calendar"
-          hint="Subscribe once on each phone and everything with a due date shows up, with a 9am reminder on the day. Keep the link private."
+          label="In your phone’s calendar"
+          hint="Subscribe once on each phone and your events and everything with a due date show up, with a 9am reminder on a job’s day. Keep the link private."
         >
           <div className="flex flex-wrap gap-2">
             <a

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { fromDay } from "@/lib/data";
+import { fromDay, toEventDTO } from "@/lib/data";
+import { eventsOn, formatTime } from "@/lib/events";
+import { dayUrl } from "@/lib/events-push";
 import { today } from "@/lib/format";
 import { clip, itemUrl, notify, pushConfigured } from "@/lib/push";
 
@@ -9,7 +11,8 @@ import { clip, itemUrl, notify, pushConfigured } from "@/lib/push";
  * person hears about what's due today that's theirs, "Both"'s or nobody's
  * in particular; things already overdue are mentioned alongside, and on
  * their own only on Mondays, so a slipped date nudges weekly, not daily.
- * On the day of the month you chose, it also asks for meter readings.
+ * Everyone also hears what's on the calendar today, and on the day of the
+ * month you chose, it asks for meter readings.
  */
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -54,6 +57,21 @@ export async function GET(request: NextRequest) {
           url: overdue.length === 1 ? itemUrl(overdue[0].id) : "/?v=list",
         };
     await notify({ ...message, tag: "due" }, { to: member });
+    sent += 1;
+  }
+
+  // What's on today: birthdays, gigs, family dos.
+  const on = eventsOn((await prisma.calendarEvent.findMany({ where: { date: { lte: fromDay(day)! } } })).map(toEventDTO), day);
+  if (on.length) {
+    await notify(
+      {
+        title: on.length === 1 ? "On today" : `${on.length} things on today`,
+        body: clip(on.map((e) => (e.time ? `${e.title} at ${formatTime(e.time)}` : e.title)).join(", ")),
+        url: dayUrl(day),
+        tag: "events",
+      },
+      "everyone",
+    );
     sent += 1;
   }
 

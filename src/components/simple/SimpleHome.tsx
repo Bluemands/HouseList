@@ -15,6 +15,7 @@ import { BoardsRail } from "@/components/board/BoardsRail";
 import { PhotoThumb } from "@/components/PhotoThumb";
 import { BetweenUsCard, BetweenUsLink } from "@/components/Payments";
 import { BinsNotice } from "@/components/Bins";
+import { ComingUp } from "@/components/ComingUp";
 
 /**
  * The simple layout: the house as one paper-like checklist, room by room, in
@@ -60,6 +61,8 @@ export function SimpleHome({ onAdd, onSettings }: { onAdd: () => void; onSetting
       <BinsNotice />
 
       <BetweenUsCard />
+
+      <ComingUp />
 
       <RecentPrintOuts />
 

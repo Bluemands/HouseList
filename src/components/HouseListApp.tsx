@@ -8,6 +8,8 @@ import { refreshPush } from "@/lib/push-client";
 import { saveLayout, type Layout } from "@/lib/layout";
 import { TickBackContext } from "@/components/RecentPrintOuts";
 import { BoardNavContext } from "@/lib/board-nav";
+import { CalendarNavContext } from "@/lib/calendar-nav";
+import { today } from "@/lib/format";
 import type { BoardTarget } from "@/components/board/BoardLayer";
 import { StoreProvider, useStore } from "@/lib/store";
 import { useRoute } from "@/lib/nav";
@@ -17,6 +19,7 @@ import type { BoardDTO } from "@/lib/boards";
 import type { PaymentDTO } from "@/lib/payments";
 import type { ReadingDTO } from "@/lib/meters";
 import type { TradespersonDTO } from "@/lib/tradespeople";
+import type { EventDTO } from "@/lib/events";
 import { NameGate } from "@/components/NameGate";
 import { SettingsSheet } from "@/components/SettingsSheet";
 import { Toasts } from "@/components/Toasts";
@@ -29,6 +32,7 @@ const SimpleLayout = dynamic(() => import("@/components/SimpleLayout").then((m) 
 const BulkAddSheet = dynamic(() => import("@/components/BulkAddSheet").then((m) => m.BulkAddSheet));
 const TickBackSheet = dynamic(() => import("@/components/TickBackSheet").then((m) => m.TickBackSheet));
 const BoardLayer = dynamic(() => import("@/components/board/BoardLayer").then((m) => m.BoardLayer));
+const CalendarSheet = dynamic(() => import("@/components/CalendarSheet").then((m) => m.CalendarSheet));
 
 type Props = {
   initialItems: ItemDTO[];
@@ -38,6 +42,7 @@ type Props = {
   initialPayments: PaymentDTO[];
   initialReadings: ReadingDTO[];
   initialTradespeople: TradespersonDTO[];
+  initialEvents: EventDTO[];
   calendarPath: string;
   connectorPath: string;
   workerToken: string;
@@ -52,6 +57,7 @@ export function HouseListApp({
   initialPayments,
   initialReadings,
   initialTradespeople,
+  initialEvents,
   calendarPath,
   connectorPath,
   workerToken,
@@ -73,6 +79,7 @@ export function HouseListApp({
       initialPayments={initialPayments}
       initialReadings={initialReadings}
       initialTradespeople={initialTradespeople}
+      initialEvents={initialEvents}
       me={name}
       calendarPath={calendarPath}
       connectorPath={connectorPath}
@@ -110,6 +117,10 @@ function Shell({
   // so a phone's back button closes it.
   const [boardTarget, setBoardTarget] = useState<BoardTarget | null>(null);
   const boardLayer = useSheetExit(boardTarget);
+  // The calendar, open on a day.
+  const [calendarDay, setCalendarDay] = useState<string | null>(null);
+  const calendarSheet = useSheetExit(calendarDay);
+  const openCalendar = useCallback((day?: string) => setCalendarDay(day ?? today()), []);
   const simple = layout === "simple";
 
   const openBoards = useCallback((target: BoardTarget) => {
@@ -149,16 +160,20 @@ function Shell({
       // A print-out's QR code: tick it back in.
       const printOut = url.searchParams.get("printout");
       if (printOut) return setTickBack(printOut);
+      // An event's notification: the calendar on its day.
+      const day = url.searchParams.get("day");
+      if (day && /^\d{4}-\d{2}-\d{2}$/.test(day)) return setCalendarDay(day);
       const id = url.searchParams.get("item");
       if (id) return openItem(id);
       const view = url.searchParams.get("v");
       if (view === "list" || view === "rooms" || view === "money") go({ view });
     }
     const here = new URL(window.location.href);
-    if (here.searchParams.has("item") || here.searchParams.has("printout")) {
+    if (here.searchParams.has("item") || here.searchParams.has("printout") || here.searchParams.has("day")) {
       follow(here);
       here.searchParams.delete("item");
       here.searchParams.delete("printout");
+      here.searchParams.delete("day");
       window.history.replaceState(null, "", here.search || here.pathname);
     }
     const onMessage = (e: MessageEvent) => {
@@ -200,6 +215,14 @@ function Shell({
           onClose={() => (window.history.state?.boards ? window.history.back() : setBoardTarget(null))}
         />
       )}
+      {calendarSheet.shown && (
+        <CalendarSheet
+          key={calendarSheet.opening}
+          day={calendarSheet.shown}
+          leaving={calendarSheet.leaving}
+          onClose={() => setCalendarDay(null)}
+        />
+      )}
       <SettingsSheet
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
@@ -218,12 +241,14 @@ function Shell({
   return (
     <TickBackContext.Provider value={setTickBack}>
       <BoardNavContext.Provider value={openBoards}>
+      <CalendarNavContext.Provider value={openCalendar}>
       {simple ? (
         <SimpleLayout onSettings={() => setSettingsOpen(true)} />
       ) : (
         <FullLayout route={route} go={go} onSettings={() => setSettingsOpen(true)} />
       )}
       {shared}
+      </CalendarNavContext.Provider>
       </BoardNavContext.Provider>
     </TickBackContext.Provider>
   );

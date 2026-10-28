@@ -240,6 +240,26 @@ model Tradesperson {
   updatedAt DateTime @updatedAt
 }
 
+// Something on the calendar that isn't a job: a gig, a family do, a
+// birthday. A day, maybe a time or a last day, and maybe again every week,
+// month or year.
+model CalendarEvent {
+  id        String    @id @default(cuid())
+  title     String
+  date      DateTime  @db.Date
+  // The last day, for something that runs over several.
+  endDate   DateTime? @db.Date
+  // "19:30", or none for all day.
+  time      String?
+  repeat    Repeat?
+  notes     String?
+  addedBy   String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([date])
+}
+
 // A list printed to tick off on paper. It keeps the lines as printed, so
 // ticking it back in later shows exactly what was on the page, in the same
 // order and numbering, even after the list has moved on.

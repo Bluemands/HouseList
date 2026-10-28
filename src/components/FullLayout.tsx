@@ -2,9 +2,10 @@
 
 import { ViewTransition } from "react";
 import clsx from "clsx";
-import { House, LayoutGrid, ListChecks, Plus, Settings, Wallet } from "lucide-react";
+import { CalendarDays, House, LayoutGrid, ListChecks, Plus, Settings, Wallet } from "lucide-react";
 import { useStore } from "@/lib/store";
 import type { Route, View } from "@/lib/nav";
+import { useOpenCalendar } from "@/lib/calendar-nav";
 import { ItemSheet } from "@/components/ItemSheet";
 import { Wordmark } from "@/components/Wordmark";
 import { HomeView } from "@/components/views/HomeView";
@@ -30,6 +31,7 @@ export function FullLayout({
   onSettings: () => void;
 }) {
   const { openItem, me } = useStore();
+  const openCalendar = useOpenCalendar();
   const addDefaults = route.room ? { room: route.room } : undefined;
 
   return (
@@ -64,6 +66,14 @@ export function FullLayout({
               </button>
             );
           })}
+          <button
+            type="button"
+            onClick={() => openCalendar()}
+            className="flex items-center gap-3 rounded-control px-3 py-2 text-body font-semibold text-ink-2 transition-colors hover:bg-sunken/60 hover:text-ink"
+          >
+            <CalendarDays size={19} strokeWidth={2} />
+            Calendar
+          </button>
         </nav>
         <button
           type="button"
