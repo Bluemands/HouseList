@@ -8,7 +8,7 @@ import { refreshPush } from "@/lib/push-client";
 import { saveLayout, type Layout } from "@/lib/layout";
 import { TickBackContext } from "@/components/RecentPrintOuts";
 import { BoardNavContext } from "@/lib/board-nav";
-import { CalendarNavContext } from "@/lib/calendar-nav";
+import { CalendarNavContext, type CalendarOpen } from "@/lib/calendar-nav";
 import { today } from "@/lib/format";
 import type { BoardTarget } from "@/components/board/BoardLayer";
 import { StoreProvider, useStore } from "@/lib/store";
@@ -118,9 +118,9 @@ function Shell({
   const [boardTarget, setBoardTarget] = useState<BoardTarget | null>(null);
   const boardLayer = useSheetExit(boardTarget);
   // The calendar, open on a day.
-  const [calendarDay, setCalendarDay] = useState<string | null>(null);
-  const calendarSheet = useSheetExit(calendarDay);
-  const openCalendar = useCallback((day?: string) => setCalendarDay(day ?? today()), []);
+  const [calendarOpen, setCalendarOpen] = useState<CalendarOpen | null>(null);
+  const calendarSheet = useSheetExit(calendarOpen);
+  const openCalendar = useCallback((day?: string, add?: boolean) => setCalendarOpen({ day: day ?? today(), add }), []);
   const simple = layout === "simple";
 
   const openBoards = useCallback((target: BoardTarget) => {
@@ -162,7 +162,7 @@ function Shell({
       if (printOut) return setTickBack(printOut);
       // An event's notification: the calendar on its day.
       const day = url.searchParams.get("day");
-      if (day && /^\d{4}-\d{2}-\d{2}$/.test(day)) return setCalendarDay(day);
+      if (day && /^\d{4}-\d{2}-\d{2}$/.test(day)) return setCalendarOpen({ day });
       const id = url.searchParams.get("item");
       if (id) return openItem(id);
       const view = url.searchParams.get("v");
@@ -218,9 +218,10 @@ function Shell({
       {calendarSheet.shown && (
         <CalendarSheet
           key={calendarSheet.opening}
-          day={calendarSheet.shown}
+          day={calendarSheet.shown.day}
+          add={calendarSheet.shown.add}
           leaving={calendarSheet.leaving}
-          onClose={() => setCalendarDay(null)}
+          onClose={() => setCalendarOpen(null)}
         />
       )}
       <SettingsSheet

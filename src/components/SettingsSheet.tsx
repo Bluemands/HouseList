@@ -53,6 +53,9 @@ export function SettingsSheet({
   const { me, settings, saveSettings, calendarPath, connectorPath, workerToken, openBulk } = useStore();
   const [copied, setCopied] = useState<"calendar" | "connector" | null>(null);
   const [origin, setOrigin] = useState("");
+  // iPhones and Macs subscribe to a webcal:// link themselves; Android (and
+  // Google Calendar anywhere) ignores one, so it gets Google's own add link.
+  const [apple, setApple] = useState(false);
   const [tokenCopied, setTokenCopied] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const worker = workerState(settings.workerSeenAt);
@@ -69,6 +72,7 @@ export function SettingsSheet({
       setTheme(readTheme());
       setMovedIn(settings.movedInOn ?? "");
       setOrigin(window.location.origin);
+      setApple(/iPhone|iPad|Macintosh/.test(navigator.userAgent));
       d.showModal();
     }
     if (!shown && d.open) d.close();
@@ -184,14 +188,24 @@ export function SettingsSheet({
 
         <Field
           label="In your phone’s calendar"
-          hint="Subscribe once on each phone and your events and everything with a due date show up, with a 9am reminder on a job’s day. Keep the link private."
+          hint={
+            apple
+              ? "Subscribe once on each phone and your events and everything with a due date show up, with a 9am reminder on a job’s day. Keep the link private."
+              : "Opens Google Calendar: tap Add. If the Calendar app opens instead and does nothing, copy the link and add it in Google Calendar under Settings, Add calendar, From URL. Google picks up changes every few hours, not straight away. Keep the link private."
+          }
         >
           <div className="flex flex-wrap gap-2">
             <a
-              href={`webcal://${typeof window === "undefined" ? "" : window.location.host}${calendarPath}`}
+              href={
+                apple
+                  ? `webcal://${origin.replace(/^https?:\/\//, "")}${calendarPath}`
+                  : `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(`webcal://${origin.replace(/^https?:\/\//, "")}${calendarPath}`)}`
+              }
+              target={apple ? undefined : "_blank"}
+              rel={apple ? undefined : "noopener noreferrer"}
               className="inline-flex items-center gap-1.5 rounded-control bg-accent px-3.5 py-2.5 text-sm font-semibold text-accent-ink hover:bg-accent-hover"
             >
-              <CalendarPlus size={16} /> Subscribe
+              <CalendarPlus size={16} /> {apple ? "Subscribe" : "Add to Google Calendar"}
             </a>
             <Button variant="secondary" onClick={() => copy("calendar", calendarPath)}>
               {copied === "calendar" ? <Check size={16} /> : <Copy size={16} />} {copied === "calendar" ? "Copied" : "Copy link"}

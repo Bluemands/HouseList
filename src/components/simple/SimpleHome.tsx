@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import clsx from "clsx";
-import { Check, ChevronDown, Plus, Settings } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, Plus, Settings } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { ROOMS, type ItemDTO } from "@/lib/types";
 import { ROOM_PAINT } from "@/lib/rooms";
@@ -16,6 +16,7 @@ import { PhotoThumb } from "@/components/PhotoThumb";
 import { BetweenUsCard, BetweenUsLink } from "@/components/Payments";
 import { BinsNotice } from "@/components/Bins";
 import { ComingUp } from "@/components/ComingUp";
+import { useOpenCalendar } from "@/lib/calendar-nav";
 
 /**
  * The simple layout: the house as one paper-like checklist, room by room, in
@@ -26,6 +27,7 @@ import { ComingUp } from "@/components/ComingUp";
  */
 export function SimpleHome({ onAdd, onSettings }: { onAdd: () => void; onSettings: () => void }) {
   const { items, me } = useStore();
+  const openCalendar = useOpenCalendar();
   const day = today();
   const doneToday = (i: ItemDTO) => i.status === "DONE" && !!i.completedAt && toDayString(new Date(i.completedAt)) === day;
   const shown = items.filter((i) => i.status !== "DONE" || doneToday(i));
@@ -48,14 +50,24 @@ export function SimpleHome({ onAdd, onSettings }: { onAdd: () => void; onSetting
             {ticked > 0 && ` · ${ticked} done today`}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onSettings}
-          aria-label="Settings"
-          className="hit -mr-1 grid h-10 w-10 shrink-0 place-items-center rounded-full text-ink-2 hover:bg-sunken hover:text-ink"
-        >
-          <Settings size={21} />
-        </button>
+        <div className="-mr-1 flex shrink-0">
+          <button
+            type="button"
+            onClick={() => openCalendar()}
+            aria-label="Calendar"
+            className="hit grid h-10 w-10 place-items-center rounded-full text-ink-2 hover:bg-sunken hover:text-ink"
+          >
+            <CalendarDays size={21} />
+          </button>
+          <button
+            type="button"
+            onClick={onSettings}
+            aria-label="Settings"
+            className="hit grid h-10 w-10 place-items-center rounded-full text-ink-2 hover:bg-sunken hover:text-ink"
+          >
+            <Settings size={21} />
+          </button>
+        </div>
       </header>
 
       <BinsNotice />

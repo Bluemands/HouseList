@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import clsx from "clsx";
-import { ChevronRight, Settings, X } from "lucide-react";
+import { CalendarDays, ChevronRight, Settings, X } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { affordabilityIndex, buildPlan, roomStats, upNext } from "@/lib/plan";
 import { dayDiff, formatGBP, formatMonth, greeting, timeAgo, today } from "@/lib/format";
@@ -20,9 +20,11 @@ import { CountingMoney, PaintChip, SectionHead } from "@/components/ui";
 import { RecentPrintOuts } from "@/components/RecentPrintOuts";
 import { BoardsRail } from "@/components/board/BoardsRail";
 import { ComingUp } from "@/components/ComingUp";
+import { useOpenCalendar } from "@/lib/calendar-nav";
 
 export function HomeView({ go, onSettings }: { go: (r: Route) => void; onSettings: () => void }) {
   const { items, listing, listingSettings, settings, me, openBulk } = useStore();
+  const openCalendar = useOpenCalendar();
   // The money strip is always live; Up next is ordered from the listing so a
   // tick doesn't reshuffle it mid-animation.
   const plan = useMemo(() => buildPlan(items, settings), [items, settings]);
@@ -79,14 +81,24 @@ export function HomeView({ go, onSettings }: { go: (r: Route) => void; onSetting
             )}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onSettings}
-          aria-label="Settings"
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-ink-2 hover:bg-sunken hover:text-ink lg:hidden"
-        >
-          <Settings size={20} />
-        </button>
+        <div className="-mr-1 flex shrink-0 lg:hidden">
+          <button
+            type="button"
+            onClick={() => openCalendar()}
+            aria-label="Calendar"
+            className="grid h-10 w-10 place-items-center rounded-full text-ink-2 hover:bg-sunken hover:text-ink"
+          >
+            <CalendarDays size={20} />
+          </button>
+          <button
+            type="button"
+            onClick={onSettings}
+            aria-label="Settings"
+            className="grid h-10 w-10 place-items-center rounded-full text-ink-2 hover:bg-sunken hover:text-ink"
+          >
+            <Settings size={20} />
+          </button>
+        </div>
       </header>
 
       <BinsNotice />

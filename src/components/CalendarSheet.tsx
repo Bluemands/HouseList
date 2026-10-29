@@ -34,11 +34,21 @@ const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
 type Editing = { id: string | null; date: string };
 
-export function CalendarSheet({ day, leaving, onClose }: { day: string; leaving: boolean; onClose: () => void }) {
+export function CalendarSheet({
+  day,
+  add = false,
+  leaving,
+  onClose,
+}: {
+  day: string;
+  add?: boolean;
+  leaving: boolean;
+  onClose: () => void;
+}) {
   const { events } = useStore();
   const [selected, setSelected] = useState(day);
   const [month, setMonth] = useState(day.slice(0, 7));
-  const [editing, setEditing] = useState<Editing | null>(null);
+  const [editing, setEditing] = useState<Editing | null>(add ? { id: null, date: day } : null);
   const event = editing?.id ? events.find((e) => e.id === editing.id) : undefined;
 
   const pick = (next: string) => {
